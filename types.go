@@ -5,32 +5,34 @@ import (
 	"github.com/igadmg/raylib-go/raymath/vector2"
 )
 
-// Primarily created via the CLAY_ID(), CLAY_IDI(), CLAY_ID_LOCAL() and CLAY_IDI_LOCAL() macros.
+// Primarily created via the ID(), IDI(), ID_LOCAL() and IDI_LOCAL() macros.
 // Represents a hashed string ID used for identifying and finding specific clay UI elements, required
-// by functions such as Clay_PointerOver() and Clay_GetElementData().
+// by functions such as PointerOver() and GetElementData().
 type ElementId struct {
 	id       uint32 // The resulting hash generated from the other fields.
 	offset   uint32 // A numerical offset applied after computing the hash from stringId.
-	baseId   uint32 // A base hash value to start from, for example the parent element ID is used when calculating CLAY_ID_LOCAL().
+	baseId   uint32 // A base hash value to start from, for example the parent element ID is used when calculating ID_LOCAL().
 	stringId string // The string id to hash.
 }
 
-// Note: If a compile error led you here, you might be trying to use CLAY_ID with something other than a string literal. To construct an ID with a dynamic string, use CLAY_SID instead.
+var default_ElementId ElementId
+
+// Note: If a compile error led you here, you might be trying to use ID with something other than a string literal. To construct an ID with a dynamic string, use SID instead.
 func ID(label string) ElementId { return IDI(label, 0) }
 
 func SID(label string) ElementId { return SIDI(label, 0) }
 
-// Note: If a compile error led you here, you might be trying to use CLAY_IDI with something other than a string literal. To construct an ID with a dynamic string, use CLAY_SIDI instead.
+// Note: If a compile error led you here, you might be trying to use IDI with something other than a string literal. To construct an ID with a dynamic string, use SIDI instead.
 func IDI(label string, index uint32) ElementId { return SIDI(label, index) }
 
 func SIDI(label string, index uint32) ElementId { return hashString(label, index, 0) }
 
-// Note: If a compile error led you here, you might be trying to use CLAY_ID_LOCAL with something other than a string literal. To construct an ID with a dynamic string, use CLAY_SID_LOCAL instead.
+// Note: If a compile error led you here, you might be trying to use ID_LOCAL with something other than a string literal. To construct an ID with a dynamic string, use SID_LOCAL instead.
 func ID_LOCAL(label string) ElementId { return IDI_LOCAL(label, 0) }
 
 func SID_LOCAL(label string) ElementId { return SIDI_LOCAL(label, 0) }
 
-// Note: If a compile error led you here, you might be trying to use CLAY_IDI_LOCAL with something other than a string literal. To construct an ID with a dynamic string, use CLAY_SIDI_LOCAL instead.
+// Note: If a compile error led you here, you might be trying to use IDI_LOCAL with something other than a string literal. To construct an ID with a dynamic string, use SIDI_LOCAL instead.
 func IDI_LOCAL(label string, index uint32) ElementId { return SIDI_LOCAL(label, index) }
 
 func SIDI_LOCAL(label string, index uint32) ElementId {
@@ -117,9 +119,17 @@ type SizingMinMax struct {
 //	Type SizingType // Controls how the element takes up space inside its parent container.
 //}
 
+type SizingAxisMinMax interface {
+	GetMinMax() SizingMinMax
+}
+
 // Controls the minimum and maximum size in pixels that this element is allowed to grow or shrink to, overriding sizing types such as FIT or GROW.
 type SizingAxisFixed struct {
 	MinMax SizingMinMax
+}
+
+func (s SizingAxisFixed) GetMinMax() SizingMinMax {
+	return s.MinMax
 }
 
 // Controls the minimum and maximum size in pixels that this element is allowed to grow or shrink to, overriding sizing types such as FIT or GROW.
@@ -127,9 +137,17 @@ type SizingAxisFit struct {
 	MinMax SizingMinMax
 }
 
+func (s SizingAxisFit) GetMinMax() SizingMinMax {
+	return s.MinMax
+}
+
 // Controls the minimum and maximum size in pixels that this element is allowed to grow or shrink to, overriding sizing types such as FIT or GROW.
 type SizingAxisGrow struct {
 	MinMax SizingMinMax
+}
+
+func (s SizingAxisGrow) GetMinMax() SizingMinMax {
+	return s.MinMax
 }
 
 // Expects 0-1 range. Clamps the axis size to a percent of the parent container's axis size minus padding and child gaps.
@@ -297,7 +315,7 @@ type PointerCaptureMode uint8
 const (
 	// (default) "Capture" the pointer event and don't allow events like hover and click to pass through to elements underneath.
 	POINTER_CAPTURE_MODE_CAPTURE PointerCaptureMode = iota
-	//    CLAY_POINTER_CAPTURE_MODE_PARENT, TODO pass pointer through to attached parent
+	//    POINTER_CAPTURE_MODE_PARENT, TODO pass pointer through to attached parent
 
 	// Transparently pass through pointer events like hover and click to elements underneath the floating element.
 	POINTER_CAPTURE_MODE_PASSTHROUGH
@@ -324,26 +342,26 @@ type FloatingElementConfig struct {
 	offset vector2.Float32
 	// Expands the boundaries of the outer floating element without affecting its children.
 	expand vector2.Float32
-	// When used in conjunction with .attachTo = CLAY_ATTACH_TO_ELEMENT_WITH_ID, attaches this floating element to the element in the hierarchy with the provided ID.
-	// Hint: attach the ID to the other element with .id = CLAY_ID("yourId"), and specify the id the same way, with .parentId = CLAY_ID("yourId").id
+	// When used in conjunction with .attachTo = ATTACH_TO_ELEMENT_WITH_ID, attaches this floating element to the element in the hierarchy with the provided ID.
+	// Hint: attach the ID to the other element with .id = ID("yourId"), and specify the id the same way, with .parentId = ID("yourId").id
 	parentId uint32
 	// Controls the z index of this floating element and all its children. Floating elements are sorted in ascending z order before output.
 	// zIndex is also passed to the renderer for all elements contained within this floating element.
 	zIndex int16
 	// Controls how mouse pointer events like hover and click are captured or passed through to elements underneath / behind a floating element.
-	// Enum is of the form CLAY_ATTACH_POINT_foo_bar. See Clay_FloatingAttachPoints for more details.
+	// Enum is of the form ATTACH_POINT_foo_bar. See Clay_FloatingAttachPoints for more details.
 	// Note: see <img src="https://github.com/user-attachments/assets/b8c6dfaa-c1b1-41a4-be55-013473e4a6ce />
 	// and <img src="https://github.com/user-attachments/assets/ebe75e0d-1904-46b0-982d-418f929d1516 /> for a visual explanation.
 	attachPoints FloatingAttachPoints
 	// Controls how mouse pointer events like hover and click are captured or passed through to elements underneath a floating element.
-	// CLAY_POINTER_CAPTURE_MODE_CAPTURE (default) - "Capture" the pointer event and don't allow events like hover and click to pass through to elements underneath.
-	// CLAY_POINTER_CAPTURE_MODE_PASSTHROUGH - Transparently pass through pointer events like hover and click to elements underneath the floating element.
+	// POINTER_CAPTURE_MODE_CAPTURE (default) - "Capture" the pointer event and don't allow events like hover and click to pass through to elements underneath.
+	// POINTER_CAPTURE_MODE_PASSTHROUGH - Transparently pass through pointer events like hover and click to elements underneath the floating element.
 	pointerCaptureMode PointerCaptureMode
 	// Controls which element a floating element is "attached" to (i.e. relative offset from).
-	// CLAY_ATTACH_TO_NONE (default) - Disables floating for this element.
-	// CLAY_ATTACH_TO_PARENT - Attaches this floating element to its parent, positioned based on the .attachPoints and .offset fields.
-	// CLAY_ATTACH_TO_ELEMENT_WITH_ID - Attaches this floating element to an element with a specific ID, specified with the .parentId field. positioned based on the .attachPoints and .offset fields.
-	// CLAY_ATTACH_TO_ROOT - Attaches this floating element to the root of the layout, which combined with the .offset field provides functionality similar to "absolute positioning".
+	// ATTACH_TO_NONE (default) - Disables floating for this element.
+	// ATTACH_TO_PARENT - Attaches this floating element to its parent, positioned based on the .attachPoints and .offset fields.
+	// ATTACH_TO_ELEMENT_WITH_ID - Attaches this floating element to an element with a specific ID, specified with the .parentId field. positioned based on the .attachPoints and .offset fields.
+	// ATTACH_TO_ROOT - Attaches this floating element to the root of the layout, which combined with the .offset field provides functionality similar to "absolute positioning".
 	attachTo FloatingAttachToElement
 }
 
@@ -419,8 +437,8 @@ type PointerData struct {
 }
 
 type ElementDeclaration struct {
-	// Primarily created via the CLAY_ID(), CLAY_IDI(), CLAY_ID_LOCAL() and CLAY_IDI_LOCAL() macros.
-	// Represents a hashed string ID used for identifying and finding specific clay UI elements, required by functions such as Clay_PointerOver() and Clay_GetElementData().
+	// Primarily created via the ID(), IDI(), ID_LOCAL() and IDI_LOCAL() macros.
+	// Represents a hashed string ID used for identifying and finding specific clay UI elements, required by functions such as PointerOver() and GetElementData().
 	Id ElementId
 	// Controls various settings that affect the size and position of an element, as well as the sizes and positions of any child elements.
 	Layout LayoutConfig
@@ -443,4 +461,53 @@ type ElementDeclaration struct {
 	Border BorderElementConfig
 	// A pointer that will be transparently passed through to resulting render commands.
 	UserData any
+}
+
+// Represents the type of error clay encountered while computing layout.
+type ErrorType uint8
+
+const (
+	// A text measurement function wasn't provided using Clay_SetMeasureTextFunction(), or the provided function was null.
+	ERROR_TYPE_TEXT_MEASUREMENT_FUNCTION_NOT_PROVIDED ErrorType = iota
+	// Clay attempted to allocate its internal data structures but ran out of space.
+	// The arena passed to Clay_Initialize was created with a capacity smaller than that required by Clay_MinMemorySize().
+	ERROR_TYPE_ARENA_CAPACITY_EXCEEDED
+	// Clay ran out of capacity in its internal array for storing elements. This limit can be increased with Clay_SetMaxElementCount().
+	ERROR_TYPE_ELEMENTS_CAPACITY_EXCEEDED
+	// Clay ran out of capacity in its internal array for storing elements. This limit can be increased with Clay_SetMaxMeasureTextCacheWordCount().
+	ERROR_TYPE_TEXT_MEASUREMENT_CAPACITY_EXCEEDED
+	// Two elements were declared with exactly the same ID within one layout.
+	ERROR_TYPE_DUPLICATE_ID
+	// A floating element was declared using ATTACH_TO_ELEMENT_ID and either an invalid .parentId was provided or no element with the provided .parentId was found.
+	ERROR_TYPE_FLOATING_CONTAINER_PARENT_NOT_FOUND
+	// An element was declared that using SIZING_PERCENT but the percentage value was over 1. Percentage values are expected to be in the 0-1 range.
+	ERROR_TYPE_PERCENTAGE_OVER_1
+	// Clay encountered an internal error. It would be wonderful if you could report this so we can fix it!
+	ERROR_TYPE_INTERNAL_ERROR
+)
+
+// Data to identify the error that clay has encountered.
+type ErrorData struct {
+	// Represents the type of error clay encountered while computing layout.
+	// ERROR_TYPE_TEXT_MEASUREMENT_FUNCTION_NOT_PROVIDED - A text measurement function wasn't provided using Clay_SetMeasureTextFunction(), or the provided function was null.
+	// ERROR_TYPE_ARENA_CAPACITY_EXCEEDED - Clay attempted to allocate its internal data structures but ran out of space. The arena passed to Clay_Initialize was created with a capacity smaller than that required by Clay_MinMemorySize().
+	// ERROR_TYPE_ELEMENTS_CAPACITY_EXCEEDED - Clay ran out of capacity in its internal array for storing elements. This limit can be increased with Clay_SetMaxElementCount().
+	// ERROR_TYPE_TEXT_MEASUREMENT_CAPACITY_EXCEEDED - Clay ran out of capacity in its internal array for storing elements. This limit can be increased with Clay_SetMaxMeasureTextCacheWordCount().
+	// ERROR_TYPE_DUPLICATE_ID - Two elements were declared with exactly the same ID within one layout.
+	// ERROR_TYPE_FLOATING_CONTAINER_PARENT_NOT_FOUND - A floating element was declared using ATTACH_TO_ELEMENT_ID and either an invalid .parentId was provided or no element with the provided .parentId was found.
+	// ERROR_TYPE_PERCENTAGE_OVER_1 - An element was declared that using SIZING_PERCENT but the percentage value was over 1. Percentage values are expected to be in the 0-1 range.
+	// ERROR_TYPE_INTERNAL_ERROR - Clay encountered an internal error. It would be wonderful if you could report this so we can fix it!
+	errorType ErrorType
+	// A string containing human-readable error text that explains the error in more detail.
+	errorText string
+	// A transparent pointer passed through from when the error handler was first provided.
+	userData any
+}
+
+// A wrapper struct around Clay's error handler function.
+type ErrorHandler struct {
+	// A user provided function to call when Clay encounters an error during layout.
+	errorHandlerFunction func(errorText ErrorData)
+	// A pointer that will be transparently passed through to the error handler when it is called.
+	userData any
 }

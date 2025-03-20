@@ -19,7 +19,7 @@ func main() {
 	var deltaTime float32
 
 	// Note: screenWidth and screenHeight will need to come from your environment, Clay doesn't handle window related tasks
-	clay.Initialize(nil, screenSize, nil)
+	clay.Initialize(nil, screenSize, clay.ErrorHandler{})
 
 	for range 10 {
 		// Optional: Update internal layout dimensions to support resizing

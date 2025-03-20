@@ -18,9 +18,11 @@ func SetPointerState(position vector2.Float32, pointerDown bool) {
 	if context.booleanWarnings.maxElementsExceeded {
 		return
 	}
+
 	context.pointerInfo.position = position
 	context.pointerOverIds = context.pointerOverIds[:0]
-	dfsBuffer := context.layoutElementChildrenBuffer
+
+	var dfsBuffer []int
 	for rootIndex := len(context.layoutElementTreeRoots) - 1; rootIndex >= 0; rootIndex-- {
 		dfsBuffer = context.layoutElementChildrenBuffer[:0]
 		root := context.layoutElementTreeRoots[rootIndex]
@@ -57,7 +59,7 @@ func SetPointerState(position vector2.Float32, pointerDown bool) {
 					dfsBuffer = dfsBuffer[:len(dfsBuffer)-1]
 					continue
 				}
-				for i := currentElement.children.length - 1; i >= 0; i-- {
+				for i := len(currentElement.children) - 1; i >= 0; i-- {
 					//dfsBuffer = append(dfsBuffer, currentElement.children.elements[i]) // TODO: fix that
 					context.treeNodeVisited[len(dfsBuffer)-1] = false // TODO needs to be ranged checked
 				}
@@ -95,14 +97,18 @@ func SetPointerState(position vector2.Float32, pointerDown bool) {
 // - arena can be created using clay.CreateArenaWithCapacityAndMemory()
 // - layoutDimensions are the initial bounding dimensions of the layout (i.e. the screen width and height for a full screen layout)
 // - errorHandler is used by Clay to inform you if something has gone wrong in configuration or layout.
-func Initialize(arena any /*Arena*/, layoutDimensions vector2.Float32, errorHandler any /*ErrorHandler*/) *Context {
+func Initialize(arena any /*Arena*/, layoutDimensions vector2.Float32, errorHandler ErrorHandler) *Context {
 	// DEFAULTS
+	if errorHandler.errorHandlerFunction == nil {
+		errorHandler.errorHandlerFunction = errorHandlerFunctionDefault
+	}
+
 	context := &Context{
 		maxElementCount:              defaultMaxElementCount,
 		maxMeasureTextCacheWordCount: defaultMaxMeasureTextWordCacheCount,
-		errorHandler:                 nil, //errorHandler.errorHandlerFunction ? errorHandler : CLAY__INIT(clay.ErrorHandler) { clay._ErrorHandlerFunctionDefault, 0 },
+		errorHandler:                 errorHandler,
 		layoutDimensions:             layoutDimensions,
-		internalArena:                arena,
+		//internalArena:                arena,
 	}
 
 	if oldContext := GetCurrentContext(); oldContext != nil {
@@ -114,7 +120,7 @@ func Initialize(arena any /*Arena*/, layoutDimensions vector2.Float32, errorHand
 	initializePersistentMemory(context)
 	initializeEphemeralMemory(context)
 
-	context.measureTextHashMapInternal = append(context.measureTextHashMapInternal, 0) // Reserve the 0 value to mean "no next element"
+	context.measureTextHashMapInternal = append(context.measureTextHashMapInternal, MeasureTextCacheItem{}) // Reserve the 0 value to mean "no next element"
 	context.layoutDimensions = layoutDimensions
 
 	return context
@@ -136,7 +142,118 @@ func SetCurrentContext(context *Context) {
 // - scrollDelta is the amount to scroll this frame on each axis in pixels.
 // - deltaTime is the time in seconds since the last "frame" (scroll update)
 func UpdateScrollContainers(enableDragScrolling bool, scrollDelta vector2.Float32, deltaTime float32) {
+	/*
+	   context := GetCurrentContext();
+	       bool isPointerActive = enableDragScrolling && (context.pointerInfo.state == CLAY_POINTER_DATA_PRESSED || context.pointerInfo.state == CLAY_POINTER_DATA_PRESSED_THIS_FRAME);
+	       // Don't apply scroll events to ancestors of the inner element
+	       int32_t highestPriorityElementIndex = -1;
+	       Clay__ScrollContainerDataInternal *highestPriorityScrollData = CLAY__NULL;
+	       for (int32_t i = 0; i < context.scrollContainerDatas.length; i++) {
+	           Clay__ScrollContainerDataInternal *scrollData = Clay__ScrollContainerDataInternalArray_Get(&context.scrollContainerDatas, i);
+	           if (!scrollData.openThisFrame) {
+	               Clay__ScrollContainerDataInternalArray_RemoveSwapback(&context.scrollContainerDatas, i);
+	               continue;
+	           }
+	           scrollData.openThisFrame = false;
+	           Clay_LayoutElementHashMapItem *hashMapItem = Clay__GetHashMapItem(scrollData.elementId);
+	           // Element isn't rendered this frame but scroll offset has been retained
+	           if (!hashMapItem) {
+	               Clay__ScrollContainerDataInternalArray_RemoveSwapback(&context.scrollContainerDatas, i);
+	               continue;
+	           }
 
+	           // Touch / click is released
+	           if (!isPointerActive && scrollData.pointerScrollActive) {
+	               float xDiff = scrollData.scrollPosition.x - scrollData.scrollOrigin.x;
+	               if (xDiff < -10 || xDiff > 10) {
+	                   scrollData.scrollMomentum.x = (scrollData.scrollPosition.x - scrollData.scrollOrigin.x) / (scrollData.momentumTime * 25);
+	               }
+	               float yDiff = scrollData.scrollPosition.y - scrollData.scrollOrigin.y;
+	               if (yDiff < -10 || yDiff > 10) {
+	                   scrollData.scrollMomentum.y = (scrollData.scrollPosition.y - scrollData.scrollOrigin.y) / (scrollData.momentumTime * 25);
+	               }
+	               scrollData.pointerScrollActive = false;
+
+	               scrollData.pointerOrigin = CLAY__INIT(Clay_Vector2){0,0};
+	               scrollData.scrollOrigin = CLAY__INIT(Clay_Vector2){0,0};
+	               scrollData.momentumTime = 0;
+	           }
+
+	           // Apply existing momentum
+	           scrollData.scrollPosition.x += scrollData.scrollMomentum.x;
+	           scrollData.scrollMomentum.x *= 0.95f;
+	           bool scrollOccurred = scrollDelta.x != 0 || scrollDelta.y != 0;
+	           if ((scrollData.scrollMomentum.x > -0.1f && scrollData.scrollMomentum.x < 0.1f) || scrollOccurred) {
+	               scrollData.scrollMomentum.x = 0;
+	           }
+	           scrollData.scrollPosition.x = CLAY__MIN(CLAY__MAX(scrollData.scrollPosition.x, -(CLAY__MAX(scrollData.contentSize.width - scrollData.layoutElement.dimensions.width, 0))), 0);
+
+	           scrollData.scrollPosition.y += scrollData.scrollMomentum.y;
+	           scrollData.scrollMomentum.y *= 0.95f;
+	           if ((scrollData.scrollMomentum.y > -0.1f && scrollData.scrollMomentum.y < 0.1f) || scrollOccurred) {
+	               scrollData.scrollMomentum.y = 0;
+	           }
+	           scrollData.scrollPosition.y = CLAY__MIN(CLAY__MAX(scrollData.scrollPosition.y, -(CLAY__MAX(scrollData.contentSize.height - scrollData.layoutElement.dimensions.height, 0))), 0);
+
+	           for (int32_t j = 0; j < context.pointerOverIds.length; ++j) { // TODO n & m are small here but this being n*m gives me the creeps
+	               if (scrollData.layoutElement.id == Clay__ElementIdArray_Get(&context.pointerOverIds, j).id) {
+	                   highestPriorityElementIndex = j;
+	                   highestPriorityScrollData = scrollData;
+	               }
+	           }
+	       }
+
+	       if (highestPriorityElementIndex > -1 && highestPriorityScrollData) {
+	           Clay_LayoutElement *scrollElement = highestPriorityScrollData.layoutElement;
+	           Clay_ScrollElementConfig *scrollConfig = Clay__FindElementConfigWithType(scrollElement, CLAY__ELEMENT_CONFIG_TYPE_SCROLL).scrollElementConfig;
+	           bool canScrollVertically = scrollConfig.vertical && highestPriorityScrollData.contentSize.height > scrollElement.dimensions.height;
+	           bool canScrollHorizontally = scrollConfig.horizontal && highestPriorityScrollData.contentSize.width > scrollElement.dimensions.width;
+	           // Handle wheel scroll
+	           if (canScrollVertically) {
+	               highestPriorityScrollData.scrollPosition.y = highestPriorityScrollData.scrollPosition.y + scrollDelta.y * 10;
+	           }
+	           if (canScrollHorizontally) {
+	               highestPriorityScrollData.scrollPosition.x = highestPriorityScrollData.scrollPosition.x + scrollDelta.x * 10;
+	           }
+	           // Handle click / touch scroll
+	           if (isPointerActive) {
+	               highestPriorityScrollData.scrollMomentum = CLAY__INIT(Clay_Vector2)CLAY__DEFAULT_STRUCT;
+	               if (!highestPriorityScrollData.pointerScrollActive) {
+	                   highestPriorityScrollData.pointerOrigin = context.pointerInfo.position;
+	                   highestPriorityScrollData.scrollOrigin = highestPriorityScrollData.scrollPosition;
+	                   highestPriorityScrollData.pointerScrollActive = true;
+	               } else {
+	                   float scrollDeltaX = 0, scrollDeltaY = 0;
+	                   if (canScrollHorizontally) {
+	                       float oldXScrollPosition = highestPriorityScrollData.scrollPosition.x;
+	                       highestPriorityScrollData.scrollPosition.x = highestPriorityScrollData.scrollOrigin.x + (context.pointerInfo.position.x - highestPriorityScrollData.pointerOrigin.x);
+	                       highestPriorityScrollData.scrollPosition.x = CLAY__MAX(CLAY__MIN(highestPriorityScrollData.scrollPosition.x, 0), -(highestPriorityScrollData.contentSize.width - highestPriorityScrollData.boundingBox.width));
+	                       scrollDeltaX = highestPriorityScrollData.scrollPosition.x - oldXScrollPosition;
+	                   }
+	                   if (canScrollVertically) {
+	                       float oldYScrollPosition = highestPriorityScrollData.scrollPosition.y;
+	                       highestPriorityScrollData.scrollPosition.y = highestPriorityScrollData.scrollOrigin.y + (context.pointerInfo.position.y - highestPriorityScrollData.pointerOrigin.y);
+	                       highestPriorityScrollData.scrollPosition.y = CLAY__MAX(CLAY__MIN(highestPriorityScrollData.scrollPosition.y, 0), -(highestPriorityScrollData.contentSize.height - highestPriorityScrollData.boundingBox.height));
+	                       scrollDeltaY = highestPriorityScrollData.scrollPosition.y - oldYScrollPosition;
+	                   }
+	                   if (scrollDeltaX > -0.1f && scrollDeltaX < 0.1f && scrollDeltaY > -0.1f && scrollDeltaY < 0.1f && highestPriorityScrollData.momentumTime > 0.15f) {
+	                       highestPriorityScrollData.momentumTime = 0;
+	                       highestPriorityScrollData.pointerOrigin = context.pointerInfo.position;
+	                       highestPriorityScrollData.scrollOrigin = highestPriorityScrollData.scrollPosition;
+	                   } else {
+	                        highestPriorityScrollData.momentumTime += deltaTime;
+	                   }
+	               }
+	           }
+	           // Clamp any changes to scroll position to the maximum size of the contents
+	           if (canScrollVertically) {
+	               highestPriorityScrollData.scrollPosition.y = CLAY__MAX(CLAY__MIN(highestPriorityScrollData.scrollPosition.y, 0), -(highestPriorityScrollData.contentSize.height - scrollElement.dimensions.height));
+	           }
+	           if (canScrollHorizontally) {
+	               highestPriorityScrollData.scrollPosition.x = CLAY__MAX(CLAY__MIN(highestPriorityScrollData.scrollPosition.x, 0), -(highestPriorityScrollData.contentSize.width - scrollElement.dimensions.width));
+	           }
+	       }
+	*/
 }
 
 // Updates the layout dimensions in response to the window or outer container being resized.
@@ -146,7 +263,28 @@ func SetLayoutDimensions(dimensions vector2.Float32) {
 
 // Called before starting any layout declarations.
 func BeginLayout() {
-
+	context := GetCurrentContext()
+	initializeEphemeralMemory(context)
+	context.generation++
+	context.dynamicElementIndex = 0
+	// Set up the root container that covers the entire window
+	rootDimensions := context.layoutDimensions
+	if context.debugModeEnabled {
+		rootDimensions.X -= (float32)(debugViewWidth)
+	}
+	context.booleanWarnings = BooleanWarnings{}
+	openElement()
+	configureOpenElement(&ElementDeclaration{
+		Id: ID("Clay__RootContainer"),
+		Layout: LayoutConfig{
+			Sizing: Sizing{
+				SIZING_FIXED(rootDimensions.X),
+				SIZING_FIXED(rootDimensions.Y),
+			},
+		},
+	})
+	context.openLayoutElementStack = append(context.openLayoutElementStack, 0)
+	context.layoutElementTreeRoots = append(context.layoutElementTreeRoots, LayoutElementTreeRoot{layoutElementIndex: 0})
 }
 
 // Called when all layout declarations are finished.
