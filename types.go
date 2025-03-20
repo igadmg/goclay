@@ -48,6 +48,13 @@ type CornerRadius struct {
 	BottomRight float32
 }
 
+func (r CornerRadius) IsEmpty() bool {
+	return r.TopLeft == 0 &&
+		r.TopRight == 0 &&
+		r.BottomLeft == 0 &&
+		r.BottomRight == 0
+}
+
 // Element Configs ---------------------------
 
 // Controls the direction in which child elements will be automatically laid out.
@@ -402,6 +409,14 @@ type BorderWidth struct {
 	betweenChildren uint16
 }
 
+func (b BorderWidth) IsEmpty() bool {
+	return b.left == 0 &&
+		b.right == 0 &&
+		b.top == 0 &&
+		b.bottom == 0 &&
+		b.betweenChildren == 0
+}
+
 // Controls settings related to element borders.
 type BorderElementConfig struct {
 	color colorex.RGBA // Controls the color of all borders with width > 0. Conventionally represented as 0-255, but interpretation is up to the renderer.
@@ -409,6 +424,10 @@ type BorderElementConfig struct {
 }
 
 var default_BorderElementConfig BorderElementConfig
+
+func (b BorderElementConfig) IsEmpty() bool {
+	return b.color.IsZero() && b.width.IsEmpty()
+}
 
 // Represents the current state of interaction with clay this frame.
 type PointerDataInteractionState uint8
@@ -497,17 +516,17 @@ type ErrorData struct {
 	// ERROR_TYPE_FLOATING_CONTAINER_PARENT_NOT_FOUND - A floating element was declared using ATTACH_TO_ELEMENT_ID and either an invalid .parentId was provided or no element with the provided .parentId was found.
 	// ERROR_TYPE_PERCENTAGE_OVER_1 - An element was declared that using SIZING_PERCENT but the percentage value was over 1. Percentage values are expected to be in the 0-1 range.
 	// ERROR_TYPE_INTERNAL_ERROR - Clay encountered an internal error. It would be wonderful if you could report this so we can fix it!
-	errorType ErrorType
+	ErrorType ErrorType
 	// A string containing human-readable error text that explains the error in more detail.
-	errorText string
+	ErrorText string
 	// A transparent pointer passed through from when the error handler was first provided.
-	userData any
+	UserData any
 }
 
 // A wrapper struct around Clay's error handler function.
 type ErrorHandler struct {
 	// A user provided function to call when Clay encounters an error during layout.
-	errorHandlerFunction func(errorText ErrorData)
+	ErrorHandlerFunction func(errorText ErrorData)
 	// A pointer that will be transparently passed through to the error handler when it is called.
-	userData any
+	UserData any
 }

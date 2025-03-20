@@ -151,7 +151,7 @@ type LayoutElementTreeNode struct {
 type LayoutElementTreeRoot struct {
 	layoutElementIndex int
 	parentId           uint32 // This can be zero in the case of the root layout tree
-	clipElementId      uint32 // This can be zero if there is no clip element
+	clipElementId      int    // This can be zero if there is no clip element
 	zIndex             int16
 	pointerOffset      vector2.Float32 // Only used when scroll containers are managed externally
 }
@@ -184,9 +184,9 @@ type Context struct {
 	layoutElementChildren       []int
 	layoutElementChildrenBuffer []int
 	textElementData             []TextElementData
-	imageElementPointers        []int32
+	imageElementPointers        []int
 	reusableElementIndexBuffer  []int32
-	layoutElementClipElementIds []int32
+	layoutElementClipElementIds []int
 	// Configs
 	layoutConfigs          []LayoutConfig
 	elementConfigs         []AnyElementConfig
@@ -209,7 +209,7 @@ type Context struct {
 	measureTextHashMap                 []int32
 	measuredWords                      []MeasuredWord
 	measuredWordsFreeList              []int32
-	openClipElementStack               []int32
+	openClipElementStack               []int
 	pointerOverIds                     []ElementId
 	scrollContainerDatas               []ScrollContainerDataInternal
 	treeNodeVisited                    []bool
@@ -330,17 +330,18 @@ func storeSharedElementConfig(config SharedElementConfig) *SharedElementConfig {
 	return &context.sharedElementConfigs[len(context.sharedElementConfigs)-1]
 }
 
-/*
-	Clay_ElementConfig Clay__AttachElementConfig(Clay_ElementConfigUnion config, Clay__ElementConfigType type) {
-	    context := GetCurrentContext();
-	    if (context.booleanWarnings.maxElementsExceeded) {
-	        return CLAY__INIT(Clay_ElementConfig) CLAY__DEFAULT_STRUCT;
-	    }
-	    openLayoutElement := getOpenLayoutElement();
-	    openLayoutElement.elementConfigs.length++;
-	    return *Clay__ElementConfigArray_Add(&context.elementConfigs, CLAY__INIT(Clay_ElementConfig) { .Type = type, .config = config });
+func attachElementConfig(config AnyElementConfig) AnyElementConfig {
+	context := GetCurrentContext()
+	if context.booleanWarnings.maxElementsExceeded {
+		return config
 	}
+	openLayoutElement := getOpenLayoutElement()
+	context.elementConfigs = append(context.elementConfigs, config)
+	openLayoutElement.elementConfigs = append(openLayoutElement.elementConfigs, config)
+	return config
+}
 
+/*
 	Clay_ElementConfigUnion Clay__FindElementConfigWithType(Clay_LayoutElement *element, Clay__ElementConfigType type) {
 	    for (int32 i = 0; i < element.elementConfigs.length; i++) {
 	        Clay_ElementConfig *config = Clay__ElementConfigArraySlice_Get(&element.elementConfigs, i);
@@ -350,19 +351,25 @@ func storeSharedElementConfig(config SharedElementConfig) *SharedElementConfig {
 	    }
 	    return CLAY__INIT(Clay_ElementConfigUnion) { NULL };
 	}
-
-	Clay_ElementId Clay__HashNumber(const uint32 offset, const uint32 seed) {
-	    uint32 hash = seed;
-	    hash += (offset + 48);
-	    hash += (hash << 10);
-	    hash ^= (hash >> 6);
-
-	    hash += (hash << 3);
-	    hash ^= (hash >> 11);
-	    hash += (hash << 15);
-	    return CLAY__INIT(Clay_ElementId) { .id = hash + 1, .offset = offset, .baseId = seed, .stringId = STRING_DEFAULT }; // Reserve the hash result of zero as "null id"
-	}
 */
+
+func hashNumber(offset uint32, seed uint32) ElementId {
+	hash := seed
+	hash += (offset + 48)
+	hash += (hash << 10)
+	hash ^= (hash >> 6)
+
+	hash += (hash << 3)
+	hash ^= (hash >> 11)
+	hash += (hash << 15)
+
+	return ElementId{
+		id:       hash + 1, // Reserve the hash result of zero as "null id"
+		offset:   offset,
+		baseId:   seed,
+		stringId: STRING_DEFAULT,
+	}
+}
 
 func hashString(key string, offset uint32, seed uint32) ElementId {
 	hash := uint32(0)
@@ -612,7 +619,7 @@ func addHashMapItem(elementId ElementId, layoutElement *LayoutElement, idAlias u
 	return context.layoutElementsHashMap[elementId.id]
 }
 
-func Clay__GetHashMapItem(id uint32) *LayoutElementHashMapItem {
+func getHashMapItem(id uint32) *LayoutElementHashMapItem {
 	context := GetCurrentContext()
 	r, ok := context.layoutElementsHashMap[id]
 	if !ok {
@@ -622,17 +629,15 @@ func Clay__GetHashMapItem(id uint32) *LayoutElementHashMapItem {
 	return r
 }
 
-/*
-	Clay_ElementId Clay__GenerateIdForAnonymousElement(Clay_LayoutElement *openLayoutElement) {
-	    context := GetCurrentContext();
-	    Clay_LayoutElement *parentElement = Clay_LayoutElementArray_Get(&context.layoutElements, Clay__int32_tArray_GetValue(&context.openLayoutElementStack, context.openLayoutElementStack.length - 2));
-	    Clay_ElementId elementId = Clay__HashNumber(parentElement.childrenOrTextContent.children.length, parentElement.id);
-	    openLayoutElement.id = elementId.id;
-	    addHashMapItem(elementId, openLayoutElement, 0);
-	    Clay__StringArray_Add(&context.layoutElementIdStrings, elementId.stringId);
-	    return elementId;
-	}
-*/
+func Clay__GenerateIdForAnonymousElement(openLayoutElement *LayoutElement) ElementId {
+	context := GetCurrentContext()
+	parentElement := context.layoutElements[context.openLayoutElementStack[len(context.openLayoutElementStack)-2]]
+	elementId := hashNumber(uint32(len(parentElement.children)), parentElement.id)
+	openLayoutElement.id = elementId.id
+	addHashMapItem(elementId, openLayoutElement, 0)
+	context.layoutElementIdStrings = append(context.layoutElementIdStrings, elementId.stringId)
+	return elementId
+}
 
 func elementHasConfig[T ElementConfigType](layoutElement *LayoutElement) bool {
 	for _, config := range layoutElement.elementConfigs {
@@ -846,22 +851,29 @@ bool Clay__MemCmp(const char *s1, const char *s2, int32 length);
 #endif
 */
 
-func openElement() {
+func openElement() bool {
 	context := GetCurrentContext()
-	// TODO: implement
-	//if (context.layoutElements.length == context.layoutElements.capacity - 1 || context.booleanWarnings.maxElementsExceeded) {
-	//    context.booleanWarnings.maxElementsExceeded = true;
-	//    return;
-	//}
+	if len(context.layoutElements) == cap(context.layoutElements)-1 || context.booleanWarnings.maxElementsExceeded {
+		context.booleanWarnings.maxElementsExceeded = true
+		return false
+	}
 
 	layoutElement := LayoutElement{}
 	context.layoutElements = append(context.layoutElements, layoutElement)
 	context.openLayoutElementStack = append(context.openLayoutElementStack, len(context.layoutElements)-1)
 	if len(context.openClipElementStack) > 0 {
-		context.layoutElementClipElementIds[len(context.layoutElements)-1] = context.openClipElementStack[len(context.openClipElementStack)-1]
+		context.layoutElementClipElementIds = slicesex.Set(
+			context.layoutElementClipElementIds,
+			len(context.layoutElements)-1,
+			context.openClipElementStack[len(context.openClipElementStack)-1])
 	} else {
-		context.layoutElementClipElementIds[len(context.layoutElements)-1] = 0
+		context.layoutElementClipElementIds = slicesex.Set(
+			context.layoutElementClipElementIds,
+			len(context.layoutElements)-1,
+			0)
 	}
+
+	return true
 }
 
 /*
@@ -883,7 +895,7 @@ func openElement() {
 
 	    Clay__int32_tArray_Add(&context.layoutElementChildrenBuffer, context.layoutElements.length - 1);
 	    Clay__MeasureTextCacheItem *textMeasured = Clay__MeasureTextCached(&text, textConfig);
-	    Clay_ElementId elementId = Clay__HashNumber(parentElement.childrenOrTextContent.children.length, parentElement.id);
+	    Clay_ElementId elementId = hashNumber(parentElement.childrenOrTextContent.children.length, parentElement.id);
 	    textElement.id = elementId.id;
 	    addHashMapItem(elementId, textElement, 0);
 	    Clay__StringArray_Add(&context.layoutElementIdStrings, elementId.stringId);
@@ -914,7 +926,7 @@ func attachId(elementId ElementId) ElementId {
 }
 
 func configureOpenElement(declaration *ElementDeclaration) {
-	//context := GetCurrentContext()
+	context := GetCurrentContext()
 	openLayoutElement := getOpenLayoutElement()
 	openLayoutElement.layoutConfig = storeLayoutConfig(declaration.Layout)
 
@@ -935,115 +947,125 @@ func configureOpenElement(declaration *ElementDeclaration) {
 	}
 
 	if checkSizing(declaration.Layout.Sizing) {
-		//	        context.errorHandler.errorHandlerFunction(CLAY__INIT(Clay_ErrorData) {
-		//	                .errorType = CLAY_ERROR_TYPE_PERCENTAGE_OVER_1,
-		//	                .errorText = CLAY_STRING("An element was configured with CLAY_SIZING_PERCENT, but the provided percentage value was over 1.0. Clay expects a value between 0 and 1, i.e. 20% is 0.2."),
-		//	                .userData = context.errorHandler.userData });
+		context.errorHandler.ErrorHandlerFunction(ErrorData{
+			ErrorType: ERROR_TYPE_PERCENTAGE_OVER_1,
+			ErrorText: "An element was configured with SIZING_PERCENT, but the provided percentage value was over 1.0. Clay expects a value between 0 and 1, i.e. 20% is 0.2.",
+			UserData:  context.errorHandler.UserData,
+		})
 	}
 
-	//openLayoutElementId := declaration.Id
+	openLayoutElementId := declaration.Id
 
-	//openLayoutElement.elementConfigs.internalArray = &context.elementConfigs.internalArray[context.elementConfigs.length]
-	//sharedConfig := (*SharedElementConfig)(nil)
-	//if declaration.backgroundColor.A > 0 {
-	//	sharedConfig = storeSharedElementConfig(SharedElementConfig{backgroundColor: declaration.backgroundColor})
-	//	//Clay__AttachElementConfig(CLAY__INIT(Clay_ElementConfigUnion) { .sharedElementConfig = sharedConfig }, CLAY__ELEMENT_CONFIG_TYPE_SHARED);
-	//}
-	/*
-	   if (!Clay__MemCmp((char *)(&declaration.cornerRadius), (char *)(&Clay__CornerRadius_DEFAULT), sizeof(Clay_CornerRadius))) {
-	       if (sharedConfig) {
-	           sharedConfig.cornerRadius = declaration.cornerRadius;
-	       } else {
-	           sharedConfig = storeSharedElementConfig(CLAY__INIT(Clay_SharedElementConfig) { .cornerRadius = declaration.cornerRadius });
-	           Clay__AttachElementConfig(CLAY__INIT(Clay_ElementConfigUnion) { .sharedElementConfig = sharedConfig }, CLAY__ELEMENT_CONFIG_TYPE_SHARED);
-	       }
-	   }
-	   if (declaration.userData != 0) {
-	       if (sharedConfig) {
-	           sharedConfig.userData = declaration.userData;
-	       } else {
-	           sharedConfig = storeSharedElementConfig(CLAY__INIT(Clay_SharedElementConfig) { .userData = declaration.userData });
-	           Clay__AttachElementConfig(CLAY__INIT(Clay_ElementConfigUnion) { .sharedElementConfig = sharedConfig }, CLAY__ELEMENT_CONFIG_TYPE_SHARED);
-	       }
-	   }
-	   if (declaration.image.imageData) {
-	       Clay__AttachElementConfig(CLAY__INIT(Clay_ElementConfigUnion) { .imageElementConfig = storeImageElementConfig(declaration.image) }, CLAY__ELEMENT_CONFIG_TYPE_IMAGE);
-	       Clay__int32_tArray_Add(&context.imageElementPointers, context.layoutElements.length - 1);
-	   }
-	   if (declaration.floating.attachTo != CLAY_ATTACH_TO_NONE) {
-	       Clay_FloatingElementConfig floatingConfig = declaration.floating;
-	       // This looks dodgy but because of the auto generated root element the depth of the tree will always be at least 2 here
-	       Clay_LayoutElement *hierarchicalParent = Clay_LayoutElementArray_Get(&context.layoutElements, Clay__int32_tArray_GetValue(&context.openLayoutElementStack, context.openLayoutElementStack.length - 2));
-	       if (hierarchicalParent) {
-	           uint32 clipElementId = 0;
-	           if (declaration.floating.attachTo == CLAY_ATTACH_TO_PARENT) {
-	               // Attach to the element's direct hierarchical parent
-	               floatingConfig.parentId = hierarchicalParent.id;
-	               if (context.openClipElementStack.length > 0) {
-	                   clipElementId = Clay__int32_tArray_GetValue(&context.openClipElementStack, (int)context.openClipElementStack.length - 1);
-	               }
-	           } else if (declaration.floating.attachTo == CLAY_ATTACH_TO_ELEMENT_WITH_ID) {
-	               Clay_LayoutElementHashMapItem *parentItem = Clay__GetHashMapItem(floatingConfig.parentId);
-	               if (!parentItem) {
-	                   context.errorHandler.errorHandlerFunction(CLAY__INIT(Clay_ErrorData) {
-	                           .errorType = CLAY_ERROR_TYPE_FLOATING_CONTAINER_PARENT_NOT_FOUND,
-	                           .errorText = CLAY_STRING("A floating element was declared with a parentId, but no element with that ID was found."),
-	                           .userData = context.errorHandler.userData });
-	               } else {
-	                   clipElementId = Clay__int32_tArray_GetValue(&context.layoutElementClipElementIds, (int32)(parentItem.layoutElement - context.layoutElements.internalArray));
-	               }
-	           } else if (declaration.floating.attachTo == CLAY_ATTACH_TO_ROOT) {
-	               floatingConfig.parentId = hashString(CLAY_STRING("Clay__RootContainer"), 0, 0).id;
-	           }
-	           if (!openLayoutElementId.id) {
-	               openLayoutElementId = hashString(CLAY_STRING("Clay__FloatingContainer"), context.layoutElementTreeRoots.length, 0);
-	           }
-	           int32 currentElementIndex = Clay__int32_tArray_GetValue(&context.openLayoutElementStack, context.openLayoutElementStack.length - 1);
-	           Clay__int32_tArray_Set(&context.layoutElementClipElementIds, currentElementIndex, clipElementId);
-	           Clay__int32_tArray_Add(&context.openClipElementStack, clipElementId);
-	           Clay__LayoutElementTreeRootArray_Add(&context.layoutElementTreeRoots, CLAY__INIT(Clay__LayoutElementTreeRoot) {
-	                   .layoutElementIndex = Clay__int32_tArray_GetValue(&context.openLayoutElementStack, context.openLayoutElementStack.length - 1),
-	                   .parentId = floatingConfig.parentId,
-	                   .clipElementId = clipElementId,
-	                   .zIndex = floatingConfig.zIndex,
-	           });
-	           Clay__AttachElementConfig(CLAY__INIT(Clay_ElementConfigUnion) { .floatingElementConfig = storeFloatingElementConfig(floatingConfig) }, CLAY__ELEMENT_CONFIG_TYPE_FLOATING);
-	       }
-	   }
-	   if (declaration.custom.customData) {
-	       Clay__AttachElementConfig(CLAY__INIT(Clay_ElementConfigUnion) { .customElementConfig = storeCustomElementConfig(declaration.custom) }, CLAY__ELEMENT_CONFIG_TYPE_CUSTOM);
-	   }
+	openLayoutElement.elementConfigs = context.elementConfigs[len(context.elementConfigs):len(context.elementConfigs)]
+	sharedConfig := (*SharedElementConfig)(nil)
+	if declaration.BackgroundColor.A > 0 {
+		sharedConfig = storeSharedElementConfig(SharedElementConfig{backgroundColor: declaration.BackgroundColor})
+		attachElementConfig(sharedConfig)
+	}
+	if declaration.CornerRadius.IsEmpty() {
+		if sharedConfig != nil {
+			sharedConfig.cornerRadius = declaration.CornerRadius
+		} else {
+			sharedConfig = storeSharedElementConfig(SharedElementConfig{cornerRadius: declaration.CornerRadius})
+			attachElementConfig(sharedConfig)
+		}
+	}
+	if declaration.UserData != nil {
+		if sharedConfig != nil {
+			sharedConfig.userData = declaration.UserData
+		} else {
+			sharedConfig = storeSharedElementConfig(SharedElementConfig{userData: declaration.UserData})
+			attachElementConfig(sharedConfig)
+		}
+	}
+	if declaration.Image.ImageData != nil {
+		attachElementConfig(storeImageElementConfig(declaration.Image))
+		context.imageElementPointers = append(context.imageElementPointers, len(context.layoutElements)-1)
+	}
 
-	   if (openLayoutElementId.id != 0) {
-	       attachId(openLayoutElementId);
-	   } else if (openLayoutElement.id == 0) {
-	       openLayoutElementId = Clay__GenerateIdForAnonymousElement(openLayoutElement);
-	   }
+	if declaration.Floating.attachTo != ATTACH_TO_NONE {
+		floatingConfig := declaration.Floating
+		// This looks dodgy but because of the auto generated root element the depth of the tree will always be at least 2 here
+		hierarchicalParent := context.layoutElements[context.openLayoutElementStack[len(context.openLayoutElementStack)-2]]
+		if true /*hierarchicalParent.id != 0*/ {
+			clipElementId := 0
+			if declaration.Floating.attachTo == ATTACH_TO_PARENT {
+				// Attach to the element's direct hierarchical parent
+				floatingConfig.parentId = hierarchicalParent.id
+				if len(context.openClipElementStack) > 0 {
+					clipElementId = context.openClipElementStack[len(context.openClipElementStack)-1]
+				}
+			} else if declaration.Floating.attachTo == ATTACH_TO_ELEMENT_WITH_ID {
+				parentItem := getHashMapItem(floatingConfig.parentId)
+				if parentItem == nil {
+					context.errorHandler.ErrorHandlerFunction(ErrorData{
+						ErrorType: ERROR_TYPE_FLOATING_CONTAINER_PARENT_NOT_FOUND,
+						ErrorText: "A floating element was declared with a parentId, but no element with that ID was found.",
+						UserData:  context.errorHandler.UserData,
+					})
+				} else {
+					// TODO: fix
+					//clipElementId = context.layoutElementClipElementIds[(int32)(parentItem.layoutElement-context.layoutElements.internalArray))
+				}
+			} else if declaration.Floating.attachTo == ATTACH_TO_ROOT {
+				floatingConfig.parentId = hashString("Clay__RootContainer", 0, 0).id
+			}
+			if openLayoutElementId.id == 0 {
+				openLayoutElementId = hashString("Clay__FloatingContainer", uint32(len(context.layoutElementTreeRoots)), 0)
+			}
+			currentElementIndex := context.openLayoutElementStack[len(context.openLayoutElementStack)-1]
+			context.layoutElementClipElementIds = slicesex.Set(context.layoutElementClipElementIds, currentElementIndex, clipElementId)
+			context.openClipElementStack = append(context.openClipElementStack, clipElementId)
+			context.layoutElementTreeRoots = append(context.layoutElementTreeRoots, LayoutElementTreeRoot{
+				layoutElementIndex: context.openLayoutElementStack[len(context.openLayoutElementStack)-1],
+				parentId:           floatingConfig.parentId,
+				clipElementId:      clipElementId,
+				zIndex:             floatingConfig.zIndex,
+			})
+			attachElementConfig(storeFloatingElementConfig(floatingConfig))
+		}
+	}
+	if declaration.Custom.customData != nil {
+		attachElementConfig(storeCustomElementConfig(declaration.Custom))
+	}
 
-	   if (declaration.scroll.horizontal | declaration.scroll.vertical) {
-	       Clay__AttachElementConfig(CLAY__INIT(Clay_ElementConfigUnion) { .scrollElementConfig = storeScrollElementConfig(declaration.scroll) }, CLAY__ELEMENT_CONFIG_TYPE_SCROLL);
-	       Clay__int32_tArray_Add(&context.openClipElementStack, (int)openLayoutElement.id);
-	       // Retrieve or create cached data to track scroll position across frames
-	       Clay__ScrollContainerDataInternal *scrollOffset = CLAY__NULL;
-	       for (int32 i = 0; i < context.scrollContainerDatas.length; i++) {
-	           Clay__ScrollContainerDataInternal *mapping = Clay__ScrollContainerDataInternalArray_Get(&context.scrollContainerDatas, i);
-	           if (openLayoutElement.id == mapping.elementId) {
-	               scrollOffset = mapping;
-	               scrollOffset.layoutElement = openLayoutElement;
-	               scrollOffset.openThisFrame = true;
-	           }
-	       }
-	       if (!scrollOffset) {
-	           scrollOffset = Clay__ScrollContainerDataInternalArray_Add(&context.scrollContainerDatas, CLAY__INIT(Clay__ScrollContainerDataInternal){.layoutElement = openLayoutElement, .scrollOrigin = {-1,-1}, .elementId = openLayoutElement.id, .openThisFrame = true});
-	       }
-	       if (context.externalScrollHandlingEnabled) {
-	           scrollOffset.scrollPosition = Clay__QueryScrollOffset(scrollOffset.elementId, context.queryScrollOffsetUserData);
-	       }
-	   }
-	   if (!Clay__MemCmp((char *)(&declaration.border.X), (char *)(&Clay__BorderWidth_DEFAULT), sizeof(Clay_BorderWidth))) {
-	       Clay__AttachElementConfig(CLAY__INIT(Clay_ElementConfigUnion) { .borderElementConfig = storeBorderElementConfig(declaration.border) }, CLAY__ELEMENT_CONFIG_TYPE_BORDER);
-	   }
-	*/
+	if openLayoutElementId.id != 0 {
+		attachId(openLayoutElementId)
+	} else if openLayoutElement.id == 0 {
+		openLayoutElementId = Clay__GenerateIdForAnonymousElement(openLayoutElement)
+	}
+
+	if declaration.Scroll.horizontal || declaration.Scroll.vertical {
+		attachElementConfig(storeScrollElementConfig(declaration.Scroll))
+		context.openClipElementStack = append(context.openClipElementStack, (int)(openLayoutElement.id))
+		// Retrieve or create cached data to track scroll position across frames
+		scrollOffset := (*ScrollContainerDataInternal)(nil)
+		for i := range context.scrollContainerDatas {
+			mapping := &context.scrollContainerDatas[i]
+			if openLayoutElement.id == mapping.elementId {
+				scrollOffset = mapping
+				scrollOffset.layoutElement = openLayoutElement
+				scrollOffset.openThisFrame = true
+			}
+		}
+		if scrollOffset == nil {
+			context.scrollContainerDatas = append(context.scrollContainerDatas, ScrollContainerDataInternal{
+				layoutElement: openLayoutElement,
+				scrollOrigin:  vector2.NewFloat32(-1, -1),
+				elementId:     openLayoutElement.id,
+				openThisFrame: true,
+			})
+			scrollOffset = &context.scrollContainerDatas[len(context.scrollContainerDatas)-1]
+		}
+		if context.externalScrollHandlingEnabled {
+			// TODO: fix
+			//scrollOffset.scrollPosition = Clay__QueryScrollOffset(scrollOffset.elementId, context.queryScrollOffsetUserData)
+		}
+	}
+
+	if !declaration.Border.IsEmpty() {
+		attachElementConfig(storeBorderElementConfig(declaration.Border))
+	}
 }
 
 // Ephemeral Memory - reset every frame
@@ -1115,12 +1137,12 @@ func initializePersistentMemory(context *Context) {
 	context.layoutElementChildren = make([]int, 0, maxElementCount)
 	context.openLayoutElementStack = make([]int, 0, maxElementCount)
 	context.textElementData = make([]TextElementData, 0, maxElementCount)
-	context.imageElementPointers = make([]int32, 0, maxElementCount)
+	context.imageElementPointers = make([]int, 0, maxElementCount)
 	context.renderCommands = make([]any, 0, maxElementCount)
 	context.treeNodeVisited = make([]bool, maxElementCount)
-	context.openClipElementStack = make([]int32, 0, maxElementCount)
+	context.openClipElementStack = make([]int, 0, maxElementCount)
 	context.reusableElementIndexBuffer = make([]int32, 0, maxElementCount)
-	context.layoutElementClipElementIds = make([]int32, 0, maxElementCount)
+	context.layoutElementClipElementIds = make([]int, 0, maxElementCount)
 	context.dynamicStringData = make([]byte, 0, maxElementCount)
 }
 
@@ -1145,7 +1167,7 @@ const float CLAY__EPSILON = 0.01;
 	        // Size floating containers to their parents
 	        if (elementHasConfig(rootElement, CLAY__ELEMENT_CONFIG_TYPE_FLOATING)) {
 	            Clay_FloatingElementConfig *floatingElementConfig = Clay__FindElementConfigWithType(rootElement, CLAY__ELEMENT_CONFIG_TYPE_FLOATING).floatingElementConfig;
-	            Clay_LayoutElementHashMapItem *parentItem = Clay__GetHashMapItem(floatingElementConfig.parentId);
+	            Clay_LayoutElementHashMapItem *parentItem = getHashMapItem(floatingElementConfig.parentId);
 	            if (parentItem && parentItem != &Clay_LayoutElementHashMapItem_DEFAULT) {
 	                Clay_LayoutElement *parentLayoutElement = parentItem.layoutElement;
 	                if (rootElement.layoutConfig.sizing.Width.Type == CLAY__SIZING_TYPE_GROW) {
@@ -1539,7 +1561,7 @@ const float CLAY__EPSILON = 0.01;
 	        Clay__LayoutElementTreeRoot *root = Clay__LayoutElementTreeRootArray_Get(&context.layoutElementTreeRoots, rootIndex);
 	        Clay_LayoutElement *rootElement = Clay_LayoutElementArray_Get(&context.layoutElements, (int)root.layoutElementIndex);
 	        vector2.Float32 rootPosition = CLAY__DEFAULT_STRUCT;
-	        Clay_LayoutElementHashMapItem *parentHashMapItem = Clay__GetHashMapItem(root.parentId);
+	        Clay_LayoutElementHashMapItem *parentHashMapItem = getHashMapItem(root.parentId);
 	        // Position root floating containers
 	        if (elementHasConfig(rootElement, CLAY__ELEMENT_CONFIG_TYPE_FLOATING) && parentHashMapItem) {
 	            Clay_FloatingElementConfig *config = Clay__FindElementConfigWithType(rootElement, CLAY__ELEMENT_CONFIG_TYPE_FLOATING).floatingElementConfig;
@@ -1596,7 +1618,7 @@ const float CLAY__EPSILON = 0.01;
 	            rootPosition = targetAttachPosition;
 	        }
 	        if (root.clipElementId) {
-	            Clay_LayoutElementHashMapItem *clipHashMapItem = Clay__GetHashMapItem(root.clipElementId);
+	            Clay_LayoutElementHashMapItem *clipHashMapItem = getHashMapItem(root.clipElementId);
 	            if (clipHashMapItem) {
 	                // Floating elements that are attached to scrolling contents won't be correctly positioned if external scroll handling is enabled, fix here
 	                if (context.externalScrollHandlingEnabled) {
@@ -1618,7 +1640,7 @@ const float CLAY__EPSILON = 0.01;
 	                Clay__AddRenderCommand(CLAY__INIT(Clay_RenderCommand) {
 	                    .boundingBox = clipHashMapItem.boundingBox,
 	                    .userData = 0,
-	                    .id = Clay__HashNumber(rootElement.id, rootElement.childrenOrTextContent.children.length + 10).id, // TODO need a better strategy for managing derived ids
+	                    .id = hashNumber(rootElement.id, rootElement.childrenOrTextContent.children.length + 10).id, // TODO need a better strategy for managing derived ids
 	                    .zIndex = root.zIndex,
 	                    .commandType = CLAY_RENDER_COMMAND_TYPE_SCISSOR_START,
 	                });
@@ -1672,11 +1694,11 @@ const float CLAY__EPSILON = 0.01;
 	                    }
 	                }
 
-	                Clay_LayoutElementHashMapItem *hashMapItem = Clay__GetHashMapItem(currentElement.id);
+	                Clay_LayoutElementHashMapItem *hashMapItem = getHashMapItem(currentElement.id);
 	                if (hashMapItem) {
 	                    hashMapItem.boundingBox = currentElementBoundingBox;
 	                    if (hashMapItem.idAlias) {
-	                        Clay_LayoutElementHashMapItem *hashMapItemAlias = Clay__GetHashMapItem(hashMapItem.idAlias);
+	                        Clay_LayoutElementHashMapItem *hashMapItemAlias = getHashMapItem(hashMapItem.idAlias);
 	                        if (hashMapItemAlias) {
 	                            hashMapItemAlias.boundingBox = currentElementBoundingBox;
 	                        }
@@ -1788,7 +1810,7 @@ const float CLAY__EPSILON = 0.01;
 	                                        .lineHeight = textElementConfig.lineHeight,
 	                                    }},
 	                                    .userData = textElementConfig.userData,
-	                                    .id = Clay__HashNumber(lineIndex, currentElement.id).id,
+	                                    .id = hashNumber(lineIndex, currentElement.id).id,
 	                                    .zIndex = root.zIndex,
 	                                    .commandType = CLAY_RENDER_COMMAND_TYPE_TEXT,
 	                                });
@@ -1896,7 +1918,7 @@ const float CLAY__EPSILON = 0.01;
 	                }
 
 	                if (elementHasConfig(currentElement, CLAY__ELEMENT_CONFIG_TYPE_BORDER)) {
-	                    Clay_LayoutElementHashMapItem *currentElementData = Clay__GetHashMapItem(currentElement.id);
+	                    Clay_LayoutElementHashMapItem *currentElementData = getHashMapItem(currentElement.id);
 	                    Clay_BoundingBox currentElementBoundingBox = currentElementData.boundingBox;
 
 	                    // Culling - Don't bother to generate render commands for rectangles entirely outside the screen - this won't stop their children from being rendered if they overflow
@@ -1911,7 +1933,7 @@ const float CLAY__EPSILON = 0.01;
 	                                    .X = borderConfig.X
 	                                }},
 	                                .userData = sharedConfig.userData,
-	                                .id = Clay__HashNumber(currentElement.id, currentElement.childrenOrTextContent.children.length).id,
+	                                .id = hashNumber(currentElement.id, currentElement.childrenOrTextContent.children.length).id,
 	                                .commandType = CLAY_RENDER_COMMAND_TYPE_BORDER,
 	                        };
 	                        Clay__AddRenderCommand(renderCommand);
@@ -1928,7 +1950,7 @@ const float CLAY__EPSILON = 0.01;
 	                                                .backgroundColor = borderConfig.color,
 	                                            } },
 	                                            .userData = sharedConfig.userData,
-	                                            .id = Clay__HashNumber(currentElement.id, currentElement.childrenOrTextContent.children.length + 1 + i).id,
+	                                            .id = hashNumber(currentElement.id, currentElement.childrenOrTextContent.children.length + 1 + i).id,
 	                                            .commandType = CLAY_RENDER_COMMAND_TYPE_RECTANGLE,
 	                                        });
 	                                    }
@@ -1944,7 +1966,7 @@ const float CLAY__EPSILON = 0.01;
 	                                                    .backgroundColor = borderConfig.color,
 	                                            } },
 	                                            .userData = sharedConfig.userData,
-	                                            .id = Clay__HashNumber(currentElement.id, currentElement.childrenOrTextContent.children.length + 1 + i).id,
+	                                            .id = hashNumber(currentElement.id, currentElement.childrenOrTextContent.children.length + 1 + i).id,
 	                                            .commandType = CLAY_RENDER_COMMAND_TYPE_RECTANGLE,
 	                                        });
 	                                    }
@@ -1957,7 +1979,7 @@ const float CLAY__EPSILON = 0.01;
 	                // This exists because the scissor needs to end _after_ borders between elements
 	                if (closeScrollElement) {
 	                    Clay__AddRenderCommand(CLAY__INIT(Clay_RenderCommand) {
-	                        .id = Clay__HashNumber(currentElement.id, rootElement.childrenOrTextContent.children.length + 11).id,
+	                        .id = hashNumber(currentElement.id, rootElement.childrenOrTextContent.children.length + 11).id,
 	                        .commandType = CLAY_RENDER_COMMAND_TYPE_SCISSOR_END,
 	                    });
 	                }
@@ -2015,7 +2037,7 @@ const float CLAY__EPSILON = 0.01;
 	        }
 
 	        if (root.clipElementId) {
-	            Clay__AddRenderCommand(CLAY__INIT(Clay_RenderCommand) { .id = Clay__HashNumber(rootElement.id, rootElement.childrenOrTextContent.children.length + 11).id, .commandType = CLAY_RENDER_COMMAND_TYPE_SCISSOR_END });
+	            Clay__AddRenderCommand(CLAY__INIT(Clay_RenderCommand) { .id = hashNumber(rootElement.id, rootElement.childrenOrTextContent.children.length + 11).id, .commandType = CLAY_RENDER_COMMAND_TYPE_SCISSOR_END });
 	        }
 	    }
 	}
@@ -2098,7 +2120,7 @@ Clay_LayoutConfig Clay__DebugView_ScrollViewItemLayoutConfig = CLAY__DEFAULT_STR
 	            }
 
 	            context.treeNodeVisited.internalArray[dfsBuffer.length - 1] = true;
-	            Clay_LayoutElementHashMapItem *currentElementData = Clay__GetHashMapItem(currentElement.id);
+	            Clay_LayoutElementHashMapItem *currentElementData = getHashMapItem(currentElement.id);
 	            bool offscreen = Clay__ElementIsOffscreen(&currentElementData.boundingBox);
 	            if (context.debugSelectedElementId == currentElement.id) {
 	                layoutData.selectedElementRowIndex = layoutData.rowCount;
@@ -2202,7 +2224,7 @@ Clay_LayoutConfig Clay__DebugView_ScrollViewItemLayoutConfig = CLAY__DEFAULT_STR
 	        for (int32 i = (int)context.pointerOverIds.length - 1; i >= 0; i--) {
 	            Clay_ElementId *elementId = Clay__ElementIdArray_Get(&context.pointerOverIds, i);
 	            if (elementId.baseId == collapseButtonId.baseId) {
-	                Clay_LayoutElementHashMapItem *highlightedItem = Clay__GetHashMapItem(elementId.offset);
+	                Clay_LayoutElementHashMapItem *highlightedItem = getHashMapItem(elementId.offset);
 	                highlightedItem.debugData.collapsed = !highlightedItem.debugData.collapsed;
 	                break;
 	            }
@@ -2360,7 +2382,7 @@ Clay_LayoutConfig Clay__DebugView_ScrollViewItemLayoutConfig = CLAY__DEFAULT_STR
 	                        layoutData = Clay__RenderDebugLayoutElementsList((int32)initialRootsLength, highlightedRow);
 	                    }
 	                }
-	                float contentWidth = Clay__GetHashMapItem(panelContentsId.id).layoutElement.dimensions.X;
+	                float contentWidth = getHashMapItem(panelContentsId.id).layoutElement.dimensions.X;
 	                CLAY({ .layout = { .sizing = {.X = CLAY_SIZING_FIXED(contentWidth) }, .layoutDirection = CLAY_TOP_TO_BOTTOM } }) {}
 	                for (int32 i = 0; i < layoutData.rowCount; i++) {
 	                    colorex.RGBA rowColor = (i & 1) == 0 ? CLAY__DEBUGVIEW_COLOR_2 : CLAY__DEBUGVIEW_COLOR_1;
@@ -2378,7 +2400,7 @@ Clay_LayoutConfig Clay__DebugView_ScrollViewItemLayoutConfig = CLAY__DEFAULT_STR
 	        }
 	        CLAY({ .layout = { .sizing = {.X = CLAY_SIZING_GROW(0), .Y = CLAY_SIZING_FIXED(1)} }, .backgroundColor = CLAY__DEBUGVIEW_COLOR_3 }) {}
 	        if (context.debugSelectedElementId != 0) {
-	            Clay_LayoutElementHashMapItem *selectedItem = Clay__GetHashMapItem(context.debugSelectedElementId);
+	            Clay_LayoutElementHashMapItem *selectedItem = getHashMapItem(context.debugSelectedElementId);
 	            CLAY({
 	                .layout = { .sizing = {CLAY_SIZING_GROW(0), CLAY_SIZING_FIXED(300)}, .layoutDirection = CLAY_TOP_TO_BOTTOM },
 	                .backgroundColor = CLAY__DEBUGVIEW_COLOR_2 ,
@@ -2576,7 +2598,7 @@ Clay_LayoutConfig Clay__DebugView_ScrollViewItemLayoutConfig = CLAY__DEFAULT_STR
 	                                CLAY_TEXT(Clay__IntToString(floatingConfig.zIndex), infoTextConfig);
 	                                // .parentId
 	                                CLAY_TEXT(CLAY_STRING("Parent"), infoTitleConfig);
-	                                Clay_LayoutElementHashMapItem *hashItem = Clay__GetHashMapItem(floatingConfig.parentId);
+	                                Clay_LayoutElementHashMapItem *hashItem = getHashMapItem(floatingConfig.parentId);
 	                                CLAY_TEXT(hashItem.elementId.stringId, infoTextConfig);
 	                            }
 	                            break;

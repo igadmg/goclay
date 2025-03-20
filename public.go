@@ -1,6 +1,9 @@
 package goclay
 
-import "github.com/igadmg/raylib-go/raymath/vector2"
+import (
+	"github.com/igadmg/goex/slicesex"
+	"github.com/igadmg/raylib-go/raymath/vector2"
+)
 
 // Returns the size, in bytes, of the minimum amount of memory Clay requires to operate at its current settings.
 ///func MinMemorySize() uint32 {}
@@ -27,18 +30,18 @@ func SetPointerState(position vector2.Float32, pointerDown bool) {
 		dfsBuffer = context.layoutElementChildrenBuffer[:0]
 		root := context.layoutElementTreeRoots[rootIndex]
 		dfsBuffer = append(dfsBuffer, root.layoutElementIndex)
-		context.treeNodeVisited[0] = false
+		context.treeNodeVisited = slicesex.Set(context.treeNodeVisited, 0, false)
 		found := false
 		for len(dfsBuffer) > 0 {
 			if context.treeNodeVisited[len(dfsBuffer)-1] {
 				dfsBuffer = dfsBuffer[:len(dfsBuffer)-1]
 				continue
 			}
-			context.treeNodeVisited[len(dfsBuffer)-1] = true
+			context.treeNodeVisited = slicesex.Set(context.treeNodeVisited, len(dfsBuffer)-1, true)
 			currentElement := context.layoutElements[dfsBuffer[len(dfsBuffer)-1]]
-			mapItem := Clay__GetHashMapItem(currentElement.id) // TODO think of a way around this, maybe the fact that it's essentially a binary tree limits the cost, but the worst case is not great
-			clipElementId := uint32(0)                         //TODO: fix context.layoutElementClipElementIds[(int32)(currentElement-context.layoutElements.internalArray)]
-			clipItem := Clay__GetHashMapItem(clipElementId)
+			mapItem := getHashMapItem(currentElement.id) // TODO think of a way around this, maybe the fact that it's essentially a binary tree limits the cost, but the worst case is not great
+			clipElementId := uint32(0)                   //TODO: fix context.layoutElementClipElementIds[(int32)(currentElement-context.layoutElements.internalArray)]
+			clipItem := getHashMapItem(clipElementId)
 			if mapItem != nil {
 				elementBox := mapItem.boundingBox
 				elementBox.AddX(root.pointerOffset.X)
@@ -61,7 +64,7 @@ func SetPointerState(position vector2.Float32, pointerDown bool) {
 				}
 				for i := len(currentElement.children) - 1; i >= 0; i-- {
 					//dfsBuffer = append(dfsBuffer, currentElement.children.elements[i]) // TODO: fix that
-					context.treeNodeVisited[len(dfsBuffer)-1] = false // TODO needs to be ranged checked
+					context.treeNodeVisited = slicesex.Set(context.treeNodeVisited, len(dfsBuffer)-1, false) // TODO needs to be ranged checked
 				}
 			} else {
 				dfsBuffer = dfsBuffer[:len(dfsBuffer)-1]
@@ -99,8 +102,8 @@ func SetPointerState(position vector2.Float32, pointerDown bool) {
 // - errorHandler is used by Clay to inform you if something has gone wrong in configuration or layout.
 func Initialize(arena any /*Arena*/, layoutDimensions vector2.Float32, errorHandler ErrorHandler) *Context {
 	// DEFAULTS
-	if errorHandler.errorHandlerFunction == nil {
-		errorHandler.errorHandlerFunction = errorHandlerFunctionDefault
+	if errorHandler.ErrorHandlerFunction == nil {
+		errorHandler.ErrorHandlerFunction = errorHandlerFunctionDefault
 	}
 
 	context := &Context{
@@ -358,7 +361,10 @@ func EndLayout() /*RenderCommandArray*/ any {
 ///CLAY_DLL_EXPORT void ResetMeasureTextCache(void);
 
 func CLAY(e ElementDeclaration, fns ...func()) {
-	openElement()
+	if !openElement() {
+		return
+	}
+
 	configureOpenElement(&e)
 	for _, fn := range fns {
 		fn()
