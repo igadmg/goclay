@@ -21,8 +21,8 @@ func main() {
 	mousePosition := vector2.NewFloat32(160, 100)
 	mouseWheel := vector2.NewFloat32(0, 0)
 	isMouseDown := false
-	var profilePicture any
-	var deltaTime float32
+	var profilePicture any = &struct{ ImageData []byte }{ImageData: nil}
+	var deltaTime float32 = 0.1
 
 	// Note: screenWidth and screenHeight will need to come from your environment, Clay doesn't handle window related tasks
 	ctx := clay.Initialize(nil, screenSize, clay.ErrorHandler{})
@@ -100,6 +100,8 @@ func main() {
 				//        DrawRectangle( renderCommand->boundingBox, renderCommand->renderData.rectangle.backgroundColor);
 				//    }
 				//    // ... Implement handling of other command types
+			case clay.ImageRenderData:
+				fmt.Println("Image Render Data")
 			}
 		}
 	}

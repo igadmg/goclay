@@ -872,7 +872,7 @@ func (c *Context) configureOpenElement(declaration *ElementDeclaration) {
 		sharedConfig = c.storeSharedElementConfig(SharedElementConfig{backgroundColor: declaration.BackgroundColor})
 		c.attachElementConfig(sharedConfig)
 	}
-	if declaration.CornerRadius.IsEmpty() {
+	if !declaration.CornerRadius.IsEmpty() {
 		if sharedConfig != nil {
 			sharedConfig.cornerRadius = declaration.CornerRadius
 		} else {
