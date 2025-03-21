@@ -1,7 +1,8 @@
 package goclay
 
 import (
-	"github.com/igadmg/goex/slicesex"
+	"github.com/igadmg/goex/image/colorex"
+	"github.com/igadmg/raylib-go/raymath/rect2"
 	"github.com/igadmg/raylib-go/raymath/vector2"
 )
 
@@ -29,14 +30,14 @@ func (c *Context) SetPointerState(position vector2.Float32, pointerDown bool) {
 		dfsBuffer = c.layoutElementChildrenBuffer[:0]
 		root := c.layoutElementTreeRoots[rootIndex]
 		dfsBuffer = append(dfsBuffer, root.layoutElementIndex)
-		c.treeNodeVisited = slicesex.Set(c.treeNodeVisited, 0, false)
+		c.treeNodeVisited[0] = false
 		found := false
 		for len(dfsBuffer) > 0 {
 			if c.treeNodeVisited[len(dfsBuffer)-1] {
 				dfsBuffer = dfsBuffer[:len(dfsBuffer)-1]
 				continue
 			}
-			c.treeNodeVisited = slicesex.Set(c.treeNodeVisited, len(dfsBuffer)-1, true)
+			c.treeNodeVisited[len(dfsBuffer)-1] = true
 			currentElement := c.layoutElements[dfsBuffer[len(dfsBuffer)-1]]
 			mapItem := c.getHashMapItem(currentElement.id) // TODO think of a way around this, maybe the fact that it's essentially a binary tree limits the cost, but the worst case is not great
 			clipElementId := uint32(0)                     //TODO: fix c.layoutElementClipElementIds[(int32)(currentElement-c.layoutElements.internalArray)]
@@ -63,21 +64,21 @@ func (c *Context) SetPointerState(position vector2.Float32, pointerDown bool) {
 				}
 				for i := len(currentElement.children) - 1; i >= 0; i-- {
 					dfsBuffer = append(dfsBuffer, currentElement.children[i])
-					c.treeNodeVisited = slicesex.Set(c.treeNodeVisited, len(dfsBuffer)-1, false) // TODO needs to be ranged checked
+					c.treeNodeVisited[len(dfsBuffer)-1] = false // TODO needs to be ranged checked
 				}
 			} else {
 				dfsBuffer = dfsBuffer[:len(dfsBuffer)-1]
 			}
 		}
 
-		/* TODO: fix
-		rootElement := c.layoutElements[root.layoutElementIndex]
-		if found && elementHasConfig[*FloatingElementConfig](&rootElement) &&
-			Clay__FindElementConfigWithType(rootElement, CLAY__ELEMENT_CONFIG_TYPE_FLOATING).floatingElementConfig.pointerCaptureMode == CLAY_POINTER_CAPTURE_MODE_CAPTURE {
-			break
+		if found {
+			rootElement := c.layoutElements[root.layoutElementIndex]
+			if config, ok := findElementConfigWithType[*FloatingElementConfig](&rootElement); ok {
+				if config.pointerCaptureMode == POINTER_CAPTURE_MODE_CAPTURE {
+					break
+				}
+			}
 		}
-		*/
-		_ = found
 	}
 
 	if pointerDown {
@@ -207,7 +208,7 @@ func (c *Context) UpdateScrollContainers(enableDragScrolling bool, scrollDelta v
 
 	       if (highestPriorityElementIndex > -1 && highestPriorityScrollData) {
 	           Clay_LayoutElement *scrollElement = highestPriorityScrollData.layoutElement;
-	           Clay_ScrollElementConfig *scrollConfig = Clay__FindElementConfigWithType(scrollElement, CLAY__ELEMENT_CONFIG_TYPE_SCROLL).scrollElementConfig;
+	           Clay_ScrollElementConfig *scrollConfig = findElementConfigWithType(scrollElement, CLAY__ELEMENT_CONFIG_TYPE_SCROLL).scrollElementConfig;
 	           bool canScrollVertically = scrollConfig.vertical && highestPriorityScrollData.contentSize.height > scrollElement.dimensions.height;
 	           bool canScrollHorizontally = scrollConfig.horizontal && highestPriorityScrollData.contentSize.width > scrollElement.dimensions.width;
 	           // Handle wheel scroll
@@ -291,7 +292,33 @@ func (c *Context) BeginLayout() {
 // Called when all layout declarations are finished.
 // Computes the layout and generates and returns the array of render commands to draw.
 func (c *Context) EndLayout() /*RenderCommandArray*/ any {
-	return nil
+	c.closeElement()
+	elementsExceededBeforeDebugView := c.booleanWarnings.maxElementsExceeded
+	if c.debugModeEnabled && !elementsExceededBeforeDebugView {
+		c.warningsEnabled = false
+		c.Clay__RenderDebugView()
+		c.warningsEnabled = true
+	}
+	if c.booleanWarnings.maxElementsExceeded {
+		message := ""
+		if !elementsExceededBeforeDebugView {
+			message = "Clay Error: Layout elements exceeded Clay__maxElementCount after adding the debug-view to the layout."
+		} else {
+			message = "Clay Error: Layout elements exceeded Clay__maxElementCount"
+		}
+		c.Clay__AddRenderCommand(RenderCommand{
+			boundingBox: rect2.NewFloat32(c.layoutDimensions.ScaleF(0.5).AddX(-59*4), vector2.Zero[float32]()),
+			renderData: TextRenderData{
+				stringContents: message,
+				textColor:      colorex.RGBA{R: 255, G: 0, B: 0, A: 255},
+				fontSize:       16,
+			},
+		})
+	} else {
+		c.Clay__CalculateFinalLayout()
+	}
+
+	return c.renderCommands
 }
 
 // Returns layout data such as the final calculated bounding box for an element with a given ID.

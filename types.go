@@ -2,6 +2,7 @@ package goclay
 
 import (
 	"github.com/igadmg/goex/image/colorex"
+	"github.com/igadmg/raylib-go/raymath/rect2"
 	"github.com/igadmg/raylib-go/raymath/vector2"
 )
 
@@ -198,6 +199,14 @@ func SIZING_PERCENT(percentOfParent float32) AnySizingAxis {
 type Sizing struct {
 	Width  AnySizingAxis // Controls the width sizing of the element, along the x axis.
 	Height AnySizingAxis // Controls the height sizing of the element, along the y axis.
+}
+
+func (s Sizing) GetAxis(xAxis bool) AnySizingAxis {
+	if xAxis {
+		return s.Width
+	} else {
+		return s.Height
+	}
 }
 
 // Controls "padding" in pixels, which is a gap between the bounding box of this element and where its children
@@ -427,6 +436,99 @@ var default_BorderElementConfig BorderElementConfig
 
 func (b BorderElementConfig) IsEmpty() bool {
 	return b.color.IsZero() && b.width.IsEmpty()
+}
+
+// Render Command Data -----------------------------
+
+// Render command data when commandType == CLAY_RENDER_COMMAND_TYPE_TEXT
+type TextRenderData struct {
+	// A string slice containing the text to be rendered.
+	// Note: this is not guaranteed to be null terminated.
+	stringContents string
+	// Conventionally represented as 0-255 for each channel, but interpretation is up to the renderer.
+	textColor colorex.RGBA
+	// An integer representing the font to use to render this text, transparently passed through from the text declaration.
+	fontId   uint16
+	fontSize uint16
+	// Specifies the extra whitespace gap in pixels between each character.
+	letterSpacing uint16
+	// The height of the bounding box for this line of text.
+	lineHeight uint16
+}
+
+// Render command data when commandType == CLAY_RENDER_COMMAND_TYPE_RECTANGLE
+type RectangleRenderData struct {
+	// The solid background color to fill this rectangle with. Conventionally represented as 0-255 for each channel, but interpretation is up to the renderer.
+	backgroundColor colorex.RGBA
+	// Controls the "radius", or corner rounding of elements, including rectangles, borders and images.
+	// The rounding is determined by drawing a circle inset into the element corner by (radius, radius) pixels.
+	cornerRadius CornerRadius
+}
+
+// Render command data when commandType == CLAY_RENDER_COMMAND_TYPE_IMAGE
+type ImageRenderData struct {
+	// The tint color for this image. Note that the default value is 0,0,0,0 and should likely be interpreted
+	// as "untinted".
+	// Conventionally represented as 0-255 for each channel, but interpretation is up to the renderer.
+	backgroundColor colorex.RGBA
+	// Controls the "radius", or corner rounding of this image.
+	// The rounding is determined by drawing a circle inset into the element corner by (radius, radius) pixels.
+	cornerRadius CornerRadius
+	// The original dimensions of the source image, used to control aspect ratio.
+	sourceDimensions vector2.Float32
+	// A pointer transparently passed through from the original element definition, typically used to represent image data.
+	imageData any
+}
+
+// Render command data when commandType == CLAY_RENDER_COMMAND_TYPE_CUSTOM
+type CustomRenderData struct {
+	// Passed through from .backgroundColor in the original element declaration.
+	// Conventionally represented as 0-255 for each channel, but interpretation is up to the renderer.
+	backgroundColor colorex.RGBA
+	// Controls the "radius", or corner rounding of this custom element.
+	// The rounding is determined by drawing a circle inset into the element corner by (radius, radius) pixels.
+	cornerRadius CornerRadius
+	// A pointer transparently passed through from the original element definition.
+	customData any
+}
+
+// Render command data when commandType == CLAY_RENDER_COMMAND_TYPE_SCISSOR_START || commandType == CLAY_RENDER_COMMAND_TYPE_SCISSOR_END
+type ScrollRenderData struct {
+	horizontal bool
+	vertical   bool
+}
+
+// Render command data when commandType == CLAY_RENDER_COMMAND_TYPE_BORDER
+type BorderRenderData struct {
+	// Controls a shared color for all this element's borders.
+	// Conventionally represented as 0-255 for each channel, but interpretation is up to the renderer.
+	color colorex.RGBA
+	// Specifies the "radius", or corner rounding of this border element.
+	// The rounding is determined by drawing a circle inset into the element corner by (radius, radius) pixels.
+	cornerRadius CornerRadius
+	// Controls individual border side widths.
+	width BorderWidth
+}
+
+type RenderDataType interface {
+	RectangleRenderData | TextRenderData | ImageRenderData | CustomRenderData | BorderRenderData | ScrollRenderData
+}
+
+type AnyRenderData any
+
+type RenderCommand struct {
+	// A rectangular box that fully encloses this UI element, with the position relative to the root of the layout.
+	boundingBox rect2.Float32
+	// A struct union containing data specific to this command's commandType.
+	renderData AnyRenderData
+	// A pointer transparently passed through from the original element declaration.
+	userData any
+	// The id of this element, transparently passed through from the original element declaration.
+	id uint32
+	// The z order required for drawing this command correctly.
+	// Note: the render command array is already sorted in ascending order, and will produce correct results if drawn in naive order.
+	// This field is intended for use in batching renderers for improved performance.
+	zIndex int16
 }
 
 // Represents the current state of interaction with clay this frame.
