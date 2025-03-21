@@ -43,9 +43,7 @@ func (c *Context) SetPointerState(position vector2.Float32, pointerDown bool) {
 			clipElementId := uint32(0)                     //TODO: fix c.layoutElementClipElementIds[(int32)(currentElement-c.layoutElements.internalArray)]
 			clipItem := c.getHashMapItem(clipElementId)
 			if mapItem != nil {
-				elementBox := mapItem.boundingBox
-				elementBox.AddX(root.pointerOffset.X)
-				elementBox.AddY(-root.pointerOffset.Y)
+				elementBox := mapItem.boundingBox.AddXY(root.pointerOffset.X, -root.pointerOffset.Y)
 
 				if elementBox.Contains(position) && (clipElementId == 0 || clipItem.boundingBox.Contains(position)) {
 					if mapItem.onHoverFunction != nil {
