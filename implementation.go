@@ -75,7 +75,7 @@ type WrappedTextLine struct {
 type TextElementData struct {
 	text                string
 	preferredDimensions vector2.Float32
-	elementIndex        int32
+	elementIndex        int
 	wrappedLines        []WrappedTextLine
 }
 
@@ -142,6 +142,8 @@ type MeasureTextCacheItem struct {
 	generation uint32
 }
 
+var default_MeasureTextCacheItem MeasureTextCacheItem
+
 type LayoutElementTreeNode struct {
 	layoutElement   *LayoutElement
 	position        vector2.Float32
@@ -198,23 +200,22 @@ type Context struct {
 	borderElementConfigs   []BorderElementConfig
 	sharedElementConfigs   []SharedElementConfig
 	// Misc Data Structures
-	layoutElementIdStrings             []string
-	wrappedTextLines                   []WrappedTextLine
-	layoutElementTreeNodeArray         []LayoutElementTreeNode
-	layoutElementTreeRoots             []LayoutElementTreeRoot
-	layoutElementsHashMapInternal      []LayoutElementHashMapItem
-	layoutElementsHashMap              map[uint32]*LayoutElementHashMapItem
-	measureTextHashMapInternal         []MeasureTextCacheItem
-	measureTextHashMapInternalFreeList []int32
-	measureTextHashMap                 []int32
-	measuredWords                      []MeasuredWord
-	measuredWordsFreeList              []int32
-	openClipElementStack               []int
-	pointerOverIds                     []ElementId
-	scrollContainerDatas               []ScrollContainerDataInternal
-	treeNodeVisited                    []bool
-	dynamicStringData                  []byte
-	debugElementData                   []DebugElementData
+	layoutElementIdStrings        []string
+	wrappedTextLines              []WrappedTextLine
+	layoutElementTreeNodeArray    []LayoutElementTreeNode
+	layoutElementTreeRoots        []LayoutElementTreeRoot
+	layoutElementsHashMapInternal []LayoutElementHashMapItem
+	layoutElementsHashMap         map[uint32]*LayoutElementHashMapItem
+	measureTextHashMapInternal    []MeasureTextCacheItem
+	measureTextHashMap            map[string]*MeasureTextCacheItem
+	measuredWords                 []MeasuredWord
+	measuredWordsFreeList         []int32
+	openClipElementStack          []int
+	pointerOverIds                []ElementId
+	scrollContainerDatas          []ScrollContainerDataInternal
+	treeNodeVisited               []bool
+	dynamicStringData             []byte
+	debugElementData              []DebugElementData
 }
 
 /*
@@ -238,7 +239,9 @@ string Clay__WriteStringToCharBuffer(Clay__charArray *buffer, string string) {
     buffer.length += string.length;
     return CLAY__INIT(string) { .length = string.length, .chars = (const char *)(buffer.internalArray + buffer.length - string.length) };
 }
+*/
 
+/*
 #ifdef CLAY_WASM
     __attribute__((import_module("clay"), import_name("measureTextFunction"))) vector2.Float32 Clay__MeasureText(Clay_StringSlice text, Clay_TextElementConfig *config, void *userData);
     __attribute__((import_module("clay"), import_name("queryScrollOffsetFunction"))) vector2.Float32 Clay__QueryScrollOffset(uint32 elementId, void *userData);
@@ -248,95 +251,87 @@ string Clay__WriteStringToCharBuffer(Clay__charArray *buffer, string string) {
 #endif
 */
 
-func getOpenLayoutElement() *LayoutElement {
-	context := GetCurrentContext()
-	return &context.layoutElements[context.openLayoutElementStack[len(context.openLayoutElementStack)-1]]
+var measureText func(text string, config *TextElementConfig, userData any) vector2.Float32
+var Clay__QueryScrollOffset func(elementId uint32, userData any) vector2.Float32
+
+func (c *Context) getOpenLayoutElement() *LayoutElement {
+	return &c.layoutElements[c.openLayoutElementStack[len(c.openLayoutElementStack)-1]]
 }
 
-func getParentElementId() uint32 {
-	context := GetCurrentContext()
-	return context.layoutElements[context.openLayoutElementStack[len(context.openLayoutElementStack)-2]].id
+func (c *Context) getParentElementId() uint32 {
+	return c.layoutElements[c.openLayoutElementStack[len(c.openLayoutElementStack)-2]].id
 }
 
-func storeLayoutConfig(config LayoutConfig) *LayoutConfig {
-	context := GetCurrentContext()
-	if context.booleanWarnings.maxElementsExceeded {
+func (c *Context) storeLayoutConfig(config LayoutConfig) *LayoutConfig {
+	if c.booleanWarnings.maxElementsExceeded {
 		return &default_LayoutConfig
 	}
-	context.layoutConfigs = append(context.layoutConfigs, config)
-	return &context.layoutConfigs[len(context.layoutConfigs)-1]
+	c.layoutConfigs = append(c.layoutConfigs, config)
+	return &c.layoutConfigs[len(c.layoutConfigs)-1]
 }
 
-func storeTextElementConfig(config TextElementConfig) *TextElementConfig {
-	context := GetCurrentContext()
-	if context.booleanWarnings.maxElementsExceeded {
+func (c *Context) storeTextElementConfig(config TextElementConfig) *TextElementConfig {
+	if c.booleanWarnings.maxElementsExceeded {
 		return &default_TextElementConfig
 	}
-	context.textElementConfigs = append(context.textElementConfigs, config)
-	return &context.textElementConfigs[len(context.textElementConfigs)-1]
+	c.textElementConfigs = append(c.textElementConfigs, config)
+	return &c.textElementConfigs[len(c.textElementConfigs)-1]
 }
 
-func storeImageElementConfig(config ImageElementConfig) *ImageElementConfig {
-	context := GetCurrentContext()
-	if context.booleanWarnings.maxElementsExceeded {
+func (c *Context) storeImageElementConfig(config ImageElementConfig) *ImageElementConfig {
+	if c.booleanWarnings.maxElementsExceeded {
 		return &default_ImageElementConfig
 	}
-	context.imageElementConfigs = append(context.imageElementConfigs, config)
-	return &context.imageElementConfigs[len(context.imageElementConfigs)-1]
+	c.imageElementConfigs = append(c.imageElementConfigs, config)
+	return &c.imageElementConfigs[len(c.imageElementConfigs)-1]
 }
 
-func storeFloatingElementConfig(config FloatingElementConfig) *FloatingElementConfig {
-	context := GetCurrentContext()
-	if context.booleanWarnings.maxElementsExceeded {
+func (c *Context) storeFloatingElementConfig(config FloatingElementConfig) *FloatingElementConfig {
+	if c.booleanWarnings.maxElementsExceeded {
 		return &default_FloatingElementConfig
 	}
-	context.floatingElementConfigs = append(context.floatingElementConfigs, config)
-	return &context.floatingElementConfigs[len(context.floatingElementConfigs)-1]
+	c.floatingElementConfigs = append(c.floatingElementConfigs, config)
+	return &c.floatingElementConfigs[len(c.floatingElementConfigs)-1]
 }
 
-func storeCustomElementConfig(config CustomElementConfig) *CustomElementConfig {
-	context := GetCurrentContext()
-	if context.booleanWarnings.maxElementsExceeded {
+func (c *Context) storeCustomElementConfig(config CustomElementConfig) *CustomElementConfig {
+	if c.booleanWarnings.maxElementsExceeded {
 		return &default_CustomElementConfig
 	}
-	context.customElementConfigs = append(context.customElementConfigs, config)
-	return &context.customElementConfigs[len(context.customElementConfigs)-1]
+	c.customElementConfigs = append(c.customElementConfigs, config)
+	return &c.customElementConfigs[len(c.customElementConfigs)-1]
 }
 
-func storeScrollElementConfig(config ScrollElementConfig) *ScrollElementConfig {
-	context := GetCurrentContext()
-	if context.booleanWarnings.maxElementsExceeded {
+func (c *Context) storeScrollElementConfig(config ScrollElementConfig) *ScrollElementConfig {
+	if c.booleanWarnings.maxElementsExceeded {
 		return &default_ScrollElementConfig
 	}
-	context.scrollElementConfigs = append(context.scrollElementConfigs, config)
-	return &context.scrollElementConfigs[len(context.scrollElementConfigs)-1]
+	c.scrollElementConfigs = append(c.scrollElementConfigs, config)
+	return &c.scrollElementConfigs[len(c.scrollElementConfigs)-1]
 }
 
-func storeBorderElementConfig(config BorderElementConfig) *BorderElementConfig {
-	context := GetCurrentContext()
-	if context.booleanWarnings.maxElementsExceeded {
+func (c *Context) storeBorderElementConfig(config BorderElementConfig) *BorderElementConfig {
+	if c.booleanWarnings.maxElementsExceeded {
 		return &default_BorderElementConfig
 	}
-	context.borderElementConfigs = append(context.borderElementConfigs, config)
-	return &context.borderElementConfigs[len(context.borderElementConfigs)-1]
+	c.borderElementConfigs = append(c.borderElementConfigs, config)
+	return &c.borderElementConfigs[len(c.borderElementConfigs)-1]
 }
 
-func storeSharedElementConfig(config SharedElementConfig) *SharedElementConfig {
-	context := GetCurrentContext()
-	if context.booleanWarnings.maxElementsExceeded {
+func (c *Context) storeSharedElementConfig(config SharedElementConfig) *SharedElementConfig {
+	if c.booleanWarnings.maxElementsExceeded {
 		return &default_SharedElementConfig
 	}
-	context.sharedElementConfigs = append(context.sharedElementConfigs, config)
-	return &context.sharedElementConfigs[len(context.sharedElementConfigs)-1]
+	c.sharedElementConfigs = append(c.sharedElementConfigs, config)
+	return &c.sharedElementConfigs[len(c.sharedElementConfigs)-1]
 }
 
-func attachElementConfig(config AnyElementConfig) AnyElementConfig {
-	context := GetCurrentContext()
-	if context.booleanWarnings.maxElementsExceeded {
+func (c *Context) attachElementConfig(config AnyElementConfig) AnyElementConfig {
+	if c.booleanWarnings.maxElementsExceeded {
 		return config
 	}
-	openLayoutElement := getOpenLayoutElement()
-	context.elementConfigs = append(context.elementConfigs, config)
+	openLayoutElement := c.getOpenLayoutElement()
+	c.elementConfigs = append(c.elementConfigs, config)
 	openLayoutElement.elementConfigs = append(openLayoutElement.elementConfigs, config)
 	return config
 }
@@ -400,208 +395,187 @@ func hashString(key string, offset uint32, seed uint32) ElementId {
 	}
 }
 
-/*
-	uint32 Clay__HashTextWithConfig(string *text, Clay_TextElementConfig *config) {
-	    uint32 hash = 0;
-	    uintptr_t pointerAsNumber = (uintptr_t)text.chars;
+func Clay__HashTextWithConfig(text string, config *TextElementConfig) uint32 {
+	hash := uint32(0)
 
-	    if (config.hashStringContents) {
-	        uint32 maxLengthToHash = min(text.length, 256);
-	        for (uint32 i = 0; i < maxLengthToHash; i++) {
-	            hash += text.chars[i];
-	            hash += (hash << 10);
-	            hash ^= (hash >> 6);
-	        }
-	    } else {
-	        hash += pointerAsNumber;
-	        hash += (hash << 10);
-	        hash ^= (hash >> 6);
-	    }
-
-	    hash += text.length;
-	    hash += (hash << 10);
-	    hash ^= (hash >> 6);
-
-	    hash += config.fontId;
-	    hash += (hash << 10);
-	    hash ^= (hash >> 6);
-
-	    hash += config.fontSize;
-	    hash += (hash << 10);
-	    hash ^= (hash >> 6);
-
-	    hash += config.lineHeight;
-	    hash += (hash << 10);
-	    hash ^= (hash >> 6);
-
-	    hash += config.letterSpacing;
-	    hash += (hash << 10);
-	    hash ^= (hash >> 6);
-
-	    hash += config.wrapMode;
-	    hash += (hash << 10);
-	    hash ^= (hash >> 6);
-
-	    hash += (hash << 3);
-	    hash ^= (hash >> 11);
-	    hash += (hash << 15);
-	    return hash + 1; // Reserve the hash result of zero as "null id"
+	if config.hashStringContents {
+		maxLengthToHash := min(len(text), 256)
+		for i := range maxLengthToHash {
+			hash += uint32(text[i])
+			hash += (hash << 10)
+			hash ^= (hash >> 6)
+		}
+	} else {
+		//pointerAsNumber = uint32(&text[0])
+		//hash += pointerAsNumber
+		//hash += (hash << 10)
+		//hash ^= (hash >> 6)
 	}
 
-	Clay__MeasuredWord *Clay__AddMeasuredWord(Clay__MeasuredWord word, Clay__MeasuredWord *previousWord) {
-	    context := GetCurrentContext();
-	    if (context.measuredWordsFreeList.length > 0) {
-	        uint32 newItemIndex = Clay__int32_tArray_GetValue(&context.measuredWordsFreeList, (int)context.measuredWordsFreeList.length - 1);
-	        context.measuredWordsFreeList.length--;
-	        Clay__MeasuredWordArray_Set(&context.measuredWords, (int)newItemIndex, word);
-	        previousWord.next = (int32)newItemIndex;
-	        return Clay__MeasuredWordArray_Get(&context.measuredWords, (int)newItemIndex);
-	    } else {
-	        previousWord.next = (int32)context.measuredWords.length;
-	        return Clay__MeasuredWordArray_Add(&context.measuredWords, word);
-	    }
+	hash += uint32(len(text))
+	hash += (hash << 10)
+	hash ^= (hash >> 6)
+
+	hash += uint32(config.fontId)
+	hash += (hash << 10)
+	hash ^= (hash >> 6)
+
+	hash += uint32(config.fontSize)
+	hash += (hash << 10)
+	hash ^= (hash >> 6)
+
+	hash += uint32(config.lineHeight)
+	hash += (hash << 10)
+	hash ^= (hash >> 6)
+
+	hash += uint32(config.letterSpacing)
+	hash += (hash << 10)
+	hash ^= (hash >> 6)
+
+	hash += uint32(config.wrapMode)
+	hash += (hash << 10)
+	hash ^= (hash >> 6)
+
+	hash += (hash << 3)
+	hash ^= (hash >> 11)
+	hash += (hash << 15)
+	return hash + 1 // Reserve the hash result of zero as "null id"
+}
+
+func (c *Context) addMeasuredWord(word MeasuredWord, previousWord *MeasuredWord) *MeasuredWord {
+	if len(c.measuredWordsFreeList) > 0 {
+		newItemIndex := c.measuredWordsFreeList[len(c.measuredWordsFreeList)-1]
+		c.measuredWordsFreeList = c.measuredWordsFreeList[:len(c.measuredWordsFreeList)-1]
+		c.measuredWords = slicesex.Set(c.measuredWords, int(newItemIndex), word)
+		previousWord.next = newItemIndex
+		return &c.measuredWords[newItemIndex]
+	} else {
+		previousWord.next = int32(len(c.measuredWords))
+		c.measuredWords = append(c.measuredWords, word)
+		return &c.measuredWords[len(c.measuredWords)-1]
+	}
+}
+
+func (c *Context) measureTextCached(text string, config *TextElementConfig) *MeasureTextCacheItem {
+	if measureText == nil {
+		if !c.booleanWarnings.textMeasurementFunctionNotSet {
+			c.booleanWarnings.textMeasurementFunctionNotSet = true
+			c.errorHandler.ErrorHandlerFunction(ErrorData{
+				ErrorType: ERROR_TYPE_TEXT_MEASUREMENT_FUNCTION_NOT_PROVIDED,
+				ErrorText: "Clay's internal MeasureText function is null. You may have forgotten to call Clay_SetMeasureTextFunction(), or passed a NULL function pointer by mistake.",
+				UserData:  c.errorHandler.UserData,
+			})
+		}
+		return &default_MeasureTextCacheItem
 	}
 
-	Clay__MeasureTextCacheItem *Clay__MeasureTextCached(string *text, Clay_TextElementConfig *config) {
-	    context := GetCurrentContext();
-	    #ifndef CLAY_WASM
-	    if (!Clay__MeasureText) {
-	        if (!context.booleanWarnings.textMeasurementFunctionNotSet) {
-	            context.booleanWarnings.textMeasurementFunctionNotSet = true;
-	            context.errorHandler.errorHandlerFunction(CLAY__INIT(Clay_ErrorData) {
-	                    .errorType = CLAY_ERROR_TYPE_TEXT_MEASUREMENT_FUNCTION_NOT_PROVIDED,
-	                    .errorText = CLAY_STRING("Clay's internal MeasureText function is null. You may have forgotten to call Clay_SetMeasureTextFunction(), or passed a NULL function pointer by mistake."),
-	                    .userData = context.errorHandler.userData });
-	        }
-	        return &Clay__MeasureTextCacheItem_DEFAULT;
-	    }
-	    #endif
-	    uint32 id = Clay__HashTextWithConfig(text, config);
-	    uint32 hashBucket = id % (context.maxMeasureTextCacheWordCount / 32);
-	    int32 elementIndexPrevious = 0;
-	    int32 elementIndex = context.measureTextHashMap.internalArray[hashBucket];
-	    while (elementIndex != 0) {
-	        Clay__MeasureTextCacheItem *hashEntry = Clay__MeasureTextCacheItemArray_Get(&context.measureTextHashMapInternal, elementIndex);
-	        if (hashEntry.id == id) {
-	            hashEntry.generation = context.generation;
-	            return hashEntry;
-	        }
-	        // This element hasn't been seen in a few frames, delete the hash map item
-	        if (context.generation - hashEntry.generation > 2) {
-	            // Add all the measured words that were included in this measurement to the freelist
-	            int32 nextWordIndex = hashEntry.measuredWordsStartIndex;
-	            while (nextWordIndex != -1) {
-	                Clay__MeasuredWord *measuredWord = Clay__MeasuredWordArray_Get(&context.measuredWords, nextWordIndex);
-	                Clay__int32_tArray_Add(&context.measuredWordsFreeList, nextWordIndex);
-	                nextWordIndex = measuredWord.next;
-	            }
-
-	            int32 nextIndex = hashEntry.nextIndex;
-	            Clay__MeasureTextCacheItemArray_Set(&context.measureTextHashMapInternal, elementIndex, CLAY__INIT(Clay__MeasureTextCacheItem) { .measuredWordsStartIndex = -1 });
-	            Clay__int32_tArray_Add(&context.measureTextHashMapInternalFreeList, elementIndex);
-	            if (elementIndexPrevious == 0) {
-	                context.measureTextHashMap.internalArray[hashBucket] = nextIndex;
-	            } else {
-	                Clay__MeasureTextCacheItem *previousHashEntry = Clay__MeasureTextCacheItemArray_Get(&context.measureTextHashMapInternal, elementIndexPrevious);
-	                previousHashEntry.nextIndex = nextIndex;
-	            }
-	            elementIndex = nextIndex;
-	        } else {
-	            elementIndexPrevious = elementIndex;
-	            elementIndex = hashEntry.nextIndex;
-	        }
-	    }
-
-	    int32 newItemIndex = 0;
-	    Clay__MeasureTextCacheItem newCacheItem = { .measuredWordsStartIndex = -1, .id = id, .generation = context.generation };
-	    Clay__MeasureTextCacheItem *measured = NULL;
-	    if (context.measureTextHashMapInternalFreeList.length > 0) {
-	        newItemIndex = Clay__int32_tArray_GetValue(&context.measureTextHashMapInternalFreeList, context.measureTextHashMapInternalFreeList.length - 1);
-	        context.measureTextHashMapInternalFreeList.length--;
-	        Clay__MeasureTextCacheItemArray_Set(&context.measureTextHashMapInternal, newItemIndex, newCacheItem);
-	        measured = Clay__MeasureTextCacheItemArray_Get(&context.measureTextHashMapInternal, newItemIndex);
-	    } else {
-	        if (context.measureTextHashMapInternal.length == context.measureTextHashMapInternal.capacity - 1) {
-	            if (!context.booleanWarnings.maxTextMeasureCacheExceeded) {
-	                context.errorHandler.errorHandlerFunction(CLAY__INIT(Clay_ErrorData) {
-	                        .errorType = CLAY_ERROR_TYPE_ELEMENTS_CAPACITY_EXCEEDED,
-	                        .errorText = CLAY_STRING("Clay ran out of capacity while attempting to measure text elements. Try using Clay_SetMaxElementCount() with a higher value."),
-	                        .userData = context.errorHandler.userData });
-	                context.booleanWarnings.maxTextMeasureCacheExceeded = true;
-	            }
-	            return &Clay__MeasureTextCacheItem_DEFAULT;
-	        }
-	        measured = Clay__MeasureTextCacheItemArray_Add(&context.measureTextHashMapInternal, newCacheItem);
-	        newItemIndex = context.measureTextHashMapInternal.length - 1;
-	    }
-
-	    int32 start = 0;
-	    int32 end = 0;
-	    float lineWidth = 0;
-	    float measuredWidth = 0;
-	    float measuredHeight = 0;
-	    float spaceWidth = Clay__MeasureText(CLAY__INIT(Clay_StringSlice) { .length = 1, .chars = SPACECHAR.chars, .baseChars = SPACECHAR.chars }, config, context.measureTextUserData).X;
-	    Clay__MeasuredWord tempWord = { .next = -1 };
-	    Clay__MeasuredWord *previousWord = &tempWord;
-	    while (end < text.length) {
-	        if (context.measuredWords.length == context.measuredWords.capacity - 1) {
-	            if (!context.booleanWarnings.maxTextMeasureCacheExceeded) {
-	                context.errorHandler.errorHandlerFunction(CLAY__INIT(Clay_ErrorData) {
-	                    .errorType = CLAY_ERROR_TYPE_TEXT_MEASUREMENT_CAPACITY_EXCEEDED,
-	                    .errorText = CLAY_STRING("Clay has run out of space in it's internal text measurement cache. Try using Clay_SetMaxMeasureTextCacheWordCount() (default 16384, with 1 unit storing 1 measured word)."),
-	                    .userData = context.errorHandler.userData });
-	                context.booleanWarnings.maxTextMeasureCacheExceeded = true;
-	            }
-	            return &Clay__MeasureTextCacheItem_DEFAULT;
-	        }
-	        char current = text.chars[end];
-	        if (current == ' ' || current == '\n') {
-	            int32 length = end - start;
-	            vector2.Float32 dimensions = Clay__MeasureText(CLAY__INIT(Clay_StringSlice) { .length = length, .chars = &text.chars[start], .baseChars = text.chars }, config, context.measureTextUserData);
-	            measuredHeight = max(measuredHeight, dimensions.Y);
-	            if (current == ' ') {
-	                dimensions.X += spaceWidth;
-	                previousWord = Clay__AddMeasuredWord(CLAY__INIT(Clay__MeasuredWord) { .startOffset = start, .length = length + 1, .X = dimensions.X, .next = -1 }, previousWord);
-	                lineWidth += dimensions.X;
-	            }
-	            if (current == '\n') {
-	                if (length > 0) {
-	                    previousWord = Clay__AddMeasuredWord(CLAY__INIT(Clay__MeasuredWord) { .startOffset = start, .length = length, .X = dimensions.X, .next = -1 }, previousWord);
-	                }
-	                previousWord = Clay__AddMeasuredWord(CLAY__INIT(Clay__MeasuredWord) { .startOffset = end + 1, .length = 0, .X = 0, .next = -1 }, previousWord);
-	                lineWidth += dimensions.X;
-	                measuredWidth = max(lineWidth, measuredWidth);
-	                measured.containsNewlines = true;
-	                lineWidth = 0;
-	            }
-	            start = end + 1;
-	        }
-	        end++;
-	    }
-	    if (end - start > 0) {
-	        vector2.Float32 dimensions = Clay__MeasureText(CLAY__INIT(Clay_StringSlice) { .length = end - start, .chars = &text.chars[start], .baseChars = text.chars }, config, context.measureTextUserData);
-	        Clay__AddMeasuredWord(CLAY__INIT(Clay__MeasuredWord) { .startOffset = start, .length = end - start, .X = dimensions.X, .next = -1 }, previousWord);
-	        lineWidth += dimensions.X;
-	        measuredHeight = max(measuredHeight, dimensions.Y);
-	    }
-	    measuredWidth = max(lineWidth, measuredWidth);
-
-	    measured.measuredWordsStartIndex = tempWord.next;
-	    measured.unwrappedDimensions.X = measuredWidth;
-	    measured.unwrappedDimensions.Y = measuredHeight;
-
-	    if (elementIndexPrevious != 0) {
-	        Clay__MeasureTextCacheItemArray_Get(&context.measureTextHashMapInternal, elementIndexPrevious).nextIndex = newItemIndex;
-	    } else {
-	        context.measureTextHashMap.internalArray[hashBucket] = newItemIndex;
-	    }
-	    return measured;
+	id := Clay__HashTextWithConfig(text, config)
+	if hashEntry, ok := c.measureTextHashMap[text]; ok {
+		return hashEntry
 	}
-*/
 
-func addHashMapItem(elementId ElementId, layoutElement *LayoutElement, idAlias uint32) *LayoutElementHashMapItem {
-	context := GetCurrentContext()
-	if len(context.layoutElementsHashMapInternal) == cap(context.layoutElementsHashMapInternal)-1 {
+	newCacheItem := MeasureTextCacheItem{
+		measuredWordsStartIndex: -1,
+		id:                      id,
+		generation:              c.generation,
+	}
+	measured := (*MeasureTextCacheItem)(nil)
+
+	if len(c.measureTextHashMapInternal) == cap(c.measureTextHashMapInternal)-1 {
+		if !c.booleanWarnings.maxTextMeasureCacheExceeded {
+			c.errorHandler.ErrorHandlerFunction(ErrorData{
+				ErrorType: ERROR_TYPE_ELEMENTS_CAPACITY_EXCEEDED,
+				ErrorText: "Clay ran out of capacity while attempting to measure text elements. Try using Clay_SetMaxElementCount() with a higher value.",
+				UserData:  c.errorHandler.UserData})
+			c.booleanWarnings.maxTextMeasureCacheExceeded = true
+		}
+		return &default_MeasureTextCacheItem
+	}
+	c.measureTextHashMapInternal = append(c.measureTextHashMapInternal, newCacheItem)
+	measured = &c.measureTextHashMapInternal[len(c.measureTextHashMapInternal)-1]
+
+	start := 0
+	end := 0
+	lineWidth := float32(0)
+	measuredWidth := float32(0)
+	measuredHeight := float32(0)
+	spaceWidth := measureText(SPACECHAR, config, c.measureTextUserData).X
+	tempWord := MeasuredWord{next: -1}
+	previousWord := &tempWord
+	for end < len(text) {
+		if len(c.measuredWords) == cap(c.measuredWords)-1 {
+			if !c.booleanWarnings.maxTextMeasureCacheExceeded {
+				c.errorHandler.ErrorHandlerFunction(ErrorData{
+					ErrorType: ERROR_TYPE_TEXT_MEASUREMENT_CAPACITY_EXCEEDED,
+					ErrorText: "Clay has run out of space in it's internal text measurement cache. Try using Clay_SetMaxMeasureTextCacheWordCount() (default 16384, with 1 unit storing 1 measured word).",
+					UserData:  c.errorHandler.UserData,
+				})
+				c.booleanWarnings.maxTextMeasureCacheExceeded = true
+			}
+			return &default_MeasureTextCacheItem
+		}
+		current := text[end]
+		if current == ' ' || current == '\n' {
+			length := end - start
+			dimensions := measureText(text[start:end], config, c.measureTextUserData)
+			measuredHeight = max(float32(measuredHeight), dimensions.Y)
+			if current == ' ' {
+				dimensions.X += spaceWidth
+				previousWord = c.addMeasuredWord(MeasuredWord{
+					startOffset: int32(start),
+					length:      int32(length + 1),
+					width:       dimensions.X,
+					next:        -1},
+					previousWord)
+				lineWidth += dimensions.X
+			}
+			if current == '\n' {
+				if length > 0 {
+					previousWord = c.addMeasuredWord(MeasuredWord{
+						startOffset: int32(start),
+						length:      int32(length),
+						width:       dimensions.X,
+						next:        -1},
+						previousWord)
+				}
+				previousWord = c.addMeasuredWord(MeasuredWord{
+					startOffset: int32(end + 1),
+					length:      0,
+					width:       0,
+					next:        -1},
+					previousWord)
+				lineWidth += dimensions.X
+				measuredWidth = max(lineWidth, measuredWidth)
+				measured.containsNewlines = true
+				lineWidth = 0
+			}
+			start = end + 1
+		}
+		end++
+	}
+	if end-start > 0 {
+		dimensions := measureText(text[start:end], config, c.measureTextUserData)
+		c.addMeasuredWord(MeasuredWord{
+			startOffset: int32(start),
+			length:      int32(end - start),
+			width:       dimensions.X,
+			next:        -1,
+		},
+			previousWord)
+		lineWidth += dimensions.X
+		measuredHeight = max(measuredHeight, dimensions.Y)
+	}
+	measuredWidth = max(lineWidth, measuredWidth)
+
+	measured.measuredWordsStartIndex = tempWord.next
+	measured.unwrappedDimensions.X = measuredWidth
+	measured.unwrappedDimensions.Y = measuredHeight
+
+	return measured
+}
+
+func (c *Context) addHashMapItem(elementId ElementId, layoutElement *LayoutElement, idAlias uint32) *LayoutElementHashMapItem {
+	if len(c.layoutElementsHashMapInternal) == cap(c.layoutElementsHashMapInternal)-1 {
 		return nil
 	}
 
@@ -609,19 +583,18 @@ func addHashMapItem(elementId ElementId, layoutElement *LayoutElement, idAlias u
 		elementId:     elementId,
 		layoutElement: layoutElement,
 		nextIndex:     -1,
-		generation:    context.generation + 1,
+		generation:    c.generation + 1,
 		idAlias:       idAlias,
 	}
 
-	context.layoutElementsHashMapInternal = append(context.layoutElementsHashMapInternal, item)
-	context.layoutElementsHashMap[elementId.id] = &context.layoutElementsHashMapInternal[len(context.layoutElementsHashMapInternal)-1]
+	c.layoutElementsHashMapInternal = append(c.layoutElementsHashMapInternal, item)
+	c.layoutElementsHashMap[elementId.id] = &c.layoutElementsHashMapInternal[len(c.layoutElementsHashMapInternal)-1]
 
-	return context.layoutElementsHashMap[elementId.id]
+	return c.layoutElementsHashMap[elementId.id]
 }
 
-func getHashMapItem(id uint32) *LayoutElementHashMapItem {
-	context := GetCurrentContext()
-	r, ok := context.layoutElementsHashMap[id]
+func (c *Context) getHashMapItem(id uint32) *LayoutElementHashMapItem {
+	r, ok := c.layoutElementsHashMap[id]
 	if !ok {
 		return &default_LayoutElementHashMapItem
 	}
@@ -629,13 +602,12 @@ func getHashMapItem(id uint32) *LayoutElementHashMapItem {
 	return r
 }
 
-func Clay__GenerateIdForAnonymousElement(openLayoutElement *LayoutElement) ElementId {
-	context := GetCurrentContext()
-	parentElement := context.layoutElements[context.openLayoutElementStack[len(context.openLayoutElementStack)-2]]
+func (c *Context) generateIdForAnonymousElement(openLayoutElement *LayoutElement) ElementId {
+	parentElement := c.layoutElements[c.openLayoutElementStack[len(c.openLayoutElementStack)-2]]
 	elementId := hashNumber(uint32(len(parentElement.children)), parentElement.id)
 	openLayoutElement.id = elementId.id
-	addHashMapItem(elementId, openLayoutElement, 0)
-	context.layoutElementIdStrings = append(context.layoutElementIdStrings, elementId.stringId)
+	c.addHashMapItem(elementId, openLayoutElement, 0)
+	c.layoutElementIdStrings = append(c.layoutElementIdStrings, elementId.stringId)
 	return elementId
 }
 
@@ -667,37 +639,34 @@ func updateAspectRatioBox(layoutElement *LayoutElement) {
 	}
 }
 
-func closeElement() {
-	context := GetCurrentContext()
-	// TODO: implement
-	//if (context.booleanWarnings.maxElementsExceeded) {
-	//   return;
-	//}
+func (c *Context) closeElement() {
+	if c.booleanWarnings.maxElementsExceeded {
+		return
+	}
 
-	openLayoutElement := getOpenLayoutElement()
+	openLayoutElement := c.getOpenLayoutElement()
 	layoutConfig := openLayoutElement.layoutConfig
 	elementHasScrollHorizontal := false
 	elementHasScrollVertical := false
 
 	for _, config := range openLayoutElement.elementConfigs {
-		switch c := config.(type) {
+		switch cfg := config.(type) {
 		case *ScrollElementConfig:
-			elementHasScrollHorizontal = c.horizontal
-			elementHasScrollVertical = c.vertical
-			context.openClipElementStack = context.openClipElementStack[:len(context.openClipElementStack)-1]
+			elementHasScrollHorizontal = cfg.horizontal
+			elementHasScrollVertical = cfg.vertical
+			c.openClipElementStack = c.openClipElementStack[:len(c.openClipElementStack)-1]
 			break
 		case *FloatingElementConfig:
-			context.openClipElementStack = context.openClipElementStack[:len(context.openClipElementStack)-1]
 		}
 	}
 
 	// Attach children to the current open element // TODO: have no idea
-	openLayoutElement.children = context.layoutElementChildren[len(context.layoutElementChildren):len(context.layoutElementChildren)]
+	openLayoutElement.children = c.layoutElementChildren[len(c.layoutElementChildren):len(c.layoutElementChildren)]
 	if layoutConfig.LayoutDirection == LEFT_TO_RIGHT {
 		openLayoutElement.dimensions.X = (float32)(layoutConfig.Padding.Left + layoutConfig.Padding.Right)
 		for i := range openLayoutElement.children {
-			childIndex := context.layoutElementChildrenBuffer[len(context.layoutElementChildrenBuffer)-(int)(len(openLayoutElement.children)+i)]
-			child := context.layoutElements[childIndex]
+			childIndex := c.layoutElementChildrenBuffer[len(c.layoutElementChildrenBuffer)-(int)(len(openLayoutElement.children)+i)]
+			child := c.layoutElements[childIndex]
 			openLayoutElement.dimensions.X += child.dimensions.X
 			openLayoutElement.dimensions.Y = max(
 				openLayoutElement.dimensions.Y,
@@ -712,7 +681,7 @@ func closeElement() {
 					openLayoutElement.minDimensions.Y,
 					child.minDimensions.Y+(float32)(layoutConfig.Padding.Top+layoutConfig.Padding.Bottom))
 			}
-			context.layoutElementChildren = append(context.layoutElementChildren, childIndex)
+			c.layoutElementChildren = append(c.layoutElementChildren, childIndex)
 		}
 
 		childGap := (float32)(max(len(openLayoutElement.children)-1, 0) * int(layoutConfig.ChildGap))
@@ -721,8 +690,8 @@ func closeElement() {
 	} else if layoutConfig.LayoutDirection == TOP_TO_BOTTOM {
 		openLayoutElement.dimensions.Y = (float32)(layoutConfig.Padding.Top + layoutConfig.Padding.Bottom)
 		for i := range openLayoutElement.children {
-			childIndex := context.layoutElementChildrenBuffer[len(context.layoutElementChildrenBuffer)-len(openLayoutElement.children)+i]
-			child := context.layoutElements[childIndex]
+			childIndex := c.layoutElementChildrenBuffer[len(c.layoutElementChildrenBuffer)-len(openLayoutElement.children)+i]
+			child := c.layoutElements[childIndex]
 			openLayoutElement.dimensions.Y += child.dimensions.Y
 			openLayoutElement.dimensions.X = max(
 				openLayoutElement.dimensions.X,
@@ -734,14 +703,14 @@ func closeElement() {
 			if !elementHasScrollHorizontal {
 				openLayoutElement.minDimensions.X = max(openLayoutElement.minDimensions.X, child.minDimensions.X+(float32)(layoutConfig.Padding.Left+layoutConfig.Padding.Right))
 			}
-			context.layoutElementChildren = append(context.layoutElementChildren, childIndex)
+			c.layoutElementChildren = append(c.layoutElementChildren, childIndex)
 		}
 		childGap := (float32)(max(len(openLayoutElement.children)-1, 0) * int(layoutConfig.ChildGap))
 		openLayoutElement.dimensions.Y += childGap // TODO this is technically a bug with childgap and scroll containers
 		openLayoutElement.minDimensions.Y += childGap
 	}
 
-	context.layoutElementChildrenBuffer = context.layoutElementChildrenBuffer[:len(context.layoutElementChildrenBuffer)-len(openLayoutElement.children)]
+	c.layoutElementChildrenBuffer = c.layoutElementChildrenBuffer[:len(c.layoutElementChildrenBuffer)-len(openLayoutElement.children)]
 
 	// Clamp element min and max width to the values configured in the layout
 	switch w := layoutConfig.Sizing.Width.(type) {
@@ -775,160 +744,95 @@ func closeElement() {
 
 	// Close the currently open element
 	var closingElementIndex int
-	context.openLayoutElementStack, closingElementIndex = slicesex.RemoveSwapback(context.openLayoutElementStack, len(context.openLayoutElementStack)-1)
-	openLayoutElement = getOpenLayoutElement()
+	c.openLayoutElementStack, closingElementIndex = slicesex.RemoveSwapback(c.openLayoutElementStack, len(c.openLayoutElementStack)-1)
+	openLayoutElement = c.getOpenLayoutElement()
 
-	if !elementIsFloating && len(context.openLayoutElementStack) > 1 {
+	if !elementIsFloating && len(c.openLayoutElementStack) > 1 {
 		openLayoutElement.children = append(openLayoutElement.children, closingElementIndex)
-		context.layoutElementChildrenBuffer = append(context.layoutElementChildrenBuffer, closingElementIndex)
+		c.layoutElementChildrenBuffer = append(c.layoutElementChildrenBuffer, closingElementIndex)
 	}
 }
 
-/*
-bool Clay__MemCmp(const char *s1, const char *s2, int32 length);
-#if !defined(CLAY_DISABLE_SIMD) && (defined(__x86_64__) || defined(_M_X64) || defined(_M_AMD64))
-    bool Clay__MemCmp(const char *s1, const char *s2, int32 length) {
-        while (length >= 16) {
-            __m128i v1 = _mm_loadu_si128((const __m128i *)s1);
-            __m128i v2 = _mm_loadu_si128((const __m128i *)s2);
-
-            if (_mm_movemask_epi8(_mm_cmpeq_epi8(v1, v2)) != 0xFFFF) { // If any byte differs
-                return false;
-            }
-
-            s1 += 16;
-            s2 += 16;
-            length -= 16;
-        }
-
-        // Handle remaining bytes
-        while (length--) {
-            if (*s1 != *s2) {
-                return false;
-            }
-            s1++;
-            s2++;
-        }
-
-        return true;
-    }
-#elif !defined(CLAY_DISABLE_SIMD) && defined(__aarch64__)
-    bool Clay__MemCmp(const char *s1, const char *s2, int32 length) {
-        while (length >= 16) {
-            uint8x16_t v1 = vld1q_u8((const uint8_t *)s1);
-            uint8x16_t v2 = vld1q_u8((const uint8_t *)s2);
-
-            // Compare vectors
-            if (vminvq_u32(vreinterpretq_u32_u8(vceqq_u8(v1, v2))) != 0xFFFFFFFF) { // If there's a difference
-                return false;
-            }
-
-            s1 += 16;
-            s2 += 16;
-            length -= 16;
-        }
-
-        // Handle remaining bytes
-        while (length--) {
-            if (*s1 != *s2) {
-                return false;
-            }
-            s1++;
-            s2++;
-        }
-
-        return true;
-    }
-#else
-    bool Clay__MemCmp(const char *s1, const char *s2, int32 length) {
-        for (int32 i = 0; i < length; i++) {
-            if (s1[i] != s2[i]) {
-                return false;
-            }
-        }
-        return true;
-    }
-#endif
-*/
-
-func openElement() bool {
-	context := GetCurrentContext()
-	if len(context.layoutElements) == cap(context.layoutElements)-1 || context.booleanWarnings.maxElementsExceeded {
-		context.booleanWarnings.maxElementsExceeded = true
+func (c *Context) openElement() bool {
+	if len(c.layoutElements) == cap(c.layoutElements)-1 || c.booleanWarnings.maxElementsExceeded {
+		c.booleanWarnings.maxElementsExceeded = true
 		return false
 	}
 
 	layoutElement := LayoutElement{}
-	context.layoutElements = append(context.layoutElements, layoutElement)
-	context.openLayoutElementStack = append(context.openLayoutElementStack, len(context.layoutElements)-1)
-	if len(context.openClipElementStack) > 0 {
-		context.layoutElementClipElementIds = slicesex.Set(
-			context.layoutElementClipElementIds,
-			len(context.layoutElements)-1,
-			context.openClipElementStack[len(context.openClipElementStack)-1])
+	c.layoutElements = append(c.layoutElements, layoutElement)
+	c.openLayoutElementStack = append(c.openLayoutElementStack, len(c.layoutElements)-1)
+	if len(c.openClipElementStack) > 0 {
+		c.layoutElementClipElementIds = slicesex.Set(
+			c.layoutElementClipElementIds,
+			len(c.layoutElements)-1,
+			c.openClipElementStack[len(c.openClipElementStack)-1])
 	} else {
-		context.layoutElementClipElementIds = slicesex.Set(
-			context.layoutElementClipElementIds,
-			len(context.layoutElements)-1,
+		c.layoutElementClipElementIds = slicesex.Set(
+			c.layoutElementClipElementIds,
+			len(c.layoutElements)-1,
 			0)
 	}
 
 	return true
 }
 
-/*
-	void Clay__OpenTextElement(string text, Clay_TextElementConfig *textConfig) {
-	    context := GetCurrentContext();
-	    if (context.layoutElements.length == context.layoutElements.capacity - 1 || context.booleanWarnings.maxElementsExceeded) {
-	        context.booleanWarnings.maxElementsExceeded = true;
-	        return;
-	    }
-	    Clay_LayoutElement *parentElement = getOpenLayoutElement();
-
-	    Clay_LayoutElement layoutElement = CLAY__DEFAULT_STRUCT;
-	    Clay_LayoutElement *textElement = Clay_LayoutElementArray_Add(&context.layoutElements, layoutElement);
-	    if (context.openClipElementStack.length > 0) {
-	        Clay__int32_tArray_Set(&context.layoutElementClipElementIds, context.layoutElements.length - 1, Clay__int32_tArray_GetValue(&context.openClipElementStack, (int)context.openClipElementStack.length - 1));
-	    } else {
-	        Clay__int32_tArray_Set(&context.layoutElementClipElementIds, context.layoutElements.length - 1, 0);
-	    }
-
-	    Clay__int32_tArray_Add(&context.layoutElementChildrenBuffer, context.layoutElements.length - 1);
-	    Clay__MeasureTextCacheItem *textMeasured = Clay__MeasureTextCached(&text, textConfig);
-	    Clay_ElementId elementId = hashNumber(parentElement.childrenOrTextContent.children.length, parentElement.id);
-	    textElement.id = elementId.id;
-	    addHashMapItem(elementId, textElement, 0);
-	    Clay__StringArray_Add(&context.layoutElementIdStrings, elementId.stringId);
-	    vector2.Float32 textDimensions = { .X = textMeasured.unwrappedDimensions.X, .Y = textConfig.lineHeight > 0 ? (float32)textConfig.lineHeight : textMeasured.unwrappedDimensions.Y };
-	    textElement.dimensions = textDimensions;
-	    textElement.minDimensions = CLAY__INIT(vector2.Float32) { .X = textMeasured.unwrappedDimensions.Y, .Y = textDimensions.Y }; // TODO not sure this is the best way to decide min width for text
-	    textElement.childrenOrTextContent.textElementData = Clay__TextElementDataArray_Add(&context.textElementData, CLAY__INIT(Clay__TextElementData) { .text = text, .preferredDimensions = textMeasured.unwrappedDimensions, .elementIndex = context.layoutElements.length - 1 });
-	    textElement.elementConfigs = CLAY__INIT(Clay__ElementConfigArraySlice) {
-	            .length = 1,
-	            .internalArray = Clay__ElementConfigArray_Add(&context.elementConfigs, CLAY__INIT(Clay_ElementConfig) { .Type = CLAY__ELEMENT_CONFIG_TYPE_TEXT, .config = { .textElementConfig = textConfig }})
-	    };
-	    textElement.layoutConfig = &CLAY_LAYOUT_DEFAULT;
-	    parentElement.childrenOrTextContent.children.length++;
+func (c *Context) openTextElement(text string, textConfig *TextElementConfig) {
+	if len(c.layoutElements) == cap(c.layoutElements)-1 || c.booleanWarnings.maxElementsExceeded {
+		c.booleanWarnings.maxElementsExceeded = true
+		return
 	}
-*/
+	parentElement := c.getOpenLayoutElement()
 
-func attachId(elementId ElementId) ElementId {
-	context := GetCurrentContext()
-	if context.booleanWarnings.maxElementsExceeded {
+	c.layoutElements = append(c.layoutElements, LayoutElement{})
+	textElement := &c.layoutElements[len(c.layoutElements)-1]
+	if len(c.openClipElementStack) > 0 {
+		c.layoutElementClipElementIds = slicesex.Set(c.layoutElementClipElementIds, len(c.layoutElements)-1, c.openClipElementStack[len(c.openClipElementStack)-1])
+	} else {
+		c.layoutElementClipElementIds = slicesex.Set(c.layoutElementClipElementIds, len(c.layoutElements)-1, 0)
+	}
+
+	c.layoutElementChildrenBuffer = append(c.layoutElementChildrenBuffer, len(c.layoutElements)-1)
+	textMeasured := c.measureTextCached(text, textConfig)
+	elementId := hashNumber(uint32(len(parentElement.children)), parentElement.id)
+	textElement.id = elementId.id
+	c.addHashMapItem(elementId, textElement, 0)
+	c.layoutElementIdStrings = append(c.layoutElementIdStrings, elementId.stringId)
+	textDimensions := textMeasured.unwrappedDimensions
+	if textConfig.lineHeight > 0 {
+		textDimensions.Y = (float32)(textConfig.lineHeight)
+	}
+	textElement.dimensions = textDimensions
+	textElement.minDimensions = vector2.NewFloat32(textMeasured.unwrappedDimensions.Y, textDimensions.Y) // TODO not sure this is the best way to decide min width for text
+	c.textElementData = append(c.textElementData, TextElementData{
+		text:                text,
+		preferredDimensions: textMeasured.unwrappedDimensions,
+		elementIndex:        len(c.layoutElements) - 1,
+	})
+	textElement.textElementData = &c.textElementData[len(c.textElementData)-1]
+	//textElement.elementConfigs = CLAY__INIT(Clay__ElementConfigArraySlice) {
+	//        .length = 1,
+	//        .internalArray = Clay__ElementConfigArray_Add(&c.elementConfigs, CLAY__INIT(Clay_ElementConfig) { .Type = CLAY__ELEMENT_CONFIG_TYPE_TEXT, .config = { .textElementConfig = textConfig }})
+	//};
+	textElement.layoutConfig = &default_LayoutConfig
+	//parentElement.children.length++
+}
+
+func (c *Context) attachId(elementId ElementId) ElementId {
+	if c.booleanWarnings.maxElementsExceeded {
 		return default_ElementId
 	}
-	openLayoutElement := getOpenLayoutElement()
+	openLayoutElement := c.getOpenLayoutElement()
 	idAlias := openLayoutElement.id
 	openLayoutElement.id = elementId.id
-	addHashMapItem(elementId, openLayoutElement, idAlias)
-	context.layoutElementIdStrings = append(context.layoutElementIdStrings, elementId.stringId)
+	c.addHashMapItem(elementId, openLayoutElement, idAlias)
+	c.layoutElementIdStrings = append(c.layoutElementIdStrings, elementId.stringId)
 	return elementId
 }
 
-func configureOpenElement(declaration *ElementDeclaration) {
-	context := GetCurrentContext()
-	openLayoutElement := getOpenLayoutElement()
-	openLayoutElement.layoutConfig = storeLayoutConfig(declaration.Layout)
+func (c *Context) configureOpenElement(declaration *ElementDeclaration) {
+	openLayoutElement := c.getOpenLayoutElement()
+	openLayoutElement.layoutConfig = c.storeLayoutConfig(declaration.Layout)
 
 	checkSizing := func(sizing Sizing) bool {
 		switch w := sizing.Width.(type) {
@@ -947,101 +851,101 @@ func configureOpenElement(declaration *ElementDeclaration) {
 	}
 
 	if checkSizing(declaration.Layout.Sizing) {
-		context.errorHandler.ErrorHandlerFunction(ErrorData{
+		c.errorHandler.ErrorHandlerFunction(ErrorData{
 			ErrorType: ERROR_TYPE_PERCENTAGE_OVER_1,
 			ErrorText: "An element was configured with SIZING_PERCENT, but the provided percentage value was over 1.0. Clay expects a value between 0 and 1, i.e. 20% is 0.2.",
-			UserData:  context.errorHandler.UserData,
+			UserData:  c.errorHandler.UserData,
 		})
 	}
 
 	openLayoutElementId := declaration.Id
 
-	openLayoutElement.elementConfigs = context.elementConfigs[len(context.elementConfigs):len(context.elementConfigs)]
+	openLayoutElement.elementConfigs = c.elementConfigs[len(c.elementConfigs):len(c.elementConfigs)]
 	sharedConfig := (*SharedElementConfig)(nil)
 	if declaration.BackgroundColor.A > 0 {
-		sharedConfig = storeSharedElementConfig(SharedElementConfig{backgroundColor: declaration.BackgroundColor})
-		attachElementConfig(sharedConfig)
+		sharedConfig = c.storeSharedElementConfig(SharedElementConfig{backgroundColor: declaration.BackgroundColor})
+		c.attachElementConfig(sharedConfig)
 	}
 	if declaration.CornerRadius.IsEmpty() {
 		if sharedConfig != nil {
 			sharedConfig.cornerRadius = declaration.CornerRadius
 		} else {
-			sharedConfig = storeSharedElementConfig(SharedElementConfig{cornerRadius: declaration.CornerRadius})
-			attachElementConfig(sharedConfig)
+			sharedConfig = c.storeSharedElementConfig(SharedElementConfig{cornerRadius: declaration.CornerRadius})
+			c.attachElementConfig(sharedConfig)
 		}
 	}
 	if declaration.UserData != nil {
 		if sharedConfig != nil {
 			sharedConfig.userData = declaration.UserData
 		} else {
-			sharedConfig = storeSharedElementConfig(SharedElementConfig{userData: declaration.UserData})
-			attachElementConfig(sharedConfig)
+			sharedConfig = c.storeSharedElementConfig(SharedElementConfig{userData: declaration.UserData})
+			c.attachElementConfig(sharedConfig)
 		}
 	}
 	if declaration.Image.ImageData != nil {
-		attachElementConfig(storeImageElementConfig(declaration.Image))
-		context.imageElementPointers = append(context.imageElementPointers, len(context.layoutElements)-1)
+		c.attachElementConfig(c.storeImageElementConfig(declaration.Image))
+		c.imageElementPointers = append(c.imageElementPointers, len(c.layoutElements)-1)
 	}
 
 	if declaration.Floating.attachTo != ATTACH_TO_NONE {
 		floatingConfig := declaration.Floating
 		// This looks dodgy but because of the auto generated root element the depth of the tree will always be at least 2 here
-		hierarchicalParent := context.layoutElements[context.openLayoutElementStack[len(context.openLayoutElementStack)-2]]
+		hierarchicalParent := c.layoutElements[c.openLayoutElementStack[len(c.openLayoutElementStack)-2]]
 		if true /*hierarchicalParent.id != 0*/ {
 			clipElementId := 0
 			if declaration.Floating.attachTo == ATTACH_TO_PARENT {
 				// Attach to the element's direct hierarchical parent
 				floatingConfig.parentId = hierarchicalParent.id
-				if len(context.openClipElementStack) > 0 {
-					clipElementId = context.openClipElementStack[len(context.openClipElementStack)-1]
+				if len(c.openClipElementStack) > 0 {
+					clipElementId = c.openClipElementStack[len(c.openClipElementStack)-1]
 				}
 			} else if declaration.Floating.attachTo == ATTACH_TO_ELEMENT_WITH_ID {
-				parentItem := getHashMapItem(floatingConfig.parentId)
+				parentItem := c.getHashMapItem(floatingConfig.parentId)
 				if parentItem == nil {
-					context.errorHandler.ErrorHandlerFunction(ErrorData{
+					c.errorHandler.ErrorHandlerFunction(ErrorData{
 						ErrorType: ERROR_TYPE_FLOATING_CONTAINER_PARENT_NOT_FOUND,
 						ErrorText: "A floating element was declared with a parentId, but no element with that ID was found.",
-						UserData:  context.errorHandler.UserData,
+						UserData:  c.errorHandler.UserData,
 					})
 				} else {
 					// TODO: fix
-					//clipElementId = context.layoutElementClipElementIds[(int32)(parentItem.layoutElement-context.layoutElements.internalArray))
+					//clipElementId = c.layoutElementClipElementIds[(int32)(parentItem.layoutElement-c.layoutElements.internalArray))
 				}
 			} else if declaration.Floating.attachTo == ATTACH_TO_ROOT {
 				floatingConfig.parentId = hashString("Clay__RootContainer", 0, 0).id
 			}
 			if openLayoutElementId.id == 0 {
-				openLayoutElementId = hashString("Clay__FloatingContainer", uint32(len(context.layoutElementTreeRoots)), 0)
+				openLayoutElementId = hashString("Clay__FloatingContainer", uint32(len(c.layoutElementTreeRoots)), 0)
 			}
-			currentElementIndex := context.openLayoutElementStack[len(context.openLayoutElementStack)-1]
-			context.layoutElementClipElementIds = slicesex.Set(context.layoutElementClipElementIds, currentElementIndex, clipElementId)
-			context.openClipElementStack = append(context.openClipElementStack, clipElementId)
-			context.layoutElementTreeRoots = append(context.layoutElementTreeRoots, LayoutElementTreeRoot{
-				layoutElementIndex: context.openLayoutElementStack[len(context.openLayoutElementStack)-1],
+			currentElementIndex := c.openLayoutElementStack[len(c.openLayoutElementStack)-1]
+			c.layoutElementClipElementIds = slicesex.Set(c.layoutElementClipElementIds, currentElementIndex, clipElementId)
+			c.openClipElementStack = append(c.openClipElementStack, clipElementId)
+			c.layoutElementTreeRoots = append(c.layoutElementTreeRoots, LayoutElementTreeRoot{
+				layoutElementIndex: c.openLayoutElementStack[len(c.openLayoutElementStack)-1],
 				parentId:           floatingConfig.parentId,
 				clipElementId:      clipElementId,
 				zIndex:             floatingConfig.zIndex,
 			})
-			attachElementConfig(storeFloatingElementConfig(floatingConfig))
+			c.attachElementConfig(c.storeFloatingElementConfig(floatingConfig))
 		}
 	}
 	if declaration.Custom.customData != nil {
-		attachElementConfig(storeCustomElementConfig(declaration.Custom))
+		c.attachElementConfig(c.storeCustomElementConfig(declaration.Custom))
 	}
 
 	if openLayoutElementId.id != 0 {
-		attachId(openLayoutElementId)
+		c.attachId(openLayoutElementId)
 	} else if openLayoutElement.id == 0 {
-		openLayoutElementId = Clay__GenerateIdForAnonymousElement(openLayoutElement)
+		openLayoutElementId = c.generateIdForAnonymousElement(openLayoutElement)
 	}
 
 	if declaration.Scroll.horizontal || declaration.Scroll.vertical {
-		attachElementConfig(storeScrollElementConfig(declaration.Scroll))
-		context.openClipElementStack = append(context.openClipElementStack, (int)(openLayoutElement.id))
+		c.attachElementConfig(c.storeScrollElementConfig(declaration.Scroll))
+		c.openClipElementStack = append(c.openClipElementStack, (int)(openLayoutElement.id))
 		// Retrieve or create cached data to track scroll position across frames
 		scrollOffset := (*ScrollContainerDataInternal)(nil)
-		for i := range context.scrollContainerDatas {
-			mapping := &context.scrollContainerDatas[i]
+		for i := range c.scrollContainerDatas {
+			mapping := &c.scrollContainerDatas[i]
 			if openLayoutElement.id == mapping.elementId {
 				scrollOffset = mapping
 				scrollOffset.layoutElement = openLayoutElement
@@ -1049,101 +953,100 @@ func configureOpenElement(declaration *ElementDeclaration) {
 			}
 		}
 		if scrollOffset == nil {
-			context.scrollContainerDatas = append(context.scrollContainerDatas, ScrollContainerDataInternal{
+			c.scrollContainerDatas = append(c.scrollContainerDatas, ScrollContainerDataInternal{
 				layoutElement: openLayoutElement,
 				scrollOrigin:  vector2.NewFloat32(-1, -1),
 				elementId:     openLayoutElement.id,
 				openThisFrame: true,
 			})
-			scrollOffset = &context.scrollContainerDatas[len(context.scrollContainerDatas)-1]
+			scrollOffset = &c.scrollContainerDatas[len(c.scrollContainerDatas)-1]
 		}
-		if context.externalScrollHandlingEnabled {
+		if c.externalScrollHandlingEnabled {
 			// TODO: fix
-			//scrollOffset.scrollPosition = Clay__QueryScrollOffset(scrollOffset.elementId, context.queryScrollOffsetUserData)
+			//scrollOffset.scrollPosition = Clay__QueryScrollOffset(scrollOffset.elementId, c.queryScrollOffsetUserData)
 		}
 	}
 
 	if !declaration.Border.IsEmpty() {
-		attachElementConfig(storeBorderElementConfig(declaration.Border))
+		c.attachElementConfig(c.storeBorderElementConfig(declaration.Border))
 	}
 }
 
 // Ephemeral Memory - reset every frame
-func initializeEphemeralMemory(context *Context) {
-	context.layoutElementChildrenBuffer = context.layoutElementChildrenBuffer[:0]
-	context.layoutElements = context.layoutElements[:0]
-	context.warnings = context.warnings[:0]
+func (c *Context) initializeEphemeralMemory() {
+	c.layoutElementChildrenBuffer = c.layoutElementChildrenBuffer[:0]
+	c.layoutElements = c.layoutElements[:0]
+	c.warnings = c.warnings[:0]
 
-	context.layoutConfigs = context.layoutConfigs[:0]
-	context.elementConfigs = context.elementConfigs[:0]
-	context.textElementConfigs = context.textElementConfigs[:0]
-	context.imageElementConfigs = context.imageElementConfigs[:0]
-	context.floatingElementConfigs = context.floatingElementConfigs[:0]
-	context.scrollElementConfigs = context.scrollElementConfigs[:0]
-	context.customElementConfigs = context.customElementConfigs[:0]
-	context.borderElementConfigs = context.borderElementConfigs[:0]
-	context.sharedElementConfigs = context.sharedElementConfigs[:0]
+	c.layoutConfigs = c.layoutConfigs[:0]
+	c.elementConfigs = c.elementConfigs[:0]
+	c.textElementConfigs = c.textElementConfigs[:0]
+	c.imageElementConfigs = c.imageElementConfigs[:0]
+	c.floatingElementConfigs = c.floatingElementConfigs[:0]
+	c.scrollElementConfigs = c.scrollElementConfigs[:0]
+	c.customElementConfigs = c.customElementConfigs[:0]
+	c.borderElementConfigs = c.borderElementConfigs[:0]
+	c.sharedElementConfigs = c.sharedElementConfigs[:0]
 
-	context.layoutElementIdStrings = context.layoutElementIdStrings[:0]
-	context.wrappedTextLines = context.wrappedTextLines[:0]
-	context.layoutElementTreeNodeArray = context.layoutElementTreeNodeArray[:0]
-	context.layoutElementTreeRoots = context.layoutElementTreeRoots[:0]
-	context.layoutElementChildren = context.layoutElementChildren[:0]
-	context.openLayoutElementStack = context.openLayoutElementStack[:0]
-	context.textElementData = context.textElementData[:0]
-	context.imageElementPointers = context.imageElementPointers[:0]
-	context.renderCommands = context.renderCommands[:0]
-	context.treeNodeVisited = context.treeNodeVisited[:0]
-	context.openClipElementStack = context.openClipElementStack[:0]
-	context.reusableElementIndexBuffer = context.reusableElementIndexBuffer[:0]
-	context.layoutElementClipElementIds = context.layoutElementClipElementIds[:0]
-	context.dynamicStringData = context.dynamicStringData[:0]
+	c.layoutElementIdStrings = c.layoutElementIdStrings[:0]
+	c.wrappedTextLines = c.wrappedTextLines[:0]
+	c.layoutElementTreeNodeArray = c.layoutElementTreeNodeArray[:0]
+	c.layoutElementTreeRoots = c.layoutElementTreeRoots[:0]
+	c.layoutElementChildren = c.layoutElementChildren[:0]
+	c.openLayoutElementStack = c.openLayoutElementStack[:0]
+	c.textElementData = c.textElementData[:0]
+	c.imageElementPointers = c.imageElementPointers[:0]
+	c.renderCommands = c.renderCommands[:0]
+	c.treeNodeVisited = c.treeNodeVisited[:0]
+	c.openClipElementStack = c.openClipElementStack[:0]
+	c.reusableElementIndexBuffer = c.reusableElementIndexBuffer[:0]
+	c.layoutElementClipElementIds = c.layoutElementClipElementIds[:0]
+	c.dynamicStringData = c.dynamicStringData[:0]
 }
 
 // Persistent memory - initialized once and not reset
-func initializePersistentMemory(context *Context) {
-	maxElementCount := context.maxElementCount
-	maxMeasureTextCacheWordCount := context.maxMeasureTextCacheWordCount
+func (c *Context) initializePersistentMemory() {
+	maxElementCount := c.maxElementCount
+	maxMeasureTextCacheWordCount := c.maxMeasureTextCacheWordCount
 
-	context.scrollContainerDatas = make([]ScrollContainerDataInternal, 0, 10)
-	context.layoutElementsHashMapInternal = make([]LayoutElementHashMapItem, 0, maxElementCount)
-	context.layoutElementsHashMap = map[uint32]*LayoutElementHashMapItem{}
-	context.measureTextHashMapInternal = make([]MeasureTextCacheItem, 0, maxElementCount)
-	context.measureTextHashMapInternalFreeList = make([]int32, 0, maxElementCount)
-	context.measuredWordsFreeList = make([]int32, 0, maxMeasureTextCacheWordCount)
-	context.measureTextHashMap = make([]int32, 0, maxElementCount)
-	context.measuredWords = make([]MeasuredWord, 0, maxMeasureTextCacheWordCount)
-	context.pointerOverIds = make([]ElementId, 0, maxElementCount)
-	context.debugElementData = make([]DebugElementData, 0, maxElementCount)
+	c.scrollContainerDatas = make([]ScrollContainerDataInternal, 0, 10)
+	c.layoutElementsHashMapInternal = make([]LayoutElementHashMapItem, 0, maxElementCount)
+	c.layoutElementsHashMap = map[uint32]*LayoutElementHashMapItem{}
+	c.measureTextHashMapInternal = make([]MeasureTextCacheItem, 0, maxElementCount)
+	c.measuredWordsFreeList = make([]int32, 0, maxMeasureTextCacheWordCount)
+	c.measureTextHashMap = map[string]*MeasureTextCacheItem{}
+	c.measuredWords = make([]MeasuredWord, 0, maxMeasureTextCacheWordCount)
+	c.pointerOverIds = make([]ElementId, 0, maxElementCount)
+	c.debugElementData = make([]DebugElementData, 0, maxElementCount)
 
-	context.layoutElementChildrenBuffer = make([]int, 0, maxElementCount)
-	context.layoutElements = make([]LayoutElement, 0, maxElementCount)
-	context.warnings = make([]Warning, 0, 100)
+	c.layoutElementChildrenBuffer = make([]int, 0, maxElementCount)
+	c.layoutElements = make([]LayoutElement, 0, maxElementCount)
+	c.warnings = make([]Warning, 0, 100)
 
-	context.layoutConfigs = make([]LayoutConfig, 0, maxElementCount)
-	context.elementConfigs = make([]AnyElementConfig, 0, maxElementCount)
-	context.textElementConfigs = make([]TextElementConfig, 0, maxElementCount)
-	context.imageElementConfigs = make([]ImageElementConfig, 0, maxElementCount)
-	context.floatingElementConfigs = make([]FloatingElementConfig, 0, maxElementCount)
-	context.scrollElementConfigs = make([]ScrollElementConfig, 0, maxElementCount)
-	context.customElementConfigs = make([]CustomElementConfig, 0, maxElementCount)
-	context.borderElementConfigs = make([]BorderElementConfig, 0, maxElementCount)
-	context.sharedElementConfigs = make([]SharedElementConfig, 0, maxElementCount)
+	c.layoutConfigs = make([]LayoutConfig, 0, maxElementCount)
+	c.elementConfigs = make([]AnyElementConfig, 0, maxElementCount)
+	c.textElementConfigs = make([]TextElementConfig, 0, maxElementCount)
+	c.imageElementConfigs = make([]ImageElementConfig, 0, maxElementCount)
+	c.floatingElementConfigs = make([]FloatingElementConfig, 0, maxElementCount)
+	c.scrollElementConfigs = make([]ScrollElementConfig, 0, maxElementCount)
+	c.customElementConfigs = make([]CustomElementConfig, 0, maxElementCount)
+	c.borderElementConfigs = make([]BorderElementConfig, 0, maxElementCount)
+	c.sharedElementConfigs = make([]SharedElementConfig, 0, maxElementCount)
 
-	context.layoutElementIdStrings = make([]string, 0, maxElementCount)
-	context.wrappedTextLines = make([]WrappedTextLine, 0, maxElementCount)
-	context.layoutElementTreeNodeArray = make([]LayoutElementTreeNode, 0, maxElementCount)
-	context.layoutElementTreeRoots = make([]LayoutElementTreeRoot, 0, maxElementCount)
-	context.layoutElementChildren = make([]int, 0, maxElementCount)
-	context.openLayoutElementStack = make([]int, 0, maxElementCount)
-	context.textElementData = make([]TextElementData, 0, maxElementCount)
-	context.imageElementPointers = make([]int, 0, maxElementCount)
-	context.renderCommands = make([]any, 0, maxElementCount)
-	context.treeNodeVisited = make([]bool, maxElementCount)
-	context.openClipElementStack = make([]int, 0, maxElementCount)
-	context.reusableElementIndexBuffer = make([]int32, 0, maxElementCount)
-	context.layoutElementClipElementIds = make([]int, 0, maxElementCount)
-	context.dynamicStringData = make([]byte, 0, maxElementCount)
+	c.layoutElementIdStrings = make([]string, 0, maxElementCount)
+	c.wrappedTextLines = make([]WrappedTextLine, 0, maxElementCount)
+	c.layoutElementTreeNodeArray = make([]LayoutElementTreeNode, 0, maxElementCount)
+	c.layoutElementTreeRoots = make([]LayoutElementTreeRoot, 0, maxElementCount)
+	c.layoutElementChildren = make([]int, 0, maxElementCount)
+	c.openLayoutElementStack = make([]int, 0, maxElementCount)
+	c.textElementData = make([]TextElementData, 0, maxElementCount)
+	c.imageElementPointers = make([]int, 0, maxElementCount)
+	c.renderCommands = make([]any, 0, maxElementCount)
+	c.treeNodeVisited = make([]bool, maxElementCount)
+	c.openClipElementStack = make([]int, 0, maxElementCount)
+	c.reusableElementIndexBuffer = make([]int32, 0, maxElementCount)
+	c.layoutElementClipElementIds = make([]int, 0, maxElementCount)
+	c.dynamicStringData = make([]byte, 0, maxElementCount)
 }
 
 /*
@@ -1402,7 +1305,7 @@ const float CLAY__EPSILON = 0.01;
 	        if (!context.booleanWarnings.maxRenderCommandsExceeded) {
 	            context.booleanWarnings.maxRenderCommandsExceeded = true;
 	            context.errorHandler.errorHandlerFunction(CLAY__INIT(Clay_ErrorData) {
-	                .errorType = CLAY_ERROR_TYPE_ELEMENTS_CAPACITY_EXCEEDED,
+	                .errorType = ERROR_TYPE_ELEMENTS_CAPACITY_EXCEEDED,
 	                .errorText = CLAY_STRING("Clay ran out of capacity while attempting to create render commands. This is usually caused by a large amount of wrapping text elements while close to the max element capacity. Try using Clay_SetMaxElementCount() with a higher value."),
 	                .userData = context.errorHandler.userData });
 	        }
@@ -2667,7 +2570,7 @@ Clay__WarningArray Clay__WarningArray_Allocate_Arena(int32 capacity, Clay_Arena 
     }
     else {
         Clay__currentContext.errorHandler.errorHandlerFunction(CLAY__INIT(Clay_ErrorData) {
-            .errorType = CLAY_ERROR_TYPE_ARENA_CAPACITY_EXCEEDED,
+            .errorType = ERROR_TYPE_ARENA_CAPACITY_EXCEEDED,
             .errorText = CLAY_STRING("Clay attempted to allocate memory in its arena, but ran out of capacity. Try increasing the capacity of the arena passed to Clay_Initialize()"),
             .userData = Clay__currentContext.errorHandler.userData });
     }
@@ -2693,7 +2596,7 @@ any Clay__Array_Allocate_Arena(int32 capacity, uint32 itemSize, Clay_Arena *aren
     }
     else {
         Clay__currentContext.errorHandler.errorHandlerFunction(CLAY__INIT(Clay_ErrorData) {
-                .errorType = CLAY_ERROR_TYPE_ARENA_CAPACITY_EXCEEDED,
+                .errorType = ERROR_TYPE_ARENA_CAPACITY_EXCEEDED,
                 .errorText = CLAY_STRING("Clay attempted to allocate memory in its arena, but ran out of capacity. Try increasing the capacity of the arena passed to Clay_Initialize()"),
                 .userData = Clay__currentContext.errorHandler.userData });
     }
@@ -2707,7 +2610,7 @@ bool Clay__Array_RangeCheck(int32 index, int32 length)
     }
     context := GetCurrentContext();
     context.errorHandler.errorHandlerFunction(CLAY__INIT(Clay_ErrorData) {
-            .errorType = CLAY_ERROR_TYPE_INTERNAL_ERROR,
+            .errorType = ERROR_TYPE_INTERNAL_ERROR,
             .errorText = CLAY_STRING("Clay attempted to make an out of bounds array access. This is an internal error and is likely a bug."),
             .userData = context.errorHandler.userData });
     return false;
@@ -2720,7 +2623,7 @@ bool Clay__Array_AddCapacityCheck(int32 length, int32 capacity)
     }
     context := GetCurrentContext();
     context.errorHandler.errorHandlerFunction(CLAY__INIT(Clay_ErrorData) {
-        .errorType = CLAY_ERROR_TYPE_INTERNAL_ERROR,
+        .errorType = ERROR_TYPE_INTERNAL_ERROR,
         .errorText = CLAY_STRING("Clay attempted to make an out of bounds array access. This is an internal error and is likely a bug."),
         .userData = context.errorHandler.userData });
     return false;

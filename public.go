@@ -16,32 +16,31 @@ import (
 
 // Sets the state of the "pointer" (i.e. the mouse or touch) in Clay's internal data. Used for detecting and responding to mouse events in the debug view,
 // as well as for clay.Hovered() and scroll element handling.
-func SetPointerState(position vector2.Float32, pointerDown bool) {
-	context := GetCurrentContext()
-	if context.booleanWarnings.maxElementsExceeded {
+func (c *Context) SetPointerState(position vector2.Float32, pointerDown bool) {
+	if c.booleanWarnings.maxElementsExceeded {
 		return
 	}
 
-	context.pointerInfo.position = position
-	context.pointerOverIds = context.pointerOverIds[:0]
+	c.pointerInfo.position = position
+	c.pointerOverIds = c.pointerOverIds[:0]
 
 	var dfsBuffer []int
-	for rootIndex := len(context.layoutElementTreeRoots) - 1; rootIndex >= 0; rootIndex-- {
-		dfsBuffer = context.layoutElementChildrenBuffer[:0]
-		root := context.layoutElementTreeRoots[rootIndex]
+	for rootIndex := len(c.layoutElementTreeRoots) - 1; rootIndex >= 0; rootIndex-- {
+		dfsBuffer = c.layoutElementChildrenBuffer[:0]
+		root := c.layoutElementTreeRoots[rootIndex]
 		dfsBuffer = append(dfsBuffer, root.layoutElementIndex)
-		context.treeNodeVisited = slicesex.Set(context.treeNodeVisited, 0, false)
+		c.treeNodeVisited = slicesex.Set(c.treeNodeVisited, 0, false)
 		found := false
 		for len(dfsBuffer) > 0 {
-			if context.treeNodeVisited[len(dfsBuffer)-1] {
+			if c.treeNodeVisited[len(dfsBuffer)-1] {
 				dfsBuffer = dfsBuffer[:len(dfsBuffer)-1]
 				continue
 			}
-			context.treeNodeVisited = slicesex.Set(context.treeNodeVisited, len(dfsBuffer)-1, true)
-			currentElement := context.layoutElements[dfsBuffer[len(dfsBuffer)-1]]
-			mapItem := getHashMapItem(currentElement.id) // TODO think of a way around this, maybe the fact that it's essentially a binary tree limits the cost, but the worst case is not great
-			clipElementId := uint32(0)                   //TODO: fix context.layoutElementClipElementIds[(int32)(currentElement-context.layoutElements.internalArray)]
-			clipItem := getHashMapItem(clipElementId)
+			c.treeNodeVisited = slicesex.Set(c.treeNodeVisited, len(dfsBuffer)-1, true)
+			currentElement := c.layoutElements[dfsBuffer[len(dfsBuffer)-1]]
+			mapItem := c.getHashMapItem(currentElement.id) // TODO think of a way around this, maybe the fact that it's essentially a binary tree limits the cost, but the worst case is not great
+			clipElementId := uint32(0)                     //TODO: fix c.layoutElementClipElementIds[(int32)(currentElement-c.layoutElements.internalArray)]
+			clipItem := c.getHashMapItem(clipElementId)
 			if mapItem != nil {
 				elementBox := mapItem.boundingBox
 				elementBox.AddX(root.pointerOffset.X)
@@ -49,13 +48,13 @@ func SetPointerState(position vector2.Float32, pointerDown bool) {
 
 				if elementBox.Contains(position) && (clipElementId == 0 || clipItem.boundingBox.Contains(position)) {
 					if mapItem.onHoverFunction != nil {
-						mapItem.onHoverFunction(mapItem.elementId, context.pointerInfo, mapItem.hoverFunctionUserData)
+						mapItem.onHoverFunction(mapItem.elementId, c.pointerInfo, mapItem.hoverFunctionUserData)
 					}
-					context.pointerOverIds = append(context.pointerOverIds, mapItem.elementId)
+					c.pointerOverIds = append(c.pointerOverIds, mapItem.elementId)
 					found = true
 
 					if mapItem.idAlias != 0 {
-						context.pointerOverIds = append(context.pointerOverIds, ElementId{id: mapItem.idAlias})
+						c.pointerOverIds = append(c.pointerOverIds, ElementId{id: mapItem.idAlias})
 					}
 				}
 				if elementHasConfig[*TextElementConfig](&currentElement) {
@@ -63,8 +62,8 @@ func SetPointerState(position vector2.Float32, pointerDown bool) {
 					continue
 				}
 				for i := len(currentElement.children) - 1; i >= 0; i-- {
-					//dfsBuffer = append(dfsBuffer, currentElement.children.elements[i]) // TODO: fix that
-					context.treeNodeVisited = slicesex.Set(context.treeNodeVisited, len(dfsBuffer)-1, false) // TODO needs to be ranged checked
+					dfsBuffer = append(dfsBuffer, currentElement.children[i])
+					c.treeNodeVisited = slicesex.Set(c.treeNodeVisited, len(dfsBuffer)-1, false) // TODO needs to be ranged checked
 				}
 			} else {
 				dfsBuffer = dfsBuffer[:len(dfsBuffer)-1]
@@ -72,7 +71,7 @@ func SetPointerState(position vector2.Float32, pointerDown bool) {
 		}
 
 		/* TODO: fix
-		rootElement := context.layoutElements[root.layoutElementIndex]
+		rootElement := c.layoutElements[root.layoutElementIndex]
 		if found && elementHasConfig[*FloatingElementConfig](&rootElement) &&
 			Clay__FindElementConfigWithType(rootElement, CLAY__ELEMENT_CONFIG_TYPE_FLOATING).floatingElementConfig.pointerCaptureMode == CLAY_POINTER_CAPTURE_MODE_CAPTURE {
 			break
@@ -82,16 +81,16 @@ func SetPointerState(position vector2.Float32, pointerDown bool) {
 	}
 
 	if pointerDown {
-		if context.pointerInfo.state == POINTER_DATA_PRESSED_THIS_FRAME {
-			context.pointerInfo.state = POINTER_DATA_PRESSED
-		} else if context.pointerInfo.state != POINTER_DATA_PRESSED {
-			context.pointerInfo.state = POINTER_DATA_PRESSED_THIS_FRAME
+		if c.pointerInfo.state == POINTER_DATA_PRESSED_THIS_FRAME {
+			c.pointerInfo.state = POINTER_DATA_PRESSED
+		} else if c.pointerInfo.state != POINTER_DATA_PRESSED {
+			c.pointerInfo.state = POINTER_DATA_PRESSED_THIS_FRAME
 		}
 	} else {
-		if context.pointerInfo.state == POINTER_DATA_RELEASED_THIS_FRAME {
-			context.pointerInfo.state = POINTER_DATA_RELEASED
-		} else if context.pointerInfo.state != POINTER_DATA_RELEASED {
-			context.pointerInfo.state = POINTER_DATA_RELEASED_THIS_FRAME
+		if c.pointerInfo.state == POINTER_DATA_RELEASED_THIS_FRAME {
+			c.pointerInfo.state = POINTER_DATA_RELEASED
+		} else if c.pointerInfo.state != POINTER_DATA_RELEASED {
+			c.pointerInfo.state = POINTER_DATA_RELEASED_THIS_FRAME
 		}
 	}
 }
@@ -120,8 +119,8 @@ func Initialize(arena any /*Arena*/, layoutDimensions vector2.Float32, errorHand
 	}
 
 	SetCurrentContext(context)
-	initializePersistentMemory(context)
-	initializeEphemeralMemory(context)
+	context.initializePersistentMemory()
+	context.initializeEphemeralMemory()
 
 	context.measureTextHashMapInternal = append(context.measureTextHashMapInternal, MeasureTextCacheItem{}) // Reserve the 0 value to mean "no next element"
 	context.layoutDimensions = layoutDimensions
@@ -144,7 +143,7 @@ func SetCurrentContext(context *Context) {
 // - enableDragScrolling when set to true will enable mobile device like "touch drag" scroll of scroll containers, including momentum scrolling after the touch has ended.
 // - scrollDelta is the amount to scroll this frame on each axis in pixels.
 // - deltaTime is the time in seconds since the last "frame" (scroll update)
-func UpdateScrollContainers(enableDragScrolling bool, scrollDelta vector2.Float32, deltaTime float32) {
+func (c *Context) UpdateScrollContainers(enableDragScrolling bool, scrollDelta vector2.Float32, deltaTime float32) {
 	/*
 	   context := GetCurrentContext();
 	       bool isPointerActive = enableDragScrolling && (context.pointerInfo.state == CLAY_POINTER_DATA_PRESSED || context.pointerInfo.state == CLAY_POINTER_DATA_PRESSED_THIS_FRAME);
@@ -260,24 +259,23 @@ func UpdateScrollContainers(enableDragScrolling bool, scrollDelta vector2.Float3
 }
 
 // Updates the layout dimensions in response to the window or outer container being resized.
-func SetLayoutDimensions(dimensions vector2.Float32) {
-	GetCurrentContext().layoutDimensions = dimensions
+func (c *Context) SetLayoutDimensions(dimensions vector2.Float32) {
+	c.layoutDimensions = dimensions
 }
 
 // Called before starting any layout declarations.
-func BeginLayout() {
-	context := GetCurrentContext()
-	initializeEphemeralMemory(context)
-	context.generation++
-	context.dynamicElementIndex = 0
+func (c *Context) BeginLayout() {
+	c.initializeEphemeralMemory()
+	c.generation++
+	c.dynamicElementIndex = 0
 	// Set up the root container that covers the entire window
-	rootDimensions := context.layoutDimensions
-	if context.debugModeEnabled {
+	rootDimensions := c.layoutDimensions
+	if c.debugModeEnabled {
 		rootDimensions.X -= (float32)(debugViewWidth)
 	}
-	context.booleanWarnings = BooleanWarnings{}
-	openElement()
-	configureOpenElement(&ElementDeclaration{
+	c.booleanWarnings = BooleanWarnings{}
+	c.openElement()
+	c.configureOpenElement(&ElementDeclaration{
 		Id: ID("Clay__RootContainer"),
 		Layout: LayoutConfig{
 			Sizing: Sizing{
@@ -286,13 +284,13 @@ func BeginLayout() {
 			},
 		},
 	})
-	context.openLayoutElementStack = append(context.openLayoutElementStack, 0)
-	context.layoutElementTreeRoots = append(context.layoutElementTreeRoots, LayoutElementTreeRoot{layoutElementIndex: 0})
+	c.openLayoutElementStack = append(c.openLayoutElementStack, 0)
+	c.layoutElementTreeRoots = append(c.layoutElementTreeRoots, LayoutElementTreeRoot{layoutElementIndex: 0})
 }
 
 // Called when all layout declarations are finished.
 // Computes the layout and generates and returns the array of render commands to draw.
-func EndLayout() /*RenderCommandArray*/ any {
+func (c *Context) EndLayout() /*RenderCommandArray*/ any {
 	return nil
 }
 
@@ -360,14 +358,22 @@ func EndLayout() /*RenderCommandArray*/ any {
 // Similar behaviour can be achieved on an individual text element level by using TextElementConfig.hashStringContents
 ///CLAY_DLL_EXPORT void ResetMeasureTextCache(void);
 
-func CLAY(e ElementDeclaration, fns ...func()) {
-	if !openElement() {
+func (c *Context) CLAY(e ElementDeclaration, fns ...func()) {
+	if !c.openElement() {
 		return
 	}
 
-	configureOpenElement(&e)
+	c.configureOpenElement(&e)
 	for _, fn := range fns {
 		fn()
 	}
-	closeElement()
+	c.closeElement()
+}
+
+func (c *Context) TEXT_CONFIG(config TextElementConfig) *TextElementConfig {
+	return c.storeTextElementConfig(config)
+}
+
+func (c *Context) TEXT(text string, config *TextElementConfig) {
+	c.openTextElement(text, config)
 }

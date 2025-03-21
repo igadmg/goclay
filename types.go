@@ -36,7 +36,7 @@ func SID_LOCAL(label string) ElementId { return SIDI_LOCAL(label, 0) }
 func IDI_LOCAL(label string, index uint32) ElementId { return SIDI_LOCAL(label, index) }
 
 func SIDI_LOCAL(label string, index uint32) ElementId {
-	return hashString(label, index, getParentElementId())
+	return hashString(label, index, GetCurrentContext().getParentElementId())
 }
 
 // Controls the "radius", or corner rounding of elements, including rectangles, borders and images.
