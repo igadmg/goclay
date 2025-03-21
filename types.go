@@ -510,25 +510,34 @@ type BorderRenderData struct {
 	width BorderWidth
 }
 
+type ScissorsStartData struct {
+	horizontal bool
+	vertical   bool
+}
+type ScissorsEndData struct {
+	horizontal bool
+	vertical   bool
+}
+
 type RenderDataType interface {
-	RectangleRenderData | TextRenderData | ImageRenderData | CustomRenderData | BorderRenderData | ScrollRenderData
+	RectangleRenderData | TextRenderData | ImageRenderData | CustomRenderData | BorderRenderData | ScrollRenderData | ScissorsStartData | ScissorsEndData
 }
 
 type AnyRenderData any
 
 type RenderCommand struct {
 	// A rectangular box that fully encloses this UI element, with the position relative to the root of the layout.
-	boundingBox rect2.Float32
+	BoundingBox rect2.Float32
 	// A struct union containing data specific to this command's commandType.
-	renderData AnyRenderData
+	RenderData AnyRenderData
 	// A pointer transparently passed through from the original element declaration.
-	userData any
-	// The id of this element, transparently passed through from the original element declaration.
-	id uint32
+	UserData any
+	// The Id of this element, transparently passed through from the original element declaration.
+	Id uint32
 	// The z order required for drawing this command correctly.
 	// Note: the render command array is already sorted in ascending order, and will produce correct results if drawn in naive order.
 	// This field is intended for use in batching renderers for improved performance.
-	zIndex int16
+	ZIndex int16
 }
 
 // Represents the current state of interaction with clay this frame.

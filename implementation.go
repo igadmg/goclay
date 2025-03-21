@@ -157,7 +157,7 @@ type LayoutElementTreeNode struct {
 type LayoutElementTreeRoot struct {
 	layoutElementIndex int
 	parentId           uint32 // This can be zero in the case of the root layout tree
-	clipElementId      int    // This can be zero if there is no clip element
+	clipElementId      uint32 // This can be zero if there is no clip element
 	zIndex             int16
 	pointerOffset      vector2.Float32 // Only used when scroll containers are managed externally
 }
@@ -185,7 +185,7 @@ type Context struct {
 	//internalArena                 any ///Clay_Arena
 	// Layout Elements / Render Commands
 	layoutElements              []LayoutElement
-	renderCommands              []any ///Clay_RenderCommandArray
+	renderCommands              []RenderCommand
 	openLayoutElementStack      []int
 	layoutElementChildren       []int
 	layoutElementChildrenBuffer []int
@@ -929,7 +929,7 @@ func (c *Context) configureOpenElement(declaration *ElementDeclaration) {
 			c.layoutElementTreeRoots = append(c.layoutElementTreeRoots, LayoutElementTreeRoot{
 				layoutElementIndex: c.openLayoutElementStack[len(c.openLayoutElementStack)-1],
 				parentId:           floatingConfig.parentId,
-				clipElementId:      clipElementId,
+				clipElementId:      uint32(clipElementId),
 				zIndex:             floatingConfig.zIndex,
 			})
 			c.attachElementConfig(c.storeFloatingElementConfig(floatingConfig))
@@ -1047,7 +1047,7 @@ func (c *Context) initializePersistentMemory() {
 	c.openLayoutElementStack = make([]int, 0, maxElementCount)
 	c.textElementData = make([]TextElementData, 0, maxElementCount)
 	c.imageElementPointers = make([]int, 0, maxElementCount)
-	c.renderCommands = make([]any, 0, maxElementCount)
+	c.renderCommands = make([]RenderCommand, 0, maxElementCount)
 	c.treeNodeVisited = make([]bool, maxElementCount)
 	c.openClipElementStack = make([]int, 0, maxElementCount)
 	c.reusableElementIndexBuffer = make([]int32, 0, maxElementCount)
@@ -1344,7 +1344,7 @@ func (c *Context) Clay__SizeContainersAlongAxis(xAxis bool) {
 	    return CLAY__INIT(string) { .length = length, .chars = chars };
 	}
 */
-func (c *Context) Clay__AddRenderCommand(renderCommand RenderCommand) {
+func (c *Context) addRenderCommand(renderCommand RenderCommand) {
 	if len(c.renderCommands) < cap(c.renderCommands)-1 {
 		c.renderCommands = append(c.renderCommands, renderCommand)
 	} else {
@@ -1359,19 +1359,17 @@ func (c *Context) Clay__AddRenderCommand(renderCommand RenderCommand) {
 	}
 }
 
-/*
-	bool Clay__ElementIsOffscreen(Clay_BoundingBox *boundingBox) {
-	    context := GetCurrentContext();
-	    if (context.disableCulling) {
-	        return false;
-	    }
-
-	    return (boundingBox.x > (float32)context.layoutDimensions.X) ||
-	           (boundingBox.y > (float32)context.layoutDimensions.Y) ||
-	           (boundingBox.x + boundingBox.X < 0) ||
-	           (boundingBox.y + boundingBox.Y < 0);
+func (c *Context) Clay__ElementIsOffscreen(boundingBox rect2.Float32) bool {
+	if c.disableCulling {
+		return false
 	}
-*/
+
+	return (boundingBox.X() > c.layoutDimensions.X) ||
+		(boundingBox.Y() > c.layoutDimensions.Y) ||
+		(boundingBox.X()+boundingBox.Width() < 0) ||
+		(boundingBox.Y()+boundingBox.Height() < 0)
+}
+
 func (c *Context) Clay__CalculateFinalLayout() {
 	// Calculate sizing along the X axis
 	c.Clay__SizeContainersAlongAxis(true)
@@ -1521,493 +1519,482 @@ func (c *Context) Clay__CalculateFinalLayout() {
 
 	// Calculate final positions and generate render commands
 	c.renderCommands = c.renderCommands[0:0]
-	dfsBuffer = dfsBuffer[0:0]
-	/*
-	   for (int32 rootIndex = 0; rootIndex < c.layoutElementTreeRoots.length; ++rootIndex) {
-	       dfsBuffer.length = 0;
-	       Clay__LayoutElementTreeRoot *root = Clay__LayoutElementTreeRootArray_Get(&c.layoutElementTreeRoots, rootIndex);
-	       Clay_LayoutElement *rootElement = Clay_LayoutElementArray_Get(&c.layoutElements, (int)root.layoutElementIndex);
-	       vector2.Float32 rootPosition = CLAY__DEFAULT_STRUCT;
-	       Clay_LayoutElementHashMapItem *parentHashMapItem = getHashMapItem(root.parentId);
-	       // Position root floating containers
-	       if (elementHasConfig(rootElement, CLAY__ELEMENT_CONFIG_TYPE_FLOATING) && parentHashMapItem) {
-	           Clay_FloatingElementConfig *config = findElementConfigWithType(rootElement, CLAY__ELEMENT_CONFIG_TYPE_FLOATING).floatingElementConfig;
-	           vector2.Float32 rootDimensions = rootElement.dimensions;
-	           Clay_BoundingBox parentBoundingBox = parentHashMapItem.boundingBox;
-	           // Set X position
-	           vector2.Float32 targetAttachPosition = CLAY__DEFAULT_STRUCT;
-	           switch (config.attachPoints.parent) {
-	               case CLAY_ATTACH_POINT_LEFT_TOP:
-	               case CLAY_ATTACH_POINT_LEFT_CENTER:
-	               case CLAY_ATTACH_POINT_LEFT_BOTTOM: targetAttachPosition.x = parentBoundingBox.x; break;
-	               case CLAY_ATTACH_POINT_CENTER_TOP:
-	               case CLAY_ATTACH_POINT_CENTER_CENTER:
-	               case CLAY_ATTACH_POINT_CENTER_BOTTOM: targetAttachPosition.x = parentBoundingBox.x + (parentBoundingBox.X / 2); break;
-	               case CLAY_ATTACH_POINT_RIGHT_TOP:
-	               case CLAY_ATTACH_POINT_RIGHT_CENTER:
-	               case CLAY_ATTACH_POINT_RIGHT_BOTTOM: targetAttachPosition.x = parentBoundingBox.x + parentBoundingBox.X; break;
-	           }
-	           switch (config.attachPoints.element) {
-	               case CLAY_ATTACH_POINT_LEFT_TOP:
-	               case CLAY_ATTACH_POINT_LEFT_CENTER:
-	               case CLAY_ATTACH_POINT_LEFT_BOTTOM: break;
-	               case CLAY_ATTACH_POINT_CENTER_TOP:
-	               case CLAY_ATTACH_POINT_CENTER_CENTER:
-	               case CLAY_ATTACH_POINT_CENTER_BOTTOM: targetAttachPosition.x -= (rootDimensions.X / 2); break;
-	               case CLAY_ATTACH_POINT_RIGHT_TOP:
-	               case CLAY_ATTACH_POINT_RIGHT_CENTER:
-	               case CLAY_ATTACH_POINT_RIGHT_BOTTOM: targetAttachPosition.x -= rootDimensions.X; break;
-	           }
-	           switch (config.attachPoints.parent) { // I know I could merge the x and y switch statements, but this is easier to read
-	               case CLAY_ATTACH_POINT_LEFT_TOP:
-	               case CLAY_ATTACH_POINT_RIGHT_TOP:
-	               case CLAY_ATTACH_POINT_CENTER_TOP: targetAttachPosition.y = parentBoundingBox.y; break;
-	               case CLAY_ATTACH_POINT_LEFT_CENTER:
-	               case CLAY_ATTACH_POINT_CENTER_CENTER:
-	               case CLAY_ATTACH_POINT_RIGHT_CENTER: targetAttachPosition.y = parentBoundingBox.y + (parentBoundingBox.Y / 2); break;
-	               case CLAY_ATTACH_POINT_LEFT_BOTTOM:
-	               case CLAY_ATTACH_POINT_CENTER_BOTTOM:
-	               case CLAY_ATTACH_POINT_RIGHT_BOTTOM: targetAttachPosition.y = parentBoundingBox.y + parentBoundingBox.Y; break;
-	           }
-	           switch (config.attachPoints.element) {
-	               case CLAY_ATTACH_POINT_LEFT_TOP:
-	               case CLAY_ATTACH_POINT_RIGHT_TOP:
-	               case CLAY_ATTACH_POINT_CENTER_TOP: break;
-	               case CLAY_ATTACH_POINT_LEFT_CENTER:
-	               case CLAY_ATTACH_POINT_CENTER_CENTER:
-	               case CLAY_ATTACH_POINT_RIGHT_CENTER: targetAttachPosition.y -= (rootDimensions.Y / 2); break;
-	               case CLAY_ATTACH_POINT_LEFT_BOTTOM:
-	               case CLAY_ATTACH_POINT_CENTER_BOTTOM:
-	               case CLAY_ATTACH_POINT_RIGHT_BOTTOM: targetAttachPosition.y -= rootDimensions.Y; break;
-	           }
-	           targetAttachPosition.x += config.offset.x;
-	           targetAttachPosition.y += config.offset.y;
-	           rootPosition = targetAttachPosition;
-	       }
-	       if (root.clipElementId) {
-	           Clay_LayoutElementHashMapItem *clipHashMapItem = getHashMapItem(root.clipElementId);
-	           if (clipHashMapItem) {
-	               // Floating elements that are attached to scrolling contents won't be correctly positioned if external scroll handling is enabled, fix here
-	               if (c.externalScrollHandlingEnabled) {
-	                   Clay_ScrollElementConfig *scrollConfig = findElementConfigWithType(clipHashMapItem.layoutElement, CLAY__ELEMENT_CONFIG_TYPE_SCROLL).scrollElementConfig;
-	                   for (int32 i = 0; i < c.scrollContainerDatas.length; i++) {
-	                       Clay__ScrollContainerDataInternal *mapping = Clay__ScrollContainerDataInternalArray_Get(&c.scrollContainerDatas, i);
-	                       if (mapping.layoutElement == clipHashMapItem.layoutElement) {
-	                           root.pointerOffset = mapping.scrollPosition;
-	                           if (scrollConfig.horizontal) {
-	                               rootPosition.x += mapping.scrollPosition.x;
-	                           }
-	                           if (scrollConfig.vertical) {
-	                               rootPosition.y += mapping.scrollPosition.y;
-	                           }
-	                           break;
-	                       }
-	                   }
-	               }
-	               Clay__AddRenderCommand(CLAY__INIT(Clay_RenderCommand) {
-	                   .boundingBox = clipHashMapItem.boundingBox,
-	                   .userData = 0,
-	                   .id = hashNumber(rootElement.id, rootElement.childrenOrTextContent.children.length + 10).id, // TODO need a better strategy for managing derived ids
-	                   .zIndex = root.zIndex,
-	                   .commandType = CLAY_RENDER_COMMAND_TYPE_SCISSOR_START,
-	               });
-	           }
-	       }
-	       Clay__LayoutElementTreeNodeArray_Add(&dfsBuffer, CLAY__INIT(Clay__LayoutElementTreeNode) { .layoutElement = rootElement, .position = rootPosition, .nextChildOffset = { .x = (float32)rootElement.layoutConfig.padding.Left, .y = (float32)rootElement.layoutConfig.padding.Top } });
+	for iroot := range c.layoutElementTreeRoots {
+		root := &c.layoutElementTreeRoots[iroot]
+		dfsBuffer = dfsBuffer[0:0]
+		rootElement := &c.layoutElements[root.layoutElementIndex]
+		var rootPosition vector2.Float32
+		parentHashMapItem := c.getHashMapItem(root.parentId)
+		// Position root floating containers
+		if config, ok := findElementConfigWithType[*FloatingElementConfig](rootElement); ok && parentHashMapItem != nil {
+			rootDimensions := rootElement.dimensions
+			parentBoundingBox := parentHashMapItem.boundingBox
+			// Set X position
+			var targetAttachPosition vector2.Float32
+			switch config.attachPoints.parent {
+			case ATTACH_POINT_LEFT_TOP, ATTACH_POINT_LEFT_CENTER, ATTACH_POINT_LEFT_BOTTOM:
+				targetAttachPosition.X = parentBoundingBox.X()
+			case ATTACH_POINT_CENTER_TOP, ATTACH_POINT_CENTER_CENTER, ATTACH_POINT_CENTER_BOTTOM:
+				targetAttachPosition.X = parentBoundingBox.X() + (parentBoundingBox.Width() / 2)
+			case ATTACH_POINT_RIGHT_TOP, ATTACH_POINT_RIGHT_CENTER, ATTACH_POINT_RIGHT_BOTTOM:
+				targetAttachPosition.X = parentBoundingBox.X() + parentBoundingBox.Width()
+			}
+			switch config.attachPoints.element {
+			case ATTACH_POINT_LEFT_TOP, ATTACH_POINT_LEFT_CENTER, ATTACH_POINT_LEFT_BOTTOM:
+				break
+			case ATTACH_POINT_CENTER_TOP, ATTACH_POINT_CENTER_CENTER, ATTACH_POINT_CENTER_BOTTOM:
+				targetAttachPosition.X -= (rootDimensions.X / 2)
+			case ATTACH_POINT_RIGHT_TOP, ATTACH_POINT_RIGHT_CENTER, ATTACH_POINT_RIGHT_BOTTOM:
+				targetAttachPosition.X -= rootDimensions.X
+			}
+			switch config.attachPoints.parent { // I know I could merge the x and y switch statements, but this is easier to read
+			case ATTACH_POINT_LEFT_TOP, ATTACH_POINT_RIGHT_TOP, ATTACH_POINT_CENTER_TOP:
+				targetAttachPosition.Y = parentBoundingBox.Y()
+			case ATTACH_POINT_LEFT_CENTER, ATTACH_POINT_CENTER_CENTER, ATTACH_POINT_RIGHT_CENTER:
+				targetAttachPosition.Y = parentBoundingBox.Y() + (parentBoundingBox.Height() / 2)
+			case ATTACH_POINT_LEFT_BOTTOM, ATTACH_POINT_CENTER_BOTTOM, ATTACH_POINT_RIGHT_BOTTOM:
+				targetAttachPosition.Y = parentBoundingBox.Y() + parentBoundingBox.Height()
+			}
+			switch config.attachPoints.element {
+			case ATTACH_POINT_LEFT_TOP, ATTACH_POINT_RIGHT_TOP, ATTACH_POINT_CENTER_TOP:
+				break
+			case ATTACH_POINT_LEFT_CENTER, ATTACH_POINT_CENTER_CENTER, ATTACH_POINT_RIGHT_CENTER:
+				targetAttachPosition.Y -= (rootDimensions.Y / 2)
+			case ATTACH_POINT_LEFT_BOTTOM, ATTACH_POINT_CENTER_BOTTOM, ATTACH_POINT_RIGHT_BOTTOM:
+				targetAttachPosition.Y -= rootDimensions.Y
+			}
+			targetAttachPosition.X += config.offset.X
+			targetAttachPosition.Y += config.offset.Y
+			rootPosition = targetAttachPosition
+		}
 
-	       c.treeNodeVisited.internalArray[0] = false;
-	       while (dfsBuffer.length > 0) {
-	           Clay__LayoutElementTreeNode *currentElementTreeNode = Clay__LayoutElementTreeNodeArray_Get(&dfsBuffer, (int)dfsBuffer.length - 1);
-	           Clay_LayoutElement *currentElement = currentElementTreeNode.layoutElement;
-	           Clay_LayoutConfig *layoutConfig = currentElement.layoutConfig;
-	           vector2.Float32 scrollOffset = CLAY__DEFAULT_STRUCT;
+		if root.clipElementId != 0 {
+			clipHashMapItem := c.getHashMapItem(root.clipElementId)
+			if clipHashMapItem != nil {
+				// Floating elements that are attached to scrolling contents won't be correctly positioned if external scroll handling is enabled, fix here
+				if c.externalScrollHandlingEnabled {
+					if scrollConfig, ok := findElementConfigWithType[*ScrollElementConfig](clipHashMapItem.layoutElement); ok {
+						for _, mapping := range c.scrollContainerDatas {
+							if mapping.layoutElement == clipHashMapItem.layoutElement {
+								root.pointerOffset = mapping.scrollPosition
+								if scrollConfig.horizontal {
+									rootPosition.X += mapping.scrollPosition.X
+								}
+								if scrollConfig.vertical {
+									rootPosition.Y += mapping.scrollPosition.Y
+								}
+								break
+							}
+						}
+					}
+				}
+				c.addRenderCommand(RenderCommand{
+					BoundingBox: clipHashMapItem.boundingBox,
+					UserData:    0,
+					Id:          hashNumber(rootElement.id, uint32(len(rootElement.children))+10).id, // TODO need a better strategy for managing derived ids
+					ZIndex:      root.zIndex,
+					RenderData:  ScissorsStartData{},
+				})
+			}
+		}
+		dfsBuffer = append(dfsBuffer, LayoutElementTreeNode{
+			layoutElement:   rootElement,
+			position:        rootPosition,
+			nextChildOffset: vector2.NewFloat32((float32)(rootElement.layoutConfig.Padding.Left), (float32)(rootElement.layoutConfig.Padding.Top)),
+		})
 
-	           // This will only be run a single time for each element in downwards DFS order
-	           if (!c.treeNodeVisited.internalArray[dfsBuffer.length - 1]) {
-	               c.treeNodeVisited.internalArray[dfsBuffer.length - 1] = true;
+		c.treeNodeVisited[0] = false
+		for len(dfsBuffer) > 0 {
+			currentElementTreeNode := &dfsBuffer[len(dfsBuffer)-1]
+			currentElement := currentElementTreeNode.layoutElement
+			layoutConfig := currentElement.layoutConfig
+			var scrollOffset vector2.Float32
 
-	               Clay_BoundingBox currentElementBoundingBox = { currentElementTreeNode.position.x, currentElementTreeNode.position.y, currentElement.dimensions.X, currentElement.dimensions.Y };
-	               if (elementHasConfig(currentElement, CLAY__ELEMENT_CONFIG_TYPE_FLOATING)) {
-	                   Clay_FloatingElementConfig *floatingElementConfig = findElementConfigWithType(currentElement, CLAY__ELEMENT_CONFIG_TYPE_FLOATING).floatingElementConfig;
-	                   vector2.Float32 expand = floatingElementConfig.expand;
-	                   currentElementBoundingBox.x -= expand.X;
-	                   currentElementBoundingBox.X += expand.X * 2;
-	                   currentElementBoundingBox.y -= expand.Y;
-	                   currentElementBoundingBox.Y += expand.Y * 2;
-	               }
+			// This will only be run a single time for each element in downwards DFS order
+			if !c.treeNodeVisited[len(dfsBuffer)-1] {
+				c.treeNodeVisited[len(dfsBuffer)-1] = true
 
-	               Clay__ScrollContainerDataInternal *scrollContainerData = CLAY__NULL;
-	               // Apply scroll offsets to container
-	               if (elementHasConfig(currentElement, CLAY__ELEMENT_CONFIG_TYPE_SCROLL)) {
-	                   Clay_ScrollElementConfig *scrollConfig = findElementConfigWithType(currentElement, CLAY__ELEMENT_CONFIG_TYPE_SCROLL).scrollElementConfig;
+				currentElementBoundingBox := rect2.NewFloat32(currentElementTreeNode.position, currentElement.dimensions)
+				if floatingElementConfig, ok := findElementConfigWithType[*FloatingElementConfig](currentElement); ok {
+					expand := floatingElementConfig.expand
+					currentElementBoundingBox = currentElementBoundingBox.AddXYWH(-expand.X, -expand.Y, expand.X*2, expand.Y*2)
+				}
 
-	                   // This linear scan could theoretically be slow under very strange conditions, but I can't imagine a real UI with more than a few 10's of scroll containers
-	                   for (int32 i = 0; i < c.scrollContainerDatas.length; i++) {
-	                       Clay__ScrollContainerDataInternal *mapping = Clay__ScrollContainerDataInternalArray_Get(&c.scrollContainerDatas, i);
-	                       if (mapping.layoutElement == currentElement) {
-	                           scrollContainerData = mapping;
-	                           mapping.boundingBox = currentElementBoundingBox;
-	                           if (scrollConfig.horizontal) {
-	                               scrollOffset.x = mapping.scrollPosition.x;
-	                           }
-	                           if (scrollConfig.vertical) {
-	                               scrollOffset.y = mapping.scrollPosition.y;
-	                           }
-	                           if (c.externalScrollHandlingEnabled) {
-	                               scrollOffset = CLAY__INIT(vector2.Float32) CLAY__DEFAULT_STRUCT;
-	                           }
-	                           break;
-	                       }
-	                   }
-	               }
+				var scrollContainerData *ScrollContainerDataInternal
+				// Apply scroll offsets to container
+				if scrollConfig, ok := findElementConfigWithType[*ScrollElementConfig](currentElement); ok {
+					// This linear scan could theoretically be slow under very strange conditions, but I can't imagine a real UI with more than a few 10's of scroll containers
+					for i := range c.scrollContainerDatas {
+						mapping := &c.scrollContainerDatas[i]
+						if mapping.layoutElement == currentElement {
+							scrollContainerData = mapping
+							mapping.boundingBox = currentElementBoundingBox
+							if scrollConfig.horizontal {
+								scrollOffset.X = mapping.scrollPosition.X
+							}
+							if scrollConfig.vertical {
+								scrollOffset.Y = mapping.scrollPosition.Y
+							}
+							if c.externalScrollHandlingEnabled {
+								scrollOffset = vector2.Zero[float32]()
+							}
+							break
+						}
+					}
+				}
 
-	               Clay_LayoutElementHashMapItem *hashMapItem = getHashMapItem(currentElement.id);
-	               if (hashMapItem) {
-	                   hashMapItem.boundingBox = currentElementBoundingBox;
-	                   if (hashMapItem.idAlias) {
-	                       Clay_LayoutElementHashMapItem *hashMapItemAlias = getHashMapItem(hashMapItem.idAlias);
-	                       if (hashMapItemAlias) {
-	                           hashMapItemAlias.boundingBox = currentElementBoundingBox;
-	                       }
-	                   }
-	               }
+				hashMapItem := c.getHashMapItem(currentElement.id)
+				if hashMapItem != nil {
+					hashMapItem.boundingBox = currentElementBoundingBox
+					if hashMapItem.idAlias != 0 {
+						hashMapItemAlias := c.getHashMapItem(hashMapItem.idAlias)
+						if hashMapItemAlias != nil {
+							hashMapItemAlias.boundingBox = currentElementBoundingBox
+						}
+					}
+				}
 
-	               int32 sortedConfigIndexes[20];
-	               for (int32 elementConfigIndex = 0; elementConfigIndex < currentElement.elementConfigs.length; ++elementConfigIndex) {
-	                   sortedConfigIndexes[elementConfigIndex] = elementConfigIndex;
-	               }
-	               sortMax = currentElement.elementConfigs.length - 1;
-	               while (sortMax > 0) { // todo dumb bubble sort
-	                   for (int32 i = 0; i < sortMax; ++i) {
-	                       int32 current = sortedConfigIndexes[i];
-	                       int32 next = sortedConfigIndexes[i + 1];
-	                       Clay__ElementConfigType currentType = Clay__ElementConfigArraySlice_Get(&currentElement.elementConfigs, current).type;
-	                       Clay__ElementConfigType nextType = Clay__ElementConfigArraySlice_Get(&currentElement.elementConfigs, next).type;
-	                       if (nextType == CLAY__ELEMENT_CONFIG_TYPE_SCROLL || currentType == CLAY__ELEMENT_CONFIG_TYPE_BORDER) {
-	                           sortedConfigIndexes[i] = next;
-	                           sortedConfigIndexes[i + 1] = current;
-	                       }
-	                   }
-	                   sortMax--;
-	               }
+				var sortedConfigIndexes [20]int
+				for elementConfigIndex := range currentElement.elementConfigs {
+					sortedConfigIndexes[elementConfigIndex] = elementConfigIndex
+				}
+				sortMax = len(currentElement.elementConfigs) - 1
+				for sortMax > 0 { // todo dumb bubble sort
+					for i := range sortMax {
+						current := sortedConfigIndexes[i]
+						next := sortedConfigIndexes[i+1]
+						_ = current
+						_ = next
+						/* TODO: fix that
+						currentType := currentElement.elementConfigs[current].type;
+						nextType := currentElement.elementConfigs[next].type;
+						if (nextType == CLAY__ELEMENT_CONFIG_TYPE_SCROLL || currentType == CLAY__ELEMENT_CONFIG_TYPE_BORDER) {
+							sortedConfigIndexes[i] = next;
+							sortedConfigIndexes[i + 1] = current;
+						}
+						*/
+					}
+					sortMax--
+				}
 
-	               bool emitRectangle = false;
-	               // Create the render commands for this element
-	               Clay_SharedElementConfig *sharedConfig = findElementConfigWithType(currentElement, CLAY__ELEMENT_CONFIG_TYPE_SHARED).sharedElementConfig;
-	               if (sharedConfig && sharedConfig.backgroundColor.a > 0) {
-	                  emitRectangle = true;
-	               }
-	               else if (!sharedConfig) {
-	                   emitRectangle = false;
-	                   sharedConfig = &Clay_SharedElementConfig_DEFAULT;
-	               }
-	               for (int32 elementConfigIndex = 0; elementConfigIndex < currentElement.elementConfigs.length; ++elementConfigIndex) {
-	                   Clay_ElementConfig *elementConfig = Clay__ElementConfigArraySlice_Get(&currentElement.elementConfigs, sortedConfigIndexes[elementConfigIndex]);
-	                   Clay_RenderCommand renderCommand = {
-	                       .boundingBox = currentElementBoundingBox,
-	                       .userData = sharedConfig.userData,
-	                       .id = currentElement.id,
-	                   };
+				emitRectangle := false
+				// Create the render commands for this element
+				sharedConfig, ok := findElementConfigWithType[*SharedElementConfig](currentElement)
+				if ok && sharedConfig.backgroundColor.A > 0 {
+					emitRectangle = true
+				} else if !ok {
+					emitRectangle = false
+					sharedConfig = &default_SharedElementConfig
+				}
 
-	                   bool offscreen = Clay__ElementIsOffscreen(&currentElementBoundingBox);
-	                   // Culling - Don't bother to generate render commands for rectangles entirely outside the screen - this won't stop their children from being rendered if they overflow
-	                   bool shouldRender = !offscreen;
-	                   switch (elementConfig.type) {
-	                       case CLAY__ELEMENT_CONFIG_TYPE_FLOATING:
-	                       case CLAY__ELEMENT_CONFIG_TYPE_SHARED:
-	                       case CLAY__ELEMENT_CONFIG_TYPE_BORDER: {
-	                           shouldRender = false;
-	                           break;
-	                       }
-	                       case CLAY__ELEMENT_CONFIG_TYPE_SCROLL: {
-	                           renderCommand.commandType = CLAY_RENDER_COMMAND_TYPE_SCISSOR_START;
-	                           renderCommand.renderData = CLAY__INIT(Clay_RenderData) {
-	                               .scroll = {
-	                                   .horizontal = elementConfig.config.scrollElementConfig.horizontal,
-	                                   .vertical = elementConfig.config.scrollElementConfig.vertical,
-	                               }
-	                           };
-	                           break;
-	                       }
-	                       case CLAY__ELEMENT_CONFIG_TYPE_IMAGE: {
-	                           renderCommand.commandType = CLAY_RENDER_COMMAND_TYPE_IMAGE;
-	                           renderCommand.renderData = CLAY__INIT(Clay_RenderData) {
-	                               .image = {
-	                                   .backgroundColor = sharedConfig.backgroundColor,
-	                                   .cornerRadius = sharedConfig.cornerRadius,
-	                                   .sourceDimensions = elementConfig.config.imageElementConfig.sourceDimensions,
-	                                   .imageData = elementConfig.config.imageElementConfig.imageData,
-	                              }
-	                           };
-	                           emitRectangle = false;
-	                           break;
-	                       }
-	                       case CLAY__ELEMENT_CONFIG_TYPE_TEXT: {
-	                           if (!shouldRender) {
-	                               break;
-	                           }
-	                           shouldRender = false;
-	                           Clay_ElementConfigUnion configUnion = elementConfig.config;
-	                           Clay_TextElementConfig *textElementConfig = configUnion.textElementConfig;
-	                           float naturalLineHeight = currentElement.childrenOrTextContent.textElementData.preferredDimensions.Y;
-	                           float finalLineHeight = textElementConfig.lineHeight > 0 ? (float32)textElementConfig.lineHeight : naturalLineHeight;
-	                           float lineHeightOffset = (finalLineHeight - naturalLineHeight) / 2;
-	                           float yPosition = lineHeightOffset;
-	                           for (int32 lineIndex = 0; lineIndex < currentElement.childrenOrTextContent.textElementData.wrappedLines.length; ++lineIndex) {
-	                               Clay__WrappedTextLine *wrappedLine = Clay__WrappedTextLineArraySlice_Get(&currentElement.childrenOrTextContent.textElementData.wrappedLines, lineIndex);
-	                               if (wrappedLine.line.length == 0) {
-	                                   yPosition += finalLineHeight;
-	                                   continue;
-	                               }
-	                               float offset = (currentElementBoundingBox.X - wrappedLine.dimensions.X);
-	                               if (textElementConfig.textAlignment == CLAY_TEXT_ALIGN_LEFT) {
-	                                   offset = 0;
-	                               }
-	                               if (textElementConfig.textAlignment == CLAY_TEXT_ALIGN_CENTER) {
-	                                   offset /= 2;
-	                               }
-	                               Clay__AddRenderCommand(CLAY__INIT(Clay_RenderCommand) {
-	                                   .boundingBox = { currentElementBoundingBox.x + offset, currentElementBoundingBox.y + yPosition, wrappedLine.dimensions.X, wrappedLine.dimensions.Y },
-	                                   .renderData = { .text = {
-	                                       .stringContents = CLAY__INIT(Clay_StringSlice) { .length = wrappedLine.line.length, .chars = wrappedLine.line.chars, .baseChars = currentElement.childrenOrTextContent.textElementData.text.chars },
-	                                       .textColor = textElementConfig.textColor,
-	                                       .fontId = textElementConfig.fontId,
-	                                       .fontSize = textElementConfig.fontSize,
-	                                       .letterSpacing = textElementConfig.letterSpacing,
-	                                       .lineHeight = textElementConfig.lineHeight,
-	                                   }},
-	                                   .userData = textElementConfig.userData,
-	                                   .id = hashNumber(lineIndex, currentElement.id).id,
-	                                   .zIndex = root.zIndex,
-	                                   .commandType = CLAY_RENDER_COMMAND_TYPE_TEXT,
-	                               });
-	                               yPosition += finalLineHeight;
+				for elementConfigIndex := range currentElement.elementConfigs {
+					elementConfig := currentElement.elementConfigs[sortedConfigIndexes[elementConfigIndex]]
+					renderCommand := RenderCommand{
+						BoundingBox: currentElementBoundingBox,
+						UserData:    sharedConfig.userData,
+						Id:          currentElement.id,
+					}
 
-	                               if (!c.disableCulling && (currentElementBoundingBox.y + yPosition > c.layoutDimensions.Y)) {
-	                                   break;
-	                               }
-	                           }
-	                           break;
-	                       }
-	                       case CLAY__ELEMENT_CONFIG_TYPE_CUSTOM: {
-	                           renderCommand.commandType = CLAY_RENDER_COMMAND_TYPE_CUSTOM;
-	                           renderCommand.renderData = CLAY__INIT(Clay_RenderData) {
-	                               .custom = {
-	                                   .backgroundColor = sharedConfig.backgroundColor,
-	                                   .cornerRadius = sharedConfig.cornerRadius,
-	                                   .customData = elementConfig.config.customElementConfig.customData,
-	                               }
-	                           };
-	                           emitRectangle = false;
-	                           break;
-	                       }
-	                       default: break;
-	                   }
-	                   if (shouldRender) {
-	                       Clay__AddRenderCommand(renderCommand);
-	                   }
-	                   if (offscreen) {
-	                       // NOTE: You may be tempted to try an early return / continue if an element is off screen. Why bother calculating layout for its children, right?
-	                       // Unfortunately, a FLOATING_CONTAINER may be defined that attaches to a child or grandchild of this element, which is large enough to still
-	                       // be on screen, even if this element isn't. That depends on this element and it's children being laid out correctly (even if they are entirely off screen)
-	                   }
-	               }
+					offscreen := c.Clay__ElementIsOffscreen(currentElementBoundingBox)
+					// Culling - Don't bother to generate render commands for rectangles entirely outside the screen - this won't stop their children from being rendered if they overflow
+					shouldRender := !offscreen
+					switch cfg := elementConfig.(type) {
+					case *FloatingElementConfig:
+						shouldRender = false
+					case *SharedElementConfig:
+						shouldRender = false
+					case *BorderElementConfig:
+						shouldRender = false
+					case *ScrollElementConfig:
+						renderCommand.RenderData = ScissorsStartData{
+							horizontal: cfg.horizontal,
+							vertical:   cfg.vertical,
+						}
+					case *ImageElementConfig:
+						renderCommand.RenderData = ImageRenderData{
+							backgroundColor:  sharedConfig.backgroundColor,
+							cornerRadius:     sharedConfig.cornerRadius,
+							sourceDimensions: cfg.SourceDimensions,
+							imageData:        cfg.ImageData,
+						}
+						emitRectangle = false
 
-	               if (emitRectangle) {
-	                   Clay__AddRenderCommand(CLAY__INIT(Clay_RenderCommand) {
-	                       .boundingBox = currentElementBoundingBox,
-	                       .renderData = { .rectangle = {
-	                               .backgroundColor = sharedConfig.backgroundColor,
-	                               .cornerRadius = sharedConfig.cornerRadius,
-	                       }},
-	                       .userData = sharedConfig.userData,
-	                       .id = currentElement.id,
-	                       .zIndex = root.zIndex,
-	                       .commandType = CLAY_RENDER_COMMAND_TYPE_RECTANGLE,
-	                   });
-	               }
+					case *TextElementConfig:
+						if !shouldRender {
+							break
+						}
+						shouldRender = false
+						naturalLineHeight := currentElement.textElementData.preferredDimensions.Y
+						finalLineHeight := naturalLineHeight
+						if cfg.lineHeight > 0 {
+							finalLineHeight = (float32)(cfg.lineHeight)
+						}
+						lineHeightOffset := (finalLineHeight - naturalLineHeight) / 2
+						yPosition := lineHeightOffset
+						for lineIndex, wrappedLine := range currentElement.textElementData.wrappedLines {
+							if len(wrappedLine.line) == 0 {
+								yPosition += finalLineHeight
+								continue
+							}
+							offset := (currentElementBoundingBox.Width() - wrappedLine.dimensions.X)
+							if cfg.textAlignment == TEXT_ALIGN_LEFT {
+								offset = 0
+							}
+							if cfg.textAlignment == TEXT_ALIGN_CENTER {
+								offset /= 2
+							}
+							c.addRenderCommand(RenderCommand{
+								BoundingBox: rect2.NewFloat32(
+									currentElementBoundingBox.Position.AddXY(offset, yPosition),
+									wrappedLine.dimensions,
+								),
+								RenderData: TextRenderData{
+									stringContents: wrappedLine.line,
+									textColor:      cfg.textColor,
+									fontId:         cfg.fontId,
+									fontSize:       cfg.fontSize,
+									letterSpacing:  cfg.letterSpacing,
+									lineHeight:     cfg.lineHeight,
+								},
+								UserData: cfg.userData,
+								Id:       hashNumber(uint32(lineIndex), currentElement.id).id,
+								ZIndex:   root.zIndex,
+							})
+							yPosition += finalLineHeight
 
-	               // Setup initial on-axis alignment
-	               if (!elementHasConfig(currentElementTreeNode.layoutElement, CLAY__ELEMENT_CONFIG_TYPE_TEXT)) {
-	                   vector2.Float32 contentSize = {0,0};
-	                   if (layoutConfig.layoutDirection == CLAY_LEFT_TO_RIGHT) {
-	                       for (int32 i = 0; i < currentElement.childrenOrTextContent.children.length; ++i) {
-	                           Clay_LayoutElement *childElement = Clay_LayoutElementArray_Get(&c.layoutElements, currentElement.childrenOrTextContent.children.elements[i]);
-	                           contentSize.X += childElement.dimensions.X;
-	                           contentSize.Y = max(contentSize.Y, childElement.dimensions.Y);
-	                       }
-	                       contentSize.X += (float32)(max(currentElement.childrenOrTextContent.children.length - 1, 0) * layoutConfig.childGap);
-	                       float extraSpace = currentElement.dimensions.X - (float32)(layoutConfig.padding.Left + layoutConfig.padding.Right) - contentSize.X;
-	                       switch (layoutConfig.childAlignment.x) {
-	                           case CLAY_ALIGN_X_LEFT: extraSpace = 0; break;
-	                           case CLAY_ALIGN_X_CENTER: extraSpace /= 2; break;
-	                           default: break;
-	                       }
-	                       currentElementTreeNode.nextChildOffset.x += extraSpace;
-	                   } else {
-	                       for (int32 i = 0; i < currentElement.childrenOrTextContent.children.length; ++i) {
-	                           Clay_LayoutElement *childElement = Clay_LayoutElementArray_Get(&c.layoutElements, currentElement.childrenOrTextContent.children.elements[i]);
-	                           contentSize.X = max(contentSize.X, childElement.dimensions.X);
-	                           contentSize.Y += childElement.dimensions.Y;
-	                       }
-	                       contentSize.Y += (float32)(max(currentElement.childrenOrTextContent.children.length - 1, 0) * layoutConfig.childGap);
-	                       float extraSpace = currentElement.dimensions.Y - (float32)(layoutConfig.padding.Top + layoutConfig.padding.Bottom) - contentSize.Y;
-	                       switch (layoutConfig.childAlignment.y) {
-	                           case CLAY_ALIGN_Y_TOP: extraSpace = 0; break;
-	                           case CLAY_ALIGN_Y_CENTER: extraSpace /= 2; break;
-	                           default: break;
-	                       }
-	                       currentElementTreeNode.nextChildOffset.y += extraSpace;
-	                   }
+							if !c.disableCulling && (currentElementBoundingBox.Y()+yPosition > c.layoutDimensions.Y) {
+								break
+							}
+						}
+					case *CustomElementConfig:
+						{
+							renderCommand.RenderData = CustomRenderData{
+								backgroundColor: sharedConfig.backgroundColor,
+								cornerRadius:    sharedConfig.cornerRadius,
+								customData:      cfg.customData,
+							}
+							emitRectangle = false
+							break
+						}
+					default:
+						break
+					}
+					if shouldRender {
+						c.addRenderCommand(renderCommand)
+					}
+					if offscreen {
+						// NOTE: You may be tempted to try an early return / continue if an element is off screen. Why bother calculating layout for its children, right?
+						// Unfortunately, a FLOATING_CONTAINER may be defined that attaches to a child or grandchild of this element, which is large enough to still
+						// be on screen, even if this element isn't. That depends on this element and it's children being laid out correctly (even if they are entirely off screen)
+					}
+				}
 
-	                   if (scrollContainerData) {
-	                       scrollContainerData.contentSize = CLAY__INIT(vector2.Float32) { contentSize.X + (float32)(layoutConfig.padding.Left + layoutConfig.padding.Right), contentSize.Y + (float32)(layoutConfig.padding.Top + layoutConfig.padding.Bottom) };
-	                   }
-	               }
-	           }
-	           else {
-	               // DFS is returning upwards backwards
-	               bool closeScrollElement = false;
-	               Clay_ScrollElementConfig *scrollConfig = findElementConfigWithType(currentElement, CLAY__ELEMENT_CONFIG_TYPE_SCROLL).scrollElementConfig;
-	               if (scrollConfig) {
-	                   closeScrollElement = true;
-	                   for (int32 i = 0; i < c.scrollContainerDatas.length; i++) {
-	                       Clay__ScrollContainerDataInternal *mapping = Clay__ScrollContainerDataInternalArray_Get(&c.scrollContainerDatas, i);
-	                       if (mapping.layoutElement == currentElement) {
-	                           if (scrollConfig.horizontal) { scrollOffset.x = mapping.scrollPosition.x; }
-	                           if (scrollConfig.vertical) { scrollOffset.y = mapping.scrollPosition.y; }
-	                           if (c.externalScrollHandlingEnabled) {
-	                               scrollOffset = CLAY__INIT(vector2.Float32) CLAY__DEFAULT_STRUCT;
-	                           }
-	                           break;
-	                       }
-	                   }
-	               }
+				if emitRectangle {
+					c.addRenderCommand(RenderCommand{
+						BoundingBox: currentElementBoundingBox,
+						RenderData: RectangleRenderData{
+							backgroundColor: sharedConfig.backgroundColor,
+							cornerRadius:    sharedConfig.cornerRadius,
+						},
+						UserData: sharedConfig.userData,
+						Id:       currentElement.id,
+						ZIndex:   root.zIndex,
+					})
+				}
 
-	               if (elementHasConfig(currentElement, CLAY__ELEMENT_CONFIG_TYPE_BORDER)) {
-	                   Clay_LayoutElementHashMapItem *currentElementData = getHashMapItem(currentElement.id);
-	                   Clay_BoundingBox currentElementBoundingBox = currentElementData.boundingBox;
+				// Setup initial on-axis alignment
+				if !elementHasConfig[*TextElementConfig](currentElementTreeNode.layoutElement) {
+					var contentSize vector2.Float32
+					if layoutConfig.LayoutDirection == LEFT_TO_RIGHT {
+						for child := range currentElement.children {
+							childElement := c.layoutElements[child]
+							contentSize.X += childElement.dimensions.X
+							contentSize.Y = max(contentSize.Y, childElement.dimensions.Y)
+						}
+						contentSize.X += float32(max(len(currentElement.children)-1, 0) * int(layoutConfig.ChildGap))
+						extraSpace := currentElement.dimensions.X - (float32)(layoutConfig.Padding.Left+layoutConfig.Padding.Right) - contentSize.X
+						switch layoutConfig.ChildAlignment.X {
+						case ALIGN_X_LEFT:
+							extraSpace = 0
+						case ALIGN_X_CENTER:
+							extraSpace /= 2
+						default:
+							break
+						}
+						currentElementTreeNode.nextChildOffset.X += extraSpace
+					} else {
+						for child := range currentElement.children {
+							childElement := c.layoutElements[child]
+							contentSize.X = max(contentSize.X, childElement.dimensions.X)
+							contentSize.Y += childElement.dimensions.Y
+						}
+						contentSize.Y += (float32)(max(len(currentElement.children)-1, 0) * int(layoutConfig.ChildGap))
+						extraSpace := currentElement.dimensions.Y - (float32)(layoutConfig.Padding.Top+layoutConfig.Padding.Bottom) - contentSize.Y
+						switch layoutConfig.ChildAlignment.Y {
+						case ALIGN_Y_TOP:
+							extraSpace = 0
+						case ALIGN_Y_CENTER:
+							extraSpace /= 2
+						default:
+							break
+						}
+						currentElementTreeNode.nextChildOffset.Y += extraSpace
+					}
 
-	                   // Culling - Don't bother to generate render commands for rectangles entirely outside the screen - this won't stop their children from being rendered if they overflow
-	                   if (!Clay__ElementIsOffscreen(&currentElementBoundingBox)) {
-	                       Clay_SharedElementConfig *sharedConfig = elementHasConfig(currentElement, CLAY__ELEMENT_CONFIG_TYPE_SHARED) ? findElementConfigWithType(currentElement, CLAY__ELEMENT_CONFIG_TYPE_SHARED).sharedElementConfig : &Clay_SharedElementConfig_DEFAULT;
-	                       Clay_BorderElementConfig *borderConfig = findElementConfigWithType(currentElement, CLAY__ELEMENT_CONFIG_TYPE_BORDER).borderElementConfig;
-	                       Clay_RenderCommand renderCommand = {
-	                               .boundingBox = currentElementBoundingBox,
-	                               .renderData = { .border = {
-	                                   .color = borderConfig.color,
-	                                   .cornerRadius = sharedConfig.cornerRadius,
-	                                   .X = borderConfig.X
-	                               }},
-	                               .userData = sharedConfig.userData,
-	                               .id = hashNumber(currentElement.id, currentElement.childrenOrTextContent.children.length).id,
-	                               .commandType = CLAY_RENDER_COMMAND_TYPE_BORDER,
-	                       };
-	                       Clay__AddRenderCommand(renderCommand);
-	                       if (borderConfig.X.betweenChildren > 0 && borderConfig.color.a > 0) {
-	                           float halfGap = layoutConfig.childGap / 2;
-	                           vector2.Float32 borderOffset = { (float32)layoutConfig.padding.Left - halfGap, (float32)layoutConfig.padding.Top - halfGap };
-	                           if (layoutConfig.layoutDirection == CLAY_LEFT_TO_RIGHT) {
-	                               for (int32 i = 0; i < currentElement.childrenOrTextContent.children.length; ++i) {
-	                                   Clay_LayoutElement *childElement = Clay_LayoutElementArray_Get(&c.layoutElements, currentElement.childrenOrTextContent.children.elements[i]);
-	                                   if (i > 0) {
-	                                       Clay__AddRenderCommand(CLAY__INIT(Clay_RenderCommand) {
-	                                           .boundingBox = { currentElementBoundingBox.x + borderOffset.x + scrollOffset.x, currentElementBoundingBox.y + scrollOffset.y, (float32)borderConfig.X.betweenChildren, currentElement.dimensions.Y },
-	                                           .renderData = { .rectangle = {
-	                                               .backgroundColor = borderConfig.color,
-	                                           } },
-	                                           .userData = sharedConfig.userData,
-	                                           .id = hashNumber(currentElement.id, currentElement.childrenOrTextContent.children.length + 1 + i).id,
-	                                           .commandType = CLAY_RENDER_COMMAND_TYPE_RECTANGLE,
-	                                       });
-	                                   }
-	                                   borderOffset.x += (childElement.dimensions.X + (float32)layoutConfig.childGap);
-	                               }
-	                           } else {
-	                               for (int32 i = 0; i < currentElement.childrenOrTextContent.children.length; ++i) {
-	                                   Clay_LayoutElement *childElement = Clay_LayoutElementArray_Get(&c.layoutElements, currentElement.childrenOrTextContent.children.elements[i]);
-	                                   if (i > 0) {
-	                                       Clay__AddRenderCommand(CLAY__INIT(Clay_RenderCommand) {
-	                                           .boundingBox = { currentElementBoundingBox.x + scrollOffset.x, currentElementBoundingBox.y + borderOffset.y + scrollOffset.y, currentElement.dimensions.X, (float32)borderConfig.X.betweenChildren },
-	                                           .renderData = { .rectangle = {
-	                                                   .backgroundColor = borderConfig.color,
-	                                           } },
-	                                           .userData = sharedConfig.userData,
-	                                           .id = hashNumber(currentElement.id, currentElement.childrenOrTextContent.children.length + 1 + i).id,
-	                                           .commandType = CLAY_RENDER_COMMAND_TYPE_RECTANGLE,
-	                                       });
-	                                   }
-	                                   borderOffset.y += (childElement.dimensions.Y + (float32)layoutConfig.childGap);
-	                               }
-	                           }
-	                       }
-	                   }
-	               }
-	               // This exists because the scissor needs to end _after_ borders between elements
-	               if (closeScrollElement) {
-	                   Clay__AddRenderCommand(CLAY__INIT(Clay_RenderCommand) {
-	                       .id = hashNumber(currentElement.id, rootElement.childrenOrTextContent.children.length + 11).id,
-	                       .commandType = CLAY_RENDER_COMMAND_TYPE_SCISSOR_END,
-	                   });
-	               }
+					if scrollContainerData != nil {
+						scrollContainerData.contentSize = vector2.NewFloat32(
+							contentSize.X+(float32)(layoutConfig.Padding.Left+layoutConfig.Padding.Right),
+							contentSize.Y+(float32)(layoutConfig.Padding.Top+layoutConfig.Padding.Bottom))
+					}
+				}
+			} else {
+				/*
+					// DFS is returning upwards backwards
+					bool closeScrollElement = false;
+					Clay_ScrollElementConfig *scrollConfig = findElementConfigWithType(currentElement, CLAY__ELEMENT_CONFIG_TYPE_SCROLL).scrollElementConfig;
+					if (scrollConfig) {
+						closeScrollElement = true;
+						for (int32 i = 0; i < c.scrollContainerDatas.length; i++) {
+							Clay__ScrollContainerDataInternal *mapping = Clay__ScrollContainerDataInternalArray_Get(&c.scrollContainerDatas, i);
+							if (mapping.layoutElement == currentElement) {
+								if (scrollConfig.horizontal) { scrollOffset.x = mapping.scrollPosition.x; }
+								if (scrollConfig.vertical) { scrollOffset.y = mapping.scrollPosition.y; }
+								if (c.externalScrollHandlingEnabled) {
+									scrollOffset = CLAY__INIT(vector2.Float32) CLAY__DEFAULT_STRUCT;
+								}
+								break;
+							}
+						}
+					}
 
-	               dfsBuffer.length--;
-	               continue;
-	           }
+					if (elementHasConfig(currentElement, CLAY__ELEMENT_CONFIG_TYPE_BORDER)) {
+						Clay_LayoutElementHashMapItem *currentElementData = getHashMapItem(currentElement.id);
+						Clay_BoundingBox currentElementBoundingBox = currentElementData.boundingBox;
 
-	           // Add children to the DFS buffer
-	           if (!elementHasConfig(currentElement, CLAY__ELEMENT_CONFIG_TYPE_TEXT)) {
-	               dfsBuffer.length += currentElement.childrenOrTextContent.children.length;
-	               for (int32 i = 0; i < currentElement.childrenOrTextContent.children.length; ++i) {
-	                   Clay_LayoutElement *childElement = Clay_LayoutElementArray_Get(&c.layoutElements, currentElement.childrenOrTextContent.children.elements[i]);
-	                   // Alignment along non layout axis
-	                   if (layoutConfig.layoutDirection == CLAY_LEFT_TO_RIGHT) {
-	                       currentElementTreeNode.nextChildOffset.y = currentElement.layoutConfig.padding.Top;
-	                       float whiteSpaceAroundChild = currentElement.dimensions.Y - (float32)(layoutConfig.padding.Top + layoutConfig.padding.Bottom) - childElement.dimensions.Y;
-	                       switch (layoutConfig.childAlignment.y) {
-	                           case CLAY_ALIGN_Y_TOP: break;
-	                           case CLAY_ALIGN_Y_CENTER: currentElementTreeNode.nextChildOffset.y += whiteSpaceAroundChild / 2; break;
-	                           case CLAY_ALIGN_Y_BOTTOM: currentElementTreeNode.nextChildOffset.y += whiteSpaceAroundChild; break;
-	                       }
-	                   } else {
-	                       currentElementTreeNode.nextChildOffset.x = currentElement.layoutConfig.padding.Left;
-	                       float whiteSpaceAroundChild = currentElement.dimensions.X - (float32)(layoutConfig.padding.Left + layoutConfig.padding.Right) - childElement.dimensions.X;
-	                       switch (layoutConfig.childAlignment.x) {
-	                           case CLAY_ALIGN_X_LEFT: break;
-	                           case CLAY_ALIGN_X_CENTER: currentElementTreeNode.nextChildOffset.x += whiteSpaceAroundChild / 2; break;
-	                           case CLAY_ALIGN_X_RIGHT: currentElementTreeNode.nextChildOffset.x += whiteSpaceAroundChild; break;
-	                       }
-	                   }
+						// Culling - Don't bother to generate render commands for rectangles entirely outside the screen - this won't stop their children from being rendered if they overflow
+						if (!Clay__ElementIsOffscreen(&currentElementBoundingBox)) {
+							Clay_SharedElementConfig *sharedConfig = elementHasConfig(currentElement, CLAY__ELEMENT_CONFIG_TYPE_SHARED) ? findElementConfigWithType(currentElement, CLAY__ELEMENT_CONFIG_TYPE_SHARED).sharedElementConfig : &Clay_SharedElementConfig_DEFAULT;
+							Clay_BorderElementConfig *borderConfig = findElementConfigWithType(currentElement, CLAY__ELEMENT_CONFIG_TYPE_BORDER).borderElementConfig;
+							Clay_RenderCommand renderCommand = {
+									.boundingBox = currentElementBoundingBox,
+									.renderData = { .border = {
+										.color = borderConfig.color,
+										.cornerRadius = sharedConfig.cornerRadius,
+										.X = borderConfig.X
+									}},
+									.userData = sharedConfig.userData,
+									.id = hashNumber(currentElement.id, currentElement.childrenOrTextContent.children.length).id,
+									.commandType = CLAY_RENDER_COMMAND_TYPE_BORDER,
+							};
+							addRenderCommand(renderCommand);
+							if (borderConfig.X.betweenChildren > 0 && borderConfig.color.a > 0) {
+								float halfGap = layoutConfig.childGap / 2;
+								vector2.Float32 borderOffset = { (float32)layoutConfig.padding.Left - halfGap, (float32)layoutConfig.padding.Top - halfGap };
+								if (layoutConfig.layoutDirection == CLAY_LEFT_TO_RIGHT) {
+									for (int32 i = 0; i < currentElement.childrenOrTextContent.children.length; ++i) {
+										Clay_LayoutElement *childElement = Clay_LayoutElementArray_Get(&c.layoutElements, currentElement.childrenOrTextContent.children.elements[i]);
+										if (i > 0) {
+											addRenderCommand(CLAY__INIT(Clay_RenderCommand) {
+												.boundingBox = { currentElementBoundingBox.x + borderOffset.x + scrollOffset.x, currentElementBoundingBox.y + scrollOffset.y, (float32)borderConfig.X.betweenChildren, currentElement.dimensions.Y },
+												.renderData = { .rectangle = {
+													.backgroundColor = borderConfig.color,
+												} },
+												.userData = sharedConfig.userData,
+												.id = hashNumber(currentElement.id, currentElement.childrenOrTextContent.children.length + 1 + i).id,
+												.commandType = CLAY_RENDER_COMMAND_TYPE_RECTANGLE,
+											});
+										}
+										borderOffset.x += (childElement.dimensions.X + (float32)layoutConfig.childGap);
+									}
+								} else {
+									for (int32 i = 0; i < currentElement.childrenOrTextContent.children.length; ++i) {
+										Clay_LayoutElement *childElement = Clay_LayoutElementArray_Get(&c.layoutElements, currentElement.childrenOrTextContent.children.elements[i]);
+										if (i > 0) {
+											addRenderCommand(CLAY__INIT(Clay_RenderCommand) {
+												.boundingBox = { currentElementBoundingBox.x + scrollOffset.x, currentElementBoundingBox.y + borderOffset.y + scrollOffset.y, currentElement.dimensions.X, (float32)borderConfig.X.betweenChildren },
+												.renderData = { .rectangle = {
+														.backgroundColor = borderConfig.color,
+												} },
+												.userData = sharedConfig.userData,
+												.id = hashNumber(currentElement.id, currentElement.childrenOrTextContent.children.length + 1 + i).id,
+												.commandType = CLAY_RENDER_COMMAND_TYPE_RECTANGLE,
+											});
+										}
+										borderOffset.y += (childElement.dimensions.Y + (float32)layoutConfig.childGap);
+									}
+								}
+							}
+						}
+					}
+					// This exists because the scissor needs to end _after_ borders between elements
+					if (closeScrollElement) {
+						addRenderCommand(CLAY__INIT(Clay_RenderCommand) {
+							.id = hashNumber(currentElement.id, rootElement.childrenOrTextContent.children.length + 11).id,
+							.commandType = CLAY_RENDER_COMMAND_TYPE_SCISSOR_END,
+						});
+					}
+				*/
 
-	                   vector2.Float32 childPosition = {
-	                       currentElementTreeNode.position.x + currentElementTreeNode.nextChildOffset.x + scrollOffset.x,
-	                       currentElementTreeNode.position.y + currentElementTreeNode.nextChildOffset.y + scrollOffset.y,
-	                   };
+				dfsBuffer = dfsBuffer[:len(dfsBuffer)-1]
+				continue
+			}
+			/*
+				// Add children to the DFS buffer
+				if (!elementHasConfig(currentElement, CLAY__ELEMENT_CONFIG_TYPE_TEXT)) {
+					dfsBuffer.length += currentElement.childrenOrTextContent.children.length;
+					for (int32 i = 0; i < currentElement.childrenOrTextContent.children.length; ++i) {
+						Clay_LayoutElement *childElement = Clay_LayoutElementArray_Get(&c.layoutElements, currentElement.childrenOrTextContent.children.elements[i]);
+						// Alignment along non layout axis
+						if (layoutConfig.layoutDirection == CLAY_LEFT_TO_RIGHT) {
+							currentElementTreeNode.nextChildOffset.y = currentElement.layoutConfig.padding.Top;
+							float whiteSpaceAroundChild = currentElement.dimensions.Y - (float32)(layoutConfig.padding.Top + layoutConfig.padding.Bottom) - childElement.dimensions.Y;
+							switch (layoutConfig.childAlignment.y) {
+								case CLAY_ALIGN_Y_TOP: break;
+								case CLAY_ALIGN_Y_CENTER: currentElementTreeNode.nextChildOffset.y += whiteSpaceAroundChild / 2; break;
+								case CLAY_ALIGN_Y_BOTTOM: currentElementTreeNode.nextChildOffset.y += whiteSpaceAroundChild; break;
+							}
+						} else {
+							currentElementTreeNode.nextChildOffset.x = currentElement.layoutConfig.padding.Left;
+							float whiteSpaceAroundChild = currentElement.dimensions.X - (float32)(layoutConfig.padding.Left + layoutConfig.padding.Right) - childElement.dimensions.X;
+							switch (layoutConfig.childAlignment.x) {
+								case CLAY_ALIGN_X_LEFT: break;
+								case CLAY_ALIGN_X_CENTER: currentElementTreeNode.nextChildOffset.x += whiteSpaceAroundChild / 2; break;
+								case CLAY_ALIGN_X_RIGHT: currentElementTreeNode.nextChildOffset.x += whiteSpaceAroundChild; break;
+							}
+						}
 
-	                   // DFS buffer elements need to be added in reverse because stack traversal happens backwards
-	                   uint32 newNodeIndex = dfsBuffer.length - 1 - i;
-	                   dfsBuffer.internalArray[newNodeIndex] = CLAY__INIT(Clay__LayoutElementTreeNode) {
-	                       .layoutElement = childElement,
-	                       .position = { childPosition.x, childPosition.y },
-	                       .nextChildOffset = { .x = (float32)childElement.layoutConfig.padding.Left, .y = (float32)childElement.layoutConfig.padding.Top },
-	                   };
-	                   c.treeNodeVisited.internalArray[newNodeIndex] = false;
+						vector2.Float32 childPosition = {
+							currentElementTreeNode.position.x + currentElementTreeNode.nextChildOffset.x + scrollOffset.x,
+							currentElementTreeNode.position.y + currentElementTreeNode.nextChildOffset.y + scrollOffset.y,
+						};
 
-	                   // Update parent offsets
-	                   if (layoutConfig.layoutDirection == CLAY_LEFT_TO_RIGHT) {
-	                       currentElementTreeNode.nextChildOffset.x += childElement.dimensions.X + (float32)layoutConfig.childGap;
-	                   } else {
-	                       currentElementTreeNode.nextChildOffset.y += childElement.dimensions.Y + (float32)layoutConfig.childGap;
-	                   }
-	               }
-	           }
-	       }
+						// DFS buffer elements need to be added in reverse because stack traversal happens backwards
+						uint32 newNodeIndex = dfsBuffer.length - 1 - i;
+						dfsBuffer.internalArray[newNodeIndex] = CLAY__INIT(Clay__LayoutElementTreeNode) {
+							.layoutElement = childElement,
+							.position = { childPosition.x, childPosition.y },
+							.nextChildOffset = { .x = (float32)childElement.layoutConfig.padding.Left, .y = (float32)childElement.layoutConfig.padding.Top },
+						};
+						c.treeNodeVisited.internalArray[newNodeIndex] = false;
 
-	       if (root.clipElementId) {
-	           Clay__AddRenderCommand(CLAY__INIT(Clay_RenderCommand) { .id = hashNumber(rootElement.id, rootElement.childrenOrTextContent.children.length + 11).id, .commandType = CLAY_RENDER_COMMAND_TYPE_SCISSOR_END });
-	       }
-	   }
-	*/
+						// Update parent offsets
+						if (layoutConfig.layoutDirection == CLAY_LEFT_TO_RIGHT) {
+							currentElementTreeNode.nextChildOffset.x += childElement.dimensions.X + (float32)layoutConfig.childGap;
+						} else {
+							currentElementTreeNode.nextChildOffset.y += childElement.dimensions.Y + (float32)layoutConfig.childGap;
+						}
+					}
+				}
+			*/
+		}
+
+		if root.clipElementId != 0 {
+			c.addRenderCommand(RenderCommand{
+				Id:         hashNumber(rootElement.id, uint32(len(rootElement.children))+11).id,
+				RenderData: ScissorsEndData{},
+			})
+		}
+	}
 }
 
 /*

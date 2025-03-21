@@ -1,6 +1,8 @@
 package main
 
 import (
+	"fmt"
+
 	clay "github.com/igadmg/goclay"
 	"github.com/igadmg/goex/gx"
 	"github.com/igadmg/goex/image/colorex"
@@ -89,18 +91,16 @@ func main() {
 
 		// All clay layouts are declared between clay.BeginLayout and clay.EndLayout
 		renderCommands := ctx.EndLayout()
-		_ = renderCommands
 
 		// More comprehensive rendering examples can be found in the renderers/ directory
-		//for (int i = 0; i < renderCommands.length; i++) {
-		//    clay.RenderCommand *renderCommand = &renderCommands.internalArray[i];
-		//
-		//    switch (renderCommand->commandType) {
-		//        case clay.RENDER_COMMAND_TYPE_RECTANGLE: {
-		//            DrawRectangle( renderCommand->boundingBox, renderCommand->renderData.rectangle.backgroundColor);
-		//        }
-		//        // ... Implement handling of other command types
-		//    }
-		//}
+		for _, renderCommand := range renderCommands {
+			switch renderCommand.RenderData.(type) {
+			case clay.RectangleRenderData:
+				fmt.Println("Rectangle Render Data")
+				//        DrawRectangle( renderCommand->boundingBox, renderCommand->renderData.rectangle.backgroundColor);
+				//    }
+				//    // ... Implement handling of other command types
+			}
+		}
 	}
 }

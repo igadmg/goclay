@@ -291,7 +291,7 @@ func (c *Context) BeginLayout() {
 
 // Called when all layout declarations are finished.
 // Computes the layout and generates and returns the array of render commands to draw.
-func (c *Context) EndLayout() /*RenderCommandArray*/ any {
+func (c *Context) EndLayout() []RenderCommand {
 	c.closeElement()
 	elementsExceededBeforeDebugView := c.booleanWarnings.maxElementsExceeded
 	if c.debugModeEnabled && !elementsExceededBeforeDebugView {
@@ -306,9 +306,9 @@ func (c *Context) EndLayout() /*RenderCommandArray*/ any {
 		} else {
 			message = "Clay Error: Layout elements exceeded Clay__maxElementCount"
 		}
-		c.Clay__AddRenderCommand(RenderCommand{
-			boundingBox: rect2.NewFloat32(c.layoutDimensions.ScaleF(0.5).AddX(-59*4), vector2.Zero[float32]()),
-			renderData: TextRenderData{
+		c.addRenderCommand(RenderCommand{
+			BoundingBox: rect2.NewFloat32(c.layoutDimensions.ScaleF(0.5).AddX(-59*4), vector2.Zero[float32]()),
+			RenderData: TextRenderData{
 				stringContents: message,
 				textColor:      colorex.RGBA{R: 255, G: 0, B: 0, A: 255},
 				fontSize:       16,
