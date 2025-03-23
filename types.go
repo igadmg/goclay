@@ -58,6 +58,10 @@ func (r CornerRadius) IsEmpty() bool {
 		r.BottomRight == 0
 }
 
+func CORNER_RADIUS(radius float32) CornerRadius {
+	return CornerRadius{radius, radius, radius, radius}
+}
+
 // Element Configs ---------------------------
 
 // Controls the direction in which child elements will be automatically laid out.
@@ -69,6 +73,17 @@ const (
 	// Lays out child elements from top to bottom with increasing y.
 	TOP_TO_BOTTOM
 )
+
+func (d LayoutDirection) String() string {
+	switch d {
+	case TOP_TO_BOTTOM:
+		return "TOP_TO_BOTTOM"
+	case LEFT_TO_RIGHT:
+		return "LEFT_TO_RIGHT"
+	}
+
+	return ""
+}
 
 func (d LayoutDirection) IsAlongAxis(axis int) bool {
 	switch axis {
@@ -178,6 +193,21 @@ type SizingAxisPercent struct {
 
 type AnySizingAxis any
 
+func SizingAxisTypeString(a AnySizingAxis) string {
+	switch a.(type) {
+	case SizingAxisFixed:
+		return "FIXED"
+	case SizingAxisFit:
+		return "FIT"
+	case SizingAxisGrow:
+		return "GROW"
+	case SizingAxisPercent:
+		return "PERCENT"
+	}
+
+	return ""
+}
+
 func SIZING_FIT(s ...float32) AnySizingAxis {
 	switch len(s) {
 	case 0:
@@ -262,6 +292,19 @@ const (
 	TEXT_WRAP_NONE
 )
 
+func (w TextElementConfigWrapMode) String() string {
+	switch w {
+	case TEXT_WRAP_WORDS:
+		return "WORDS"
+	case TEXT_WRAP_NEWLINES:
+		return "NEWLINES"
+	case TEXT_WRAP_NONE:
+		return "NONE"
+	}
+
+	return ""
+}
+
 // Controls how wrapped lines of text are horizontally aligned within the outer text bounding box.
 type TextAlignment uint8
 
@@ -273,6 +316,19 @@ const (
 	// Horizontally aligns wrapped lines of text to the right hand side of their bounding box.
 	TEXT_ALIGN_RIGHT
 )
+
+func (a TextAlignment) String() string {
+	switch a {
+	case TEXT_ALIGN_LEFT:
+		return "LEFT"
+	case TEXT_ALIGN_CENTER:
+		return "CENTER"
+	case TEXT_ALIGN_RIGHT:
+		return "RIGHT"
+	}
+
+	return ""
+}
 
 // Controls various functionality related to text elements.
 type TextElementConfig struct {

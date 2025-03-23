@@ -139,6 +139,7 @@ type MeasuredWord struct {
 type MeasureTextCacheItem struct {
 	unwrappedDimensions     vector2.Float32
 	measuredWordsStartIndex int32
+	minWidth                float32
 	containsNewlines        bool
 	// Hash map data
 	id         uint32
@@ -487,6 +488,7 @@ func (c *Context) measureTextCached(text string, config *TextElementConfig) *Mea
 		if current == ' ' || current == '\n' {
 			length := end - start
 			dimensions := measureText(text[start:end], config, c.measureTextUserData)
+			measured.minWidth = max(dimensions.X, measured.minWidth)
 			measuredHeight = max(float32(measuredHeight), dimensions.Y)
 			if current == ' ' {
 				dimensions.X += spaceWidth
@@ -533,6 +535,7 @@ func (c *Context) measureTextCached(text string, config *TextElementConfig) *Mea
 			previousWord)
 		lineWidth += dimensions.X
 		measuredHeight = max(measuredHeight, dimensions.Y)
+		measured.minWidth = max(dimensions.X, measured.minWidth)
 	}
 	measuredWidth = max(lineWidth, measuredWidth)
 
@@ -774,7 +777,7 @@ func (c *Context) openTextElement(text string, textConfig *TextElementConfig) {
 		textDimensions.Y = float32(textConfig.lineHeight)
 	}
 	textElement.dimensions = textDimensions
-	textElement.minDimensions = vector2.NewFloat32(textMeasured.unwrappedDimensions.Y, textDimensions.Y) // TODO not sure this is the best way to decide min width for text
+	textElement.minDimensions = vector2.NewFloat32(textMeasured.minWidth, textDimensions.Y)
 	c.textElementData = append(c.textElementData, TextElementData{
 		text:                text,
 		preferredDimensions: textMeasured.unwrappedDimensions,
@@ -1272,13 +1275,14 @@ func (c *Context) Clay__SizeContainersAlongAxis(axis int) {
 				for _, rcb := range resizableContainerBuffer {
 					child := &c.layoutElements[rcb]
 					childSizing := child.layoutConfig.Sizing.GetAxis(axis)
+					minSize := child.minDimensions.Axis(axis)
 					childSize := child.dimensions.Axis(axis)
 
 					if axis == 1 && elementHasConfig[*ImageElementConfig](child) {
 						continue // Currently we don't support resizing aspect ratio images on the Y axis because it would break the ratio
 					}
 
-					// If we're laying out the children of a scroll panel, grow containers expand to the height of the inner content, not the outer container
+					// If we're laying out the children of a scroll panel, grow containers expand to the size of the inner content, not the outer container
 					maxSize := parentSize - parentPadding
 					if scrollElementConfig, ok := findElementConfigWithType[*ScrollElementConfig](parent); ok {
 						if (axis == 0 && scrollElementConfig.horizontal) || (axis == 1 && scrollElementConfig.vertical) {
@@ -1286,13 +1290,11 @@ func (c *Context) Clay__SizeContainersAlongAxis(axis int) {
 						}
 					}
 					switch s := childSizing.(type) {
-					case SizingAxisFit:
-						child.dimensions = child.dimensions.SetAxis(axis, max(s.MinMax.Min, min(childSize, maxSize)))
 					case SizingAxisGrow:
 						child.dimensions = child.dimensions.SetAxis(axis, min(maxSize, s.MinMax.Max))
 					}
+					child.dimensions = child.dimensions.SetAxis(axis, max(minSize, min(childSize, maxSize)))
 				}
-
 			}
 		}
 	}
