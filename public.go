@@ -6,6 +6,10 @@ import (
 	"github.com/igadmg/raylib-go/raymath/vector2"
 )
 
+/// Clay Git Reference - clay used to convert, keep it and update as you update goclay code.
+// ad49977f1b37ccd7664333181f30f575d08d3838
+///
+
 // Returns the size, in bytes, of the minimum amount of memory Clay requires to operate at its current settings.
 ///func MinMemorySize() uint32 {}
 
