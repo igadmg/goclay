@@ -26,7 +26,7 @@ func (c *Context) SetPointerState(position vector2.Float32, pointerDown bool) {
 		return
 	}
 
-	c.pointerInfo.position = position
+	c.pointerInfo.Position = position
 	c.pointerOverIds = c.pointerOverIds[:0]
 
 	var dfsBuffer []int
@@ -84,16 +84,16 @@ func (c *Context) SetPointerState(position vector2.Float32, pointerDown bool) {
 	}
 
 	if pointerDown {
-		if c.pointerInfo.state == POINTER_DATA_PRESSED_THIS_FRAME {
-			c.pointerInfo.state = POINTER_DATA_PRESSED
-		} else if c.pointerInfo.state != POINTER_DATA_PRESSED {
-			c.pointerInfo.state = POINTER_DATA_PRESSED_THIS_FRAME
+		if c.pointerInfo.State == POINTER_DATA_PRESSED_THIS_FRAME {
+			c.pointerInfo.State = POINTER_DATA_PRESSED
+		} else if c.pointerInfo.State != POINTER_DATA_PRESSED {
+			c.pointerInfo.State = POINTER_DATA_PRESSED_THIS_FRAME
 		}
 	} else {
-		if c.pointerInfo.state == POINTER_DATA_RELEASED_THIS_FRAME {
-			c.pointerInfo.state = POINTER_DATA_RELEASED
-		} else if c.pointerInfo.state != POINTER_DATA_RELEASED {
-			c.pointerInfo.state = POINTER_DATA_RELEASED_THIS_FRAME
+		if c.pointerInfo.State == POINTER_DATA_RELEASED_THIS_FRAME {
+			c.pointerInfo.State = POINTER_DATA_RELEASED
+		} else if c.pointerInfo.State != POINTER_DATA_RELEASED {
+			c.pointerInfo.State = POINTER_DATA_RELEASED_THIS_FRAME
 		}
 	}
 }
@@ -311,13 +311,13 @@ func (c *Context) EndLayout() []RenderCommand {
 		c.addRenderCommand(RenderCommand{
 			BoundingBox: rect2.NewFloat32(c.layoutDimensions.ScaleF(0.5).AddX(-59*4), vector2.Zero[float32]()),
 			RenderData: TextRenderData{
-				stringContents: message,
-				textColor:      colorex.RGBA{R: 255, G: 0, B: 0, A: 255},
-				fontSize:       16,
+				StringContents: message,
+				TextColor:      colorex.RGBA{R: 255, G: 0, B: 0, A: 255},
+				FontSize:       16,
 			},
 		})
 	} else {
-		c.Clay__CalculateFinalLayout()
+		c.calculateFinalLayout()
 	}
 
 	return c.renderCommands

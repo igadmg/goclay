@@ -44,14 +44,6 @@ type SharedElementConfig struct {
 	userData        any
 }
 
-/*
-
-bool Clay__Array_RangeCheck(int32 index, int32 length);
-bool Clay__Array_AddCapacityCheck(int32 length, int32 capacity);
-
-CLAY__ARRAY_DEFINE_FUNCTIONS(Clay_RenderCommand, Clay_RenderCommandArray)
-*/
-
 //	union {
 //	   *TextElementConfig
 //	   *ImageElementConfig
@@ -224,7 +216,7 @@ type Context struct {
 }
 
 var measureText func(text string, config *TextElementConfig, userData any) vector2.Float32
-var Clay__QueryScrollOffset func(elementId uint32, userData any) vector2.Float32
+var queryScrollOffset func(elementId uint32, userData any) vector2.Float32
 
 func (c *Context) getOpenLayoutElement() *LayoutElement {
 	return &c.layoutElements[c.openLayoutElementStack[len(c.openLayoutElementStack)-1]]
@@ -365,7 +357,7 @@ func hashString(key string, offset uint32, seed uint32) ElementId {
 	}
 }
 
-func Clay__HashTextWithConfig(text string, config *TextElementConfig) uint32 {
+func hashTextWithConfig(text string, config *TextElementConfig) uint32 {
 	hash := uint32(0)
 
 	if config.HashStringContents {
@@ -439,7 +431,7 @@ func (c *Context) measureTextCached(text string, config *TextElementConfig) *Mea
 		return &default_MeasureTextCacheItem
 	}
 
-	id := Clay__HashTextWithConfig(text, config)
+	id := hashTextWithConfig(text, config)
 	if hashEntry, ok := c.measureTextHashMap[text]; ok {
 		return hashEntry
 	}
@@ -947,7 +939,7 @@ func (c *Context) configureOpenElement(declaration *ElementDeclaration) {
 		}
 		if c.externalScrollHandlingEnabled {
 			// TODO: fix
-			//scrollOffset.scrollPosition = Clay__QueryScrollOffset(scrollOffset.elementId, c.queryScrollOffsetUserData)
+			//scrollOffset.scrollPosition = queryScrollOffset(scrollOffset.elementId, c.queryScrollOffsetUserData)
 		}
 	}
 
@@ -1037,12 +1029,12 @@ func (c *Context) initializePersistentMemory() {
 
 var CLAY__EPSILON float32 = 0.01
 
-func Clay__FloatEqual(left float32, right float32) bool {
+func floatEqual(left float32, right float32) bool {
 	subtracted := left - right
 	return subtracted < CLAY__EPSILON && subtracted > -CLAY__EPSILON
 }
 
-func (c *Context) Clay__SizeContainersAlongAxis(axis int) {
+func (c *Context) sizeContainersAlongAxis(axis int) {
 	bfsBuffer := c.layoutElementChildrenBuffer
 	resizableContainerBuffer := c.openLayoutElementStack[:]
 	for _, root := range c.layoutElementTreeRoots {
@@ -1157,7 +1149,7 @@ func (c *Context) Clay__SizeContainersAlongAxis(axis int) {
 					if sizingAlongAxis {
 						innerContentSize += childSize
 					}
-					// TODO: fix Clay__UpdateAspectRatioBox(childElement)
+					updateAspectRatioBox(child)
 				}
 			}
 
@@ -1179,7 +1171,7 @@ func (c *Context) Clay__SizeContainersAlongAxis(axis int) {
 						for _, childIndex := range resizableContainerBuffer {
 							child := c.layoutElements[childIndex]
 							childSize := child.dimensions.Axis(axis)
-							if Clay__FloatEqual(childSize, largest) {
+							if floatEqual(childSize, largest) {
 								continue
 							}
 							if childSize > largest {
@@ -1199,7 +1191,7 @@ func (c *Context) Clay__SizeContainersAlongAxis(axis int) {
 							childSize := child.dimensions.Axis(axis)
 							minSize := child.minDimensions.Axis(axis)
 							previousWidth := childSize
-							if Clay__FloatEqual(childSize, largest) {
+							if floatEqual(childSize, largest) {
 								childSize += widthToAdd
 								if childSize <= minSize {
 									childSize = minSize
@@ -1231,7 +1223,7 @@ func (c *Context) Clay__SizeContainersAlongAxis(axis int) {
 						for _, rcb := range resizableContainerBuffer {
 							child := c.layoutElements[rcb]
 							childSize := child.dimensions.Axis(axis)
-							if Clay__FloatEqual(childSize, smallest) {
+							if floatEqual(childSize, smallest) {
 								continue
 							}
 							if childSize < smallest {
@@ -1256,7 +1248,7 @@ func (c *Context) Clay__SizeContainersAlongAxis(axis int) {
 								maxSize = mm.GetMinMax().Max
 							}
 							previousWidth := childSize
-							if Clay__FloatEqual(childSize, smallest) {
+							if floatEqual(childSize, smallest) {
 								childSize += widthToAdd
 								if childSize >= maxSize {
 									childSize = maxSize
@@ -1315,7 +1307,7 @@ func (c *Context) addRenderCommand(renderCommand RenderCommand) {
 	}
 }
 
-func (c *Context) Clay__ElementIsOffscreen(boundingBox rect2.Float32) bool {
+func (c *Context) elementIsOffscreen(boundingBox rect2.Float32) bool {
 	if c.disableCulling {
 		return false
 	}
@@ -1326,9 +1318,9 @@ func (c *Context) Clay__ElementIsOffscreen(boundingBox rect2.Float32) bool {
 		(boundingBox.Y()+boundingBox.Height() < 0)
 }
 
-func (c *Context) Clay__CalculateFinalLayout() {
+func (c *Context) calculateFinalLayout() {
 	// Calculate sizing along the X axis
-	c.Clay__SizeContainersAlongAxis(0)
+	c.sizeContainersAlongAxis(0)
 
 	// Wrap text
 	for i := range c.textElementData {
@@ -1462,7 +1454,7 @@ func (c *Context) Clay__CalculateFinalLayout() {
 	}
 
 	// Calculate sizing along the Y axis
-	c.Clay__SizeContainersAlongAxis(1)
+	c.sizeContainersAlongAxis(1)
 
 	// Sort tree roots by z-index
 	sortMax := len(c.layoutElementTreeRoots) - 1
@@ -1664,7 +1656,7 @@ func (c *Context) Clay__CalculateFinalLayout() {
 						Id:          currentElement.id,
 					}
 
-					offscreen := c.Clay__ElementIsOffscreen(currentElementBoundingBox)
+					offscreen := c.elementIsOffscreen(currentElementBoundingBox)
 					// Culling - Don't bother to generate render commands for rectangles entirely outside the screen - this won't stop their children from being rendered if they overflow
 					shouldRender := !offscreen
 					switch cfg := elementConfig.(type) {
@@ -1676,15 +1668,17 @@ func (c *Context) Clay__CalculateFinalLayout() {
 						shouldRender = false
 					case *ScrollElementConfig:
 						renderCommand.RenderData = ScissorsStartData{
-							horizontal: cfg.Horizontal,
-							vertical:   cfg.Vertical,
+							ScrollRenderData: ScrollRenderData{
+								Horizontal: cfg.Horizontal,
+								Vertical:   cfg.Vertical,
+							},
 						}
 					case *ImageElementConfig:
 						renderCommand.RenderData = ImageRenderData{
-							backgroundColor:  sharedConfig.backgroundColor,
-							cornerRadius:     sharedConfig.cornerRadius,
-							sourceDimensions: cfg.SourceDimensions,
-							imageData:        cfg.ImageData,
+							BackgroundColor:  sharedConfig.backgroundColor,
+							CornerRadius:     sharedConfig.cornerRadius,
+							SourceDimensions: cfg.SourceDimensions,
+							ImageData:        cfg.ImageData,
 						}
 						emitRectangle = false
 
@@ -1718,12 +1712,12 @@ func (c *Context) Clay__CalculateFinalLayout() {
 									wrappedLine.dimensions,
 								),
 								RenderData: TextRenderData{
-									stringContents: wrappedLine.line,
-									textColor:      cfg.TextColor,
-									fontId:         cfg.FontId,
-									fontSize:       cfg.FontSize,
-									letterSpacing:  cfg.LetterSpacing,
-									lineHeight:     cfg.LineHeight,
+									StringContents: wrappedLine.line,
+									TextColor:      cfg.TextColor,
+									FontId:         cfg.FontId,
+									FontSize:       cfg.FontSize,
+									LetterSpacing:  cfg.LetterSpacing,
+									LineHeight:     cfg.LineHeight,
 								},
 								UserData: cfg.UserData,
 								Id:       hashNumber(uint32(lineIndex), currentElement.id).id,
@@ -1738,9 +1732,9 @@ func (c *Context) Clay__CalculateFinalLayout() {
 					case *CustomElementConfig:
 						{
 							renderCommand.RenderData = CustomRenderData{
-								backgroundColor: sharedConfig.backgroundColor,
-								cornerRadius:    sharedConfig.cornerRadius,
-								customData:      cfg.CustomData,
+								BackgroundColor: sharedConfig.backgroundColor,
+								CornerRadius:    sharedConfig.cornerRadius,
+								CustomData:      cfg.CustomData,
 							}
 							emitRectangle = false
 							break
@@ -1762,8 +1756,8 @@ func (c *Context) Clay__CalculateFinalLayout() {
 					c.addRenderCommand(RenderCommand{
 						BoundingBox: currentElementBoundingBox,
 						RenderData: RectangleRenderData{
-							backgroundColor: sharedConfig.backgroundColor,
-							cornerRadius:    sharedConfig.cornerRadius,
+							BackgroundColor: sharedConfig.backgroundColor,
+							CornerRadius:    sharedConfig.cornerRadius,
 						},
 						UserData: sharedConfig.userData,
 						Id:       currentElement.id,
@@ -1842,7 +1836,7 @@ func (c *Context) Clay__CalculateFinalLayout() {
 					currentElementBoundingBox := currentElementData.boundingBox
 
 					// Culling - Don't bother to generate render commands for rectangles entirely outside the screen - this won't stop their children from being rendered if they overflow
-					if !c.Clay__ElementIsOffscreen(currentElementBoundingBox) {
+					if !c.elementIsOffscreen(currentElementBoundingBox) {
 						sharedConfig, ok := findElementConfigWithType[*SharedElementConfig](currentElement)
 						if !ok {
 							sharedConfig = &default_SharedElementConfig
@@ -1850,15 +1844,15 @@ func (c *Context) Clay__CalculateFinalLayout() {
 						renderCommand := RenderCommand{
 							BoundingBox: currentElementBoundingBox,
 							RenderData: BorderRenderData{
-								color:        borderConfig.Color,
-								cornerRadius: sharedConfig.cornerRadius,
-								width:        borderConfig.Width,
+								Color:        borderConfig.Color,
+								CornerRadius: sharedConfig.cornerRadius,
+								Width:        borderConfig.Width,
 							},
 							UserData: sharedConfig.userData,
 							Id:       hashNumber(currentElement.id, uint32(len(currentElement.children))).id,
 						}
 						c.addRenderCommand(renderCommand)
-						if borderConfig.Width.betweenChildren > 0 && borderConfig.Color.A > 0 {
+						if borderConfig.Width.BetweenChildren > 0 && borderConfig.Color.A > 0 {
 							halfGap := layoutConfig.ChildGap / 2
 							borderOffset := vector2.NewFloat32(float32(layoutConfig.Padding.Left-halfGap), float32(layoutConfig.Padding.Top-halfGap))
 							if layoutConfig.LayoutDirection == LEFT_TO_RIGHT {
@@ -1868,10 +1862,10 @@ func (c *Context) Clay__CalculateFinalLayout() {
 										c.addRenderCommand(RenderCommand{
 											BoundingBox: rect2.NewFloat32(
 												currentElementBoundingBox.Position.Add(borderOffset).Add(scrollOffset),
-												vector2.NewFloat32(float32(borderConfig.Width.betweenChildren), currentElement.dimensions.Y),
+												vector2.NewFloat32(float32(borderConfig.Width.BetweenChildren), currentElement.dimensions.Y),
 											),
 											RenderData: RectangleRenderData{
-												backgroundColor: borderConfig.Color,
+												BackgroundColor: borderConfig.Color,
 											},
 											UserData: sharedConfig.userData,
 											Id:       hashNumber(currentElement.id, uint32(len(currentElement.children)+1+i)).id,
@@ -1886,10 +1880,10 @@ func (c *Context) Clay__CalculateFinalLayout() {
 										c.addRenderCommand(RenderCommand{
 											BoundingBox: rect2.NewFloat32(
 												currentElementBoundingBox.Position.Add(scrollOffset).AddY(borderOffset.Y),
-												vector2.NewFloat32(currentElement.dimensions.X, float32(borderConfig.Width.betweenChildren)),
+												vector2.NewFloat32(currentElement.dimensions.X, float32(borderConfig.Width.BetweenChildren)),
 											),
 											RenderData: RectangleRenderData{
-												backgroundColor: borderConfig.Color,
+												BackgroundColor: borderConfig.Color,
 											},
 											UserData: sharedConfig.userData,
 											Id:       hashNumber(currentElement.id, uint32(len(currentElement.children)+1+i)).id,

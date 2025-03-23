@@ -421,7 +421,7 @@ func (c *Context) renderDebugViewCornerRadius(cornerRadius CornerRadius, textCon
 */
 func (c *Context) Clay__RenderDebugView() {
 	closeButtonId := hashString("Clay__DebugViewTopHeaderCloseButtonOuter", 0, 0)
-	if c.pointerInfo.state == POINTER_DATA_PRESSED_THIS_FRAME {
+	if c.pointerInfo.State == POINTER_DATA_PRESSED_THIS_FRAME {
 		for _, elementId := range c.pointerOverIds {
 			if elementId.id == closeButtonId.id {
 				c.debugModeEnabled = false
@@ -444,22 +444,22 @@ func (c *Context) Clay__RenderDebugView() {
 	})
 	scrollId := hashString("Clay__DebugViewOuterScrollPane", 0, 0)
 	scrollYOffset := float32(0)
-	pointerInDebugView := c.pointerInfo.position.Y < c.layoutDimensions.Y-300
+	pointerInDebugView := c.pointerInfo.Position.Y < c.layoutDimensions.Y-300
 	for _, scrollContainerData := range c.scrollContainerDatas {
 		if scrollContainerData.elementId == scrollId.id {
 			if !c.externalScrollHandlingEnabled {
 				scrollYOffset = scrollContainerData.scrollPosition.Y
 			} else {
-				pointerInDebugView = c.pointerInfo.position.Y+scrollContainerData.scrollPosition.Y < c.layoutDimensions.Y-300
+				pointerInDebugView = c.pointerInfo.Position.Y+scrollContainerData.scrollPosition.Y < c.layoutDimensions.Y-300
 			}
 			break
 		}
 	}
 	highlightedRow := int32(-1)
 	if pointerInDebugView {
-		highlightedRow = (int32)((c.pointerInfo.position.Y-scrollYOffset)/float32(CLAY__DEBUGVIEW_ROW_HEIGHT)) - 1
+		highlightedRow = (int32)((c.pointerInfo.Position.Y-scrollYOffset)/float32(CLAY__DEBUGVIEW_ROW_HEIGHT)) - 1
 	}
-	if c.pointerInfo.position.X < c.layoutDimensions.X-float32(debugViewWidth) {
+	if c.pointerInfo.Position.X < c.layoutDimensions.X-float32(debugViewWidth) {
 		highlightedRow = -1
 	}
 	var layoutData RenderDebugLayoutData
@@ -480,7 +480,7 @@ func (c *Context) Clay__RenderDebugView() {
 			},
 			AttachTo: ATTACH_TO_ROOT,
 		},
-		Border: BorderElementConfig{Color: CLAY__DEBUGVIEW_COLOR_3, Width: BorderWidth{bottom: 1}},
+		Border: BorderElementConfig{Color: CLAY__DEBUGVIEW_COLOR_3, Width: BorderWidth{Bottom: 1}},
 	}, func() {
 		c.CLAY(ElementDeclaration{
 			Layout: LayoutConfig{
@@ -642,7 +642,7 @@ func (c *Context) Clay__RenderDebugView() {
 				BackgroundColor: CLAY__DEBUGVIEW_COLOR_2,
 				Scroll:          ScrollElementConfig{Vertical: true},
 				Border: BorderElementConfig{Color: CLAY__DEBUGVIEW_COLOR_3,
-					Width: BorderWidth{betweenChildren: 1},
+					Width: BorderWidth{BetweenChildren: 1},
 				},
 			}, func() {
 				c.CLAY(ElementDeclaration{
@@ -868,13 +868,13 @@ func (c *Context) Clay__RenderDebugView() {
 							c.CLAY(ElementDeclaration{
 								Layout: LayoutConfig{LayoutDirection: LEFT_TO_RIGHT}}, func() {
 								c.TEXT("{ left: ", infoTextConfig)
-								c.TEXT(strconv.Itoa(int(cfg.Width.left)), infoTextConfig)
+								c.TEXT(strconv.Itoa(int(cfg.Width.Left)), infoTextConfig)
 								c.TEXT(", right: ", infoTextConfig)
-								c.TEXT(strconv.Itoa(int(cfg.Width.right)), infoTextConfig)
+								c.TEXT(strconv.Itoa(int(cfg.Width.Right)), infoTextConfig)
 								c.TEXT(", top: ", infoTextConfig)
-								c.TEXT(strconv.Itoa(int(cfg.Width.top)), infoTextConfig)
+								c.TEXT(strconv.Itoa(int(cfg.Width.Top)), infoTextConfig)
 								c.TEXT(", bottom: ", infoTextConfig)
-								c.TEXT(strconv.Itoa(int(cfg.Width.bottom)), infoTextConfig)
+								c.TEXT(strconv.Itoa(int(cfg.Width.Bottom)), infoTextConfig)
 								c.TEXT(" }", infoTextConfig)
 							})
 							// .textColor

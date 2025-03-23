@@ -480,22 +480,22 @@ var default_ScrollElementConfig ScrollElementConfig
 
 // Controls the widths of individual element borders.
 type BorderWidth struct {
-	left   uint16
-	right  uint16
-	top    uint16
-	bottom uint16
+	Left   uint16
+	Right  uint16
+	Top    uint16
+	Bottom uint16
 	// Creates borders between each child element, depending on the .layoutDirection.
 	// e.g. for LEFT_TO_RIGHT, borders will be vertical lines, and for TOP_TO_BOTTOM borders will be horizontal lines.
-	// .betweenChildren borders will result in individual RECTANGLE render commands being generated.
-	betweenChildren uint16
+	// .BetweenChildren borders will result in individual RECTANGLE render commands being generated.
+	BetweenChildren uint16
 }
 
 func (b BorderWidth) IsEmpty() bool {
-	return b.left == 0 &&
-		b.right == 0 &&
-		b.top == 0 &&
-		b.bottom == 0 &&
-		b.betweenChildren == 0
+	return b.Left == 0 &&
+		b.Right == 0 &&
+		b.Top == 0 &&
+		b.Bottom == 0 &&
+		b.BetweenChildren == 0
 }
 
 // Controls settings related to element borders.
@@ -516,25 +516,25 @@ func (b BorderElementConfig) IsEmpty() bool {
 type TextRenderData struct {
 	// A string slice containing the text to be rendered.
 	// Note: this is not guaranteed to be null terminated.
-	stringContents string
+	StringContents string
 	// Conventionally represented as 0-255 for each channel, but interpretation is up to the renderer.
-	textColor colorex.RGBA
+	TextColor colorex.RGBA
 	// An integer representing the font to use to render this text, transparently passed through from the text declaration.
-	fontId   uint16
-	fontSize uint16
+	FontId   uint16
+	FontSize uint16
 	// Specifies the extra whitespace gap in pixels between each character.
-	letterSpacing uint16
+	LetterSpacing uint16
 	// The height of the bounding box for this line of text.
-	lineHeight uint16
+	LineHeight uint16
 }
 
 // Render command data when commandType == CLAY_RENDER_COMMAND_TYPE_RECTANGLE
 type RectangleRenderData struct {
 	// The solid background color to fill this rectangle with. Conventionally represented as 0-255 for each channel, but interpretation is up to the renderer.
-	backgroundColor colorex.RGBA
+	BackgroundColor colorex.RGBA
 	// Controls the "radius", or corner rounding of elements, including rectangles, borders and images.
 	// The rounding is determined by drawing a circle inset into the element corner by (radius, radius) pixels.
-	cornerRadius CornerRadius
+	CornerRadius CornerRadius
 }
 
 // Render command data when commandType == CLAY_RENDER_COMMAND_TYPE_IMAGE
@@ -542,53 +542,51 @@ type ImageRenderData struct {
 	// The tint color for this image. Note that the default value is 0,0,0,0 and should likely be interpreted
 	// as "untinted".
 	// Conventionally represented as 0-255 for each channel, but interpretation is up to the renderer.
-	backgroundColor colorex.RGBA
+	BackgroundColor colorex.RGBA
 	// Controls the "radius", or corner rounding of this image.
 	// The rounding is determined by drawing a circle inset into the element corner by (radius, radius) pixels.
-	cornerRadius CornerRadius
+	CornerRadius CornerRadius
 	// The original dimensions of the source image, used to control aspect ratio.
-	sourceDimensions vector2.Float32
+	SourceDimensions vector2.Float32
 	// A pointer transparently passed through from the original element definition, typically used to represent image data.
-	imageData any
+	ImageData any
 }
 
 // Render command data when commandType == CLAY_RENDER_COMMAND_TYPE_CUSTOM
 type CustomRenderData struct {
-	// Passed through from .backgroundColor in the original element declaration.
+	// Passed through from .BackgroundColor in the original element declaration.
 	// Conventionally represented as 0-255 for each channel, but interpretation is up to the renderer.
-	backgroundColor colorex.RGBA
+	BackgroundColor colorex.RGBA
 	// Controls the "radius", or corner rounding of this custom element.
 	// The rounding is determined by drawing a circle inset into the element corner by (radius, radius) pixels.
-	cornerRadius CornerRadius
+	CornerRadius CornerRadius
 	// A pointer transparently passed through from the original element definition.
-	customData any
+	CustomData any
 }
 
 // Render command data when commandType == CLAY_RENDER_COMMAND_TYPE_SCISSOR_START || commandType == CLAY_RENDER_COMMAND_TYPE_SCISSOR_END
 type ScrollRenderData struct {
-	horizontal bool
-	vertical   bool
+	Horizontal bool
+	Vertical   bool
 }
 
 // Render command data when commandType == CLAY_RENDER_COMMAND_TYPE_BORDER
 type BorderRenderData struct {
-	// Controls a shared color for all this element's borders.
+	// Controls a shared Color for all this element's borders.
 	// Conventionally represented as 0-255 for each channel, but interpretation is up to the renderer.
-	color colorex.RGBA
+	Color colorex.RGBA
 	// Specifies the "radius", or corner rounding of this border element.
 	// The rounding is determined by drawing a circle inset into the element corner by (radius, radius) pixels.
-	cornerRadius CornerRadius
+	CornerRadius CornerRadius
 	// Controls individual border side widths.
-	width BorderWidth
+	Width BorderWidth
 }
 
 type ScissorsStartData struct {
-	horizontal bool
-	vertical   bool
+	ScrollRenderData
 }
 type ScissorsEndData struct {
-	horizontal bool
-	vertical   bool
+	ScrollRenderData
 }
 
 type RenderDataType interface {
@@ -628,14 +626,14 @@ const (
 
 // Information on the current state of pointer interactions this frame.
 type PointerData struct {
-	// The position of the mouse / touch / pointer relative to the root of the layout.
-	position vector2.Float32
-	// Represents the current state of interaction with clay this frame.
+	// The Position of the mouse / touch / pointer relative to the root of the layout.
+	Position vector2.Float32
+	// Represents the current State of interaction with clay this frame.
 	// POINTER_DATA_PRESSED_THIS_FRAME - A left mouse click, or touch occurred this frame.
 	// POINTER_DATA_PRESSED - The left mouse button click or touch happened at some point in the past, and is still currently held down this frame.
 	// POINTER_DATA_RELEASED_THIS_FRAME - The left mouse button click or touch was released this frame.
 	// POINTER_DATA_RELEASED - The left mouse button click or touch is not currently down / was released at some point in the past.
-	state PointerDataInteractionState
+	State PointerDataInteractionState
 }
 
 type ElementDeclaration struct {
