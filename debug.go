@@ -16,9 +16,9 @@ var CLAY__DEBUGVIEW_ROW_HEIGHT float32 = 30
 var CLAY__DEBUGVIEW_OUTER_PADDING uint16 = 10
 var CLAY__DEBUGVIEW_INDENT_WIDTH int32 = 16
 var Clay__DebugView_TextNameConfig TextElementConfig = TextElementConfig{
-	textColor: colorex.RGBA{R: 238, G: 226, B: 231, A: 255},
-	fontSize:  16,
-	wrapMode:  TEXT_WRAP_NONE,
+	TextColor: colorex.RGBA{R: 238, G: 226, B: 231, A: 255},
+	FontSize:  16,
+	WrapMode:  TEXT_WRAP_NONE,
 }
 var Clay__DebugView_ScrollViewItemLayoutConfig LayoutConfig
 var debugViewWidth uint32 = 400
@@ -433,14 +433,14 @@ func (c *Context) Clay__RenderDebugView() {
 	initialRootsLength := int32(len(c.layoutElementTreeRoots))
 	initialElementsLength := int32(len(c.layoutElements))
 	infoTextConfig := c.TEXT_CONFIG(TextElementConfig{
-		textColor: CLAY__DEBUGVIEW_COLOR_4,
-		fontSize:  16,
-		wrapMode:  TEXT_WRAP_NONE,
+		TextColor: CLAY__DEBUGVIEW_COLOR_4,
+		FontSize:  16,
+		WrapMode:  TEXT_WRAP_NONE,
 	})
 	infoTitleConfig := c.TEXT_CONFIG(TextElementConfig{
-		textColor: CLAY__DEBUGVIEW_COLOR_3,
-		fontSize:  16,
-		wrapMode:  TEXT_WRAP_NONE,
+		TextColor: CLAY__DEBUGVIEW_COLOR_3,
+		FontSize:  16,
+		WrapMode:  TEXT_WRAP_NONE,
 	})
 	scrollId := hashString("Clay__DebugViewOuterScrollPane", 0, 0)
 	scrollYOffset := float32(0)
@@ -515,8 +515,8 @@ func (c *Context) Clay__RenderDebugView() {
 			}, func() {
 				//Clay_OnHover(HandleDebugViewCloseButtonInteraction, 0);
 				c.TEXT("x", c.TEXT_CONFIG(TextElementConfig{
-					textColor: CLAY__DEBUGVIEW_COLOR_4,
-					fontSize:  16,
+					TextColor: CLAY__DEBUGVIEW_COLOR_4,
+					FontSize:  16,
 				}))
 			})
 		})
@@ -765,29 +765,29 @@ func (c *Context) Clay__RenderDebugView() {
 								LayoutDirection: TOP_TO_BOTTOM}}, func() {
 							// .fontSize
 							c.TEXT("Font Size", infoTitleConfig)
-							c.TEXT(strconv.Itoa(int(cfg.fontSize)), infoTextConfig)
+							c.TEXT(strconv.Itoa(int(cfg.FontSize)), infoTextConfig)
 							// .fontId
 							c.TEXT("Font ID", infoTitleConfig)
-							c.TEXT(strconv.Itoa(int(cfg.fontId)), infoTextConfig)
+							c.TEXT(strconv.Itoa(int(cfg.FontId)), infoTextConfig)
 							// .lineHeight
 							c.TEXT("Line Height", infoTitleConfig)
 							lineHeight := "auto"
-							if cfg.lineHeight != 0 {
-								lineHeight = strconv.Itoa(int(cfg.lineHeight))
+							if cfg.LineHeight != 0 {
+								lineHeight = strconv.Itoa(int(cfg.LineHeight))
 							}
 							c.TEXT(lineHeight, infoTextConfig)
 							// .letterSpacing
 							c.TEXT("Letter Spacing", infoTitleConfig)
-							c.TEXT(strconv.Itoa(int(cfg.letterSpacing)), infoTextConfig)
+							c.TEXT(strconv.Itoa(int(cfg.LetterSpacing)), infoTextConfig)
 							// .wrapMode
 							c.TEXT("Wrap Mode", infoTitleConfig)
-							c.TEXT(cfg.wrapMode.String(), infoTextConfig)
+							c.TEXT(cfg.WrapMode.String(), infoTextConfig)
 							// .textAlignment
 							c.TEXT("Text Alignment", infoTitleConfig)
-							c.TEXT(cfg.textAlignment.String(), infoTextConfig)
+							c.TEXT(cfg.TextAlignment.String(), infoTextConfig)
 							// .textColor
 							c.TEXT("Text Color", infoTitleConfig)
-							c.Clay__RenderDebugViewColor(cfg.textColor, infoTextConfig)
+							c.Clay__RenderDebugViewColor(cfg.TextColor, infoTextConfig)
 						})
 					case *ImageElementConfig:
 						c.CLAY(ElementDeclaration{
@@ -905,9 +905,9 @@ func (c *Context) Clay__RenderDebugView() {
 				},
 			}, func() {
 				warningConfig := c.TEXT_CONFIG(TextElementConfig{
-					textColor: CLAY__DEBUGVIEW_COLOR_4,
-					fontSize:  16,
-					wrapMode:  TEXT_WRAP_NONE,
+					TextColor: CLAY__DEBUGVIEW_COLOR_4,
+					FontSize:  16,
+					WrapMode:  TEXT_WRAP_NONE,
 				})
 				c.CLAY(ElementDeclaration{
 					Id: ID("Clay__DebugViewWarningItemHeader"),

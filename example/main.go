@@ -15,6 +15,24 @@ var COLOR_LIGHT colorex.RGBA = colorex.RGBA{R: 224, G: 215, B: 210, A: 255}
 var COLOR_RED colorex.RGBA = colorex.RGBA{R: 168, G: 66, B: 28, A: 255}
 var COLOR_ORANGE colorex.RGBA = colorex.RGBA{R: 225, G: 138, B: 50, A: 255}
 
+// Layout config is just a struct that can be declared statically, or inline
+var sidebarItemConfig clay.ElementDeclaration = clay.ElementDeclaration{
+	Layout: clay.LayoutConfig{
+		Sizing: clay.Sizing{
+			Width:  clay.SIZING_GROW(0),
+			Height: clay.SIZING_FIXED(50),
+		},
+	},
+	BackgroundColor: COLOR_ORANGE,
+}
+
+// Re-useable components are just normal functions
+func SidebarItemComponent(ctx *clay.Context) {
+	ctx.CLAY(sidebarItemConfig, func() {
+		// children go here...
+	})
+}
+
 func main() {
 	defer gx.Must(pprofex.WriteCPUProfile("goclay"))()
 
@@ -73,7 +91,10 @@ func main() {
 							SourceDimensions: vector2.NewFloat32(60, 60),
 						},
 					})
-					//clay.TEXT(clay.STRING("Clay - UI Library"), clay.TEXT_CONFIG({ .fontSize = 24, .textColor = {255, 255, 255, 255} }));
+					ctx.TEXT("Clay - UI Library", ctx.TEXT_CONFIG(clay.TextElementConfig{
+						FontSize:  24,
+						TextColor: colorex.RGBA{R: 255, G: 255, B: 255, A: 255},
+					}))
 				})
 
 				// Standard C code like loops etc work inside components

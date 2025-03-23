@@ -333,32 +333,32 @@ func (a TextAlignment) String() string {
 // Controls various functionality related to text elements.
 type TextElementConfig struct {
 	// A pointer that will be transparently passed through to the resulting render command.
-	userData any
+	UserData any
 	// The RGBA color of the font to render, conventionally specified as 0-255.
-	textColor colorex.RGBA
+	TextColor colorex.RGBA
 	// An integer transparently passed to MeasureText to identify the font to use.
-	// The debug view will pass fontId = 0 for its internal text.
-	fontId uint16
+	// The debug view will pass FontId = 0 for its internal text.
+	FontId uint16
 	// Controls the size of the font. Handled by the function provided to MeasureText.
-	fontSize uint16
+	FontSize uint16
 	// Controls extra horizontal spacing between characters. Handled by the function provided to MeasureText.
-	letterSpacing uint16
+	LetterSpacing uint16
 	// Controls additional vertical space between wrapped lines of text.
-	lineHeight uint16
+	LineHeight uint16
 	// Controls how text "wraps", that is how it is broken into multiple lines when there is insufficient horizontal space.
 	// TEXT_WRAP_WORDS (default) breaks on whitespace characters.
 	// TEXT_WRAP_NEWLINES doesn't break on space characters, only on newlines.
 	// TEXT_WRAP_NONE disables wrapping entirely.
-	wrapMode TextElementConfigWrapMode
+	WrapMode TextElementConfigWrapMode
 	// Controls how wrapped lines of text are horizontally aligned within the outer text bounding box.
 	// TEXT_ALIGN_LEFT (default) - Horizontally aligns wrapped lines of text to the left hand side of their bounding box.
 	// TEXT_ALIGN_CENTER - Horizontally aligns wrapped lines of text to the center of their bounding box.
 	// TEXT_ALIGN_RIGHT - Horizontally aligns wrapped lines of text to the right hand side of their bounding box.
-	textAlignment TextAlignment
+	TextAlignment TextAlignment
 	// When set to true, clay will hash the entire text contents of this string as an identifier for its internal
 	// text measurement cache, rather than just the pointer and length. This will incur significant performance cost for
 	// long bodies of text.
-	hashStringContents bool
+	HashStringContents bool
 }
 
 var default_TextElementConfig TextElementConfig

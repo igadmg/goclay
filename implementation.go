@@ -368,7 +368,7 @@ func hashString(key string, offset uint32, seed uint32) ElementId {
 func Clay__HashTextWithConfig(text string, config *TextElementConfig) uint32 {
 	hash := uint32(0)
 
-	if config.hashStringContents {
+	if config.HashStringContents {
 		maxLengthToHash := min(len(text), 256)
 		for i := range maxLengthToHash {
 			hash += uint32(text[i])
@@ -386,23 +386,23 @@ func Clay__HashTextWithConfig(text string, config *TextElementConfig) uint32 {
 	hash += (hash << 10)
 	hash ^= (hash >> 6)
 
-	hash += uint32(config.fontId)
+	hash += uint32(config.FontId)
 	hash += (hash << 10)
 	hash ^= (hash >> 6)
 
-	hash += uint32(config.fontSize)
+	hash += uint32(config.FontSize)
 	hash += (hash << 10)
 	hash ^= (hash >> 6)
 
-	hash += uint32(config.lineHeight)
+	hash += uint32(config.LineHeight)
 	hash += (hash << 10)
 	hash ^= (hash >> 6)
 
-	hash += uint32(config.letterSpacing)
+	hash += uint32(config.LetterSpacing)
 	hash += (hash << 10)
 	hash ^= (hash >> 6)
 
-	hash += uint32(config.wrapMode)
+	hash += uint32(config.WrapMode)
 	hash += (hash << 10)
 	hash ^= (hash >> 6)
 
@@ -636,6 +636,7 @@ func (c *Context) closeElement() {
 	topBottomPadding := float32(layoutConfig.Padding.Top + layoutConfig.Padding.Bottom)
 
 	// Attach children to the current open element
+	c.layoutElementChildren = slicesex.Reserve(c.layoutElementChildren, len(c.layoutElementChildren)+len(openLayoutElement.children))
 	openLayoutElement.children = c.layoutElementChildren[len(c.layoutElementChildren) : len(c.layoutElementChildren)+len(openLayoutElement.children)]
 	if layoutConfig.LayoutDirection == LEFT_TO_RIGHT {
 		openLayoutElement.dimensions.X = leftRightPadding
@@ -714,11 +715,14 @@ func (c *Context) closeElement() {
 	updateAspectRatioBox(openLayoutElement)
 
 	elementIsFloating := elementHasConfig[*FloatingElementConfig](openLayoutElement)
+	c.closeCurrentElement(elementIsFloating)
+}
 
+func (c *Context) closeCurrentElement(elementIsFloating bool) {
 	// Close the currently open element
 	var closingElementIndex int
 	c.openLayoutElementStack, closingElementIndex = slicesex.RemoveSwapback(c.openLayoutElementStack, len(c.openLayoutElementStack)-1)
-	openLayoutElement = c.getOpenLayoutElement()
+	openLayoutElement := c.getOpenLayoutElement()
 
 	if !elementIsFloating && len(c.openLayoutElementStack) > 1 {
 		c.layoutElementChildren = append(c.layoutElementChildren, closingElementIndex)
@@ -759,6 +763,7 @@ func (c *Context) openTextElement(text string, textConfig *TextElementConfig) {
 	parentElement := c.getOpenLayoutElement()
 
 	c.layoutElements = append(c.layoutElements, LayoutElement{})
+	c.openLayoutElementStack = append(c.openLayoutElementStack, len(c.layoutElements)-1)
 	textElement := &c.layoutElements[len(c.layoutElements)-1]
 	if len(c.openClipElementStack) > 0 {
 		c.layoutElementClipElementIds = slicesex.Set(c.layoutElementClipElementIds, len(c.layoutElements)-1, c.openClipElementStack[len(c.openClipElementStack)-1])
@@ -773,8 +778,8 @@ func (c *Context) openTextElement(text string, textConfig *TextElementConfig) {
 	c.addHashMapItem(elementId, textElement, 0)
 	c.layoutElementIdStrings = append(c.layoutElementIdStrings, elementId.stringId)
 	textDimensions := textMeasured.unwrappedDimensions
-	if textConfig.lineHeight > 0 {
-		textDimensions.Y = float32(textConfig.lineHeight)
+	if textConfig.LineHeight > 0 {
+		textDimensions.Y = float32(textConfig.LineHeight)
 	}
 	textElement.dimensions = textDimensions
 	textElement.minDimensions = vector2.NewFloat32(textMeasured.minWidth, textDimensions.Y)
@@ -784,15 +789,11 @@ func (c *Context) openTextElement(text string, textConfig *TextElementConfig) {
 		elementIndex:        len(c.layoutElements) - 1,
 	})
 	textElement.textElementData = &c.textElementData[len(c.textElementData)-1]
-	//textElement.elementConfigs = CLAY__INIT(Clay__ElementConfigArraySlice) {
-	//        .length = 1,
-	//        .internalArray = Clay__ElementConfigArray_Add(&c.elementConfigs, CLAY__INIT(Clay_ElementConfig) { .Type = CLAY__ELEMENT_CONFIG_TYPE_TEXT, .config = { .textElementConfig = textConfig }})
-	//};
+	c.elementConfigs = append(c.elementConfigs, textConfig)
+	textElement.elementConfigs = c.elementConfigs[len(c.elementConfigs)-1 : len(c.elementConfigs)]
 	textElement.layoutConfig = &default_LayoutConfig
 
-	// TODO: fix
-	//c.layoutElementChildren = append(c.layoutElementChildren, closingElementIndex)
-	//parentElement.children.length++
+	c.closeCurrentElement(false)
 }
 
 func (c *Context) attachId(elementId ElementId) ElementId {
@@ -1114,7 +1115,7 @@ func (c *Context) Clay__SizeContainersAlongAxis(axis int) {
 					return false
 				}() {
 					if func() bool {
-						if tc, ok := findElementConfigWithType[*TextElementConfig](child); !ok || tc.wrapMode == TEXT_WRAP_WORDS {
+						if tc, ok := findElementConfigWithType[*TextElementConfig](child); !ok || tc.WrapMode == TEXT_WRAP_WORDS {
 							if axis == 0 || !elementHasConfig[*ImageElementConfig](child) {
 								return true
 							}
@@ -1330,68 +1331,73 @@ func (c *Context) Clay__CalculateFinalLayout() {
 	// Calculate sizing along the X axis
 	c.Clay__SizeContainersAlongAxis(0)
 
-	/*
-		    // Wrap text
-		    for i := range c.textElementData {
-		        textElementData = &c.textElementData[i];
-		        textElementData.wrappedLines = WrappedTextLineArraySlice
-				 { .length = 0, .internalArray = &c.wrappedTextLines.internalArray[c.wrappedTextLines.length] };
-		        Clay_LayoutElement *containerElement = Clay_LayoutElementArray_Get(&c.layoutElements, (int)textElementData.elementIndex);
-		        Clay_TextElementConfig *textConfig = findElementConfigWithType(containerElement, CLAY__ELEMENT_CONFIG_TYPE_TEXT).textElementConfig;
-		        Clay__MeasureTextCacheItem *measureTextCacheItem = Clay__MeasureTextCached(&textElementData.text, textConfig);
-		        float lineWidth = 0;
-		        float lineHeight = textConfig.lineHeight > 0 ? float32textConfig.lineHeight : textElementData.preferredDimensions.Y;
-		        int32 lineLengthChars = 0;
-		        int32 lineStartOffset = 0;
-		        if (!measureTextCacheItem.containsNewlines && textElementData.preferredDimensions.X <= containerElement.dimensions.X) {
-		            Clay__WrappedTextLineArray_Add(&c.wrappedTextLines, WrappedTextLine
-						 { containerElement.dimensions,  textElementData.text });
-		            textElementData.wrappedLines.length++;
-		            continue;
-		        }
-		        float spaceWidth = Clay__MeasureText(tringSlice
-					 { .length = 1, .chars = SPACECHAR.chars, .baseChars = SPACECHAR.chars }, textConfig, c.measureTextUserData).X;
-		        int32 wordIndex = measureTextCacheItem.measuredWordsStartIndex;
-		        while (wordIndex != -1) {
-		            if (c.wrappedTextLines.length > c.wrappedTextLines.capacity - 1) {
-		                break;
-		            }
-		            Clay__MeasuredWord *measuredWord = Clay__MeasuredWordArray_Get(&c.measuredWords, wordIndex);
-		            // Only word on the line is too large, just render it anyway
-		            if (lineLengthChars == 0 && lineWidth + measuredWord.X > containerElement.dimensions.X) {
-		                Clay__WrappedTextLineArray_Add(&c.wrappedTextLines, WrappedTextLine
-							 { { measuredWord.X, lineHeight }, { .length = measuredWord.length, .chars = &textElementData.text.chars[measuredWord.startOffset] } });
-		                textElementData.wrappedLines.length++;
-		                wordIndex = measuredWord.next;
-		                lineStartOffset = measuredWord.startOffset + measuredWord.length;
-		            }
-		            // measuredWord.length == 0 means a newline character
-		            else if (measuredWord.length == 0 || lineWidth + measuredWord.X > containerElement.dimensions.X) {
-		                // Wrapped text lines list has overflowed, just render out the line
-		                bool finalCharIsSpace = textElementData.text.chars[lineStartOffset + lineLengthChars - 1] == ' ';
-		                Clay__WrappedTextLineArray_Add(&c.wrappedTextLines, WrappedTextLine
-							 { { lineWidth + (finalCharIsSpace ? -spaceWidth : 0), lineHeight }, { .length = lineLengthChars + (finalCharIsSpace ? -1 : 0), .chars = &textElementData.text.chars[lineStartOffset] } });
-		                textElementData.wrappedLines.length++;
-		                if (lineLengthChars == 0 || measuredWord.length == 0) {
-		                    wordIndex = measuredWord.next;
-		                }
-		                lineWidth = 0;
-		                lineLengthChars = 0;
-		                lineStartOffset = measuredWord.startOffset;
-		            } else {
-		                lineWidth += measuredWord.X;
-		                lineLengthChars += measuredWord.length;
-		                wordIndex = measuredWord.next;
-		            }
-		        }
-		        if (lineLengthChars > 0) {
-		            Clay__WrappedTextLineArray_Add(&c.wrappedTextLines, WrappedTextLine
-						 { { lineWidth, lineHeight }, {.length = lineLengthChars, .chars = &textElementData.text.chars[lineStartOffset] } });
-		            textElementData.wrappedLines.length++;
-		        }
-		        containerElement.dimensions.Y = lineHeight * float32textElementData.wrappedLines.length;
-		    }
-	*/
+	// Wrap text
+	for i := range c.textElementData {
+		textElementData := &c.textElementData[i]
+		textElementData.wrappedLines = c.wrappedTextLines[len(c.wrappedTextLines):]
+		containerElement := c.layoutElements[textElementData.elementIndex]
+		textConfig, _ := findElementConfigWithType[*TextElementConfig](&containerElement)
+		measureTextCacheItem := c.measureTextCached(textElementData.text, textConfig)
+		var lineWidth float32
+		lineHeight := textElementData.preferredDimensions.Y
+		if textConfig.LineHeight > 0 {
+			lineHeight = float32(textConfig.LineHeight)
+		}
+		var lineLengthChars int32
+		var lineStartOffset int32
+
+		if !measureTextCacheItem.containsNewlines && textElementData.preferredDimensions.X <= containerElement.dimensions.X {
+			c.wrappedTextLines = append(c.wrappedTextLines, WrappedTextLine{})
+			textElementData.wrappedLines = append(textElementData.wrappedLines, WrappedTextLine{containerElement.dimensions, textElementData.text})
+			continue
+		}
+		spaceWidth := measureText(" ", textConfig, c.measureTextUserData).X
+		wordIndex := measureTextCacheItem.measuredWordsStartIndex
+		for wordIndex != -1 {
+			if len(c.wrappedTextLines) > cap(c.wrappedTextLines)-1 {
+				break
+			}
+			measuredWord := c.measuredWords[wordIndex]
+			// Only word on the line is too large, just render it anyway
+			if lineLengthChars == 0 && lineWidth+measuredWord.width > containerElement.dimensions.X {
+				c.wrappedTextLines = append(c.wrappedTextLines, WrappedTextLine{})
+				textElementData.wrappedLines = append(textElementData.wrappedLines, WrappedTextLine{
+					vector2.NewFloat32(measuredWord.width, lineHeight),
+					textElementData.text[measuredWord.startOffset : measuredWord.startOffset+measuredWord.length]})
+				wordIndex = measuredWord.next
+				lineStartOffset = measuredWord.startOffset + measuredWord.length
+			} else if measuredWord.length == 0 || lineWidth+measuredWord.width > containerElement.dimensions.X {
+				// measuredWord.length == 0 means a newline character
+				// Wrapped text lines list has overflowed, just render out the line
+				var addSpace float32
+				if textElementData.text[lineStartOffset+lineLengthChars-1] == ' ' {
+					addSpace = -spaceWidth
+					lineLengthChars--
+				}
+				c.wrappedTextLines = append(c.wrappedTextLines, WrappedTextLine{})
+				textElementData.wrappedLines = append(textElementData.wrappedLines, WrappedTextLine{
+					vector2.NewFloat32(lineWidth+addSpace, lineHeight),
+					textElementData.text[lineStartOffset : lineStartOffset+lineLengthChars],
+				})
+				if lineLengthChars == 0 || measuredWord.length == 0 {
+					wordIndex = measuredWord.next
+				}
+				lineWidth = 0
+				lineLengthChars = 0
+				lineStartOffset = measuredWord.startOffset
+			} else {
+				lineWidth += measuredWord.width
+				lineLengthChars += measuredWord.length
+				wordIndex = measuredWord.next
+			}
+		}
+		if lineLengthChars > 0 {
+			c.wrappedTextLines = append(c.wrappedTextLines, WrappedTextLine{})
+			textElementData.wrappedLines = append(textElementData.wrappedLines, WrappedTextLine{
+				vector2.NewFloat32(lineWidth, lineHeight), textElementData.text[lineStartOffset : lineStartOffset+lineLengthChars]})
+		}
+		containerElement.dimensions.Y = lineHeight * float32(len(textElementData.wrappedLines))
+	}
 	// Scale vertical image heights according to aspect ratio
 	for _, iep := range c.imageElementPointers {
 		imageElement := &c.layoutElements[iep]
@@ -1690,8 +1696,8 @@ func (c *Context) Clay__CalculateFinalLayout() {
 						shouldRender = false
 						naturalLineHeight := currentElement.textElementData.preferredDimensions.Y
 						finalLineHeight := naturalLineHeight
-						if cfg.lineHeight > 0 {
-							finalLineHeight = float32(cfg.lineHeight)
+						if cfg.LineHeight > 0 {
+							finalLineHeight = float32(cfg.LineHeight)
 						}
 						lineHeightOffset := (finalLineHeight - naturalLineHeight) / 2
 						yPosition := lineHeightOffset
@@ -1701,10 +1707,10 @@ func (c *Context) Clay__CalculateFinalLayout() {
 								continue
 							}
 							offset := (currentElementBoundingBox.Width() - wrappedLine.dimensions.X)
-							if cfg.textAlignment == TEXT_ALIGN_LEFT {
+							if cfg.TextAlignment == TEXT_ALIGN_LEFT {
 								offset = 0
 							}
-							if cfg.textAlignment == TEXT_ALIGN_CENTER {
+							if cfg.TextAlignment == TEXT_ALIGN_CENTER {
 								offset /= 2
 							}
 							c.addRenderCommand(RenderCommand{
@@ -1714,13 +1720,13 @@ func (c *Context) Clay__CalculateFinalLayout() {
 								),
 								RenderData: TextRenderData{
 									stringContents: wrappedLine.line,
-									textColor:      cfg.textColor,
-									fontId:         cfg.fontId,
-									fontSize:       cfg.fontSize,
-									letterSpacing:  cfg.letterSpacing,
-									lineHeight:     cfg.lineHeight,
+									textColor:      cfg.TextColor,
+									fontId:         cfg.FontId,
+									fontSize:       cfg.FontSize,
+									letterSpacing:  cfg.LetterSpacing,
+									lineHeight:     cfg.LineHeight,
 								},
-								UserData: cfg.userData,
+								UserData: cfg.UserData,
 								Id:       hashNumber(uint32(lineIndex), currentElement.id).id,
 								ZIndex:   root.zIndex,
 							})
