@@ -606,7 +606,6 @@ func updateAspectRatioBox(layoutElement *LayoutElement) {
 			} else if layoutElement.dimensions.X != 0 && layoutElement.dimensions.Y == 0 {
 				layoutElement.dimensions.Y = layoutElement.dimensions.Y * (1 / aspect)
 			}
-			break
 		}
 	}
 }
@@ -624,8 +623,8 @@ func (c *Context) closeElement() {
 	for _, config := range openLayoutElement.elementConfigs {
 		switch cfg := config.(type) {
 		case *ScrollElementConfig:
-			elementHasScrollHorizontal = cfg.horizontal
-			elementHasScrollVertical = cfg.vertical
+			elementHasScrollHorizontal = cfg.Horizontal
+			elementHasScrollVertical = cfg.Vertical
 			c.openClipElementStack = c.openClipElementStack[:len(c.openClipElementStack)-1]
 			break
 		case *FloatingElementConfig:
@@ -872,20 +871,20 @@ func (c *Context) configureOpenElement(declaration *ElementDeclaration) {
 		c.imageElementPointers = append(c.imageElementPointers, len(c.layoutElements)-1)
 	}
 
-	if declaration.Floating.attachTo != ATTACH_TO_NONE {
+	if declaration.Floating.AttachTo != ATTACH_TO_NONE {
 		floatingConfig := declaration.Floating
 		// This looks dodgy but because of the auto generated root element the depth of the tree will always be at least 2 here
 		hierarchicalParent := c.layoutElements[c.openLayoutElementStack[len(c.openLayoutElementStack)-2]]
 		if true /*hierarchicalParent.id != 0*/ {
 			clipElementId := 0
-			if declaration.Floating.attachTo == ATTACH_TO_PARENT {
+			if declaration.Floating.AttachTo == ATTACH_TO_PARENT {
 				// Attach to the element's direct hierarchical parent
-				floatingConfig.parentId = hierarchicalParent.id
+				floatingConfig.ParentId = hierarchicalParent.id
 				if len(c.openClipElementStack) > 0 {
 					clipElementId = c.openClipElementStack[len(c.openClipElementStack)-1]
 				}
-			} else if declaration.Floating.attachTo == ATTACH_TO_ELEMENT_WITH_ID {
-				parentItem := c.getHashMapItem(floatingConfig.parentId)
+			} else if declaration.Floating.AttachTo == ATTACH_TO_ELEMENT_WITH_ID {
+				parentItem := c.getHashMapItem(floatingConfig.ParentId)
 				if parentItem == nil {
 					c.errorHandler.ErrorHandlerFunction(ErrorData{
 						ErrorType: ERROR_TYPE_FLOATING_CONTAINER_PARENT_NOT_FOUND,
@@ -896,8 +895,8 @@ func (c *Context) configureOpenElement(declaration *ElementDeclaration) {
 					// TODO: fix
 					//clipElementId = c.layoutElementClipElementIds[(int32)(parentItem.layoutElement-c.layoutElements.internalArray))
 				}
-			} else if declaration.Floating.attachTo == ATTACH_TO_ROOT {
-				floatingConfig.parentId = hashString("Clay__RootContainer", 0, 0).id
+			} else if declaration.Floating.AttachTo == ATTACH_TO_ROOT {
+				floatingConfig.ParentId = hashString("Clay__RootContainer", 0, 0).id
 			}
 			if openLayoutElementId.id == 0 {
 				openLayoutElementId = hashString("Clay__FloatingContainer", uint32(len(c.layoutElementTreeRoots)), 0)
@@ -907,14 +906,14 @@ func (c *Context) configureOpenElement(declaration *ElementDeclaration) {
 			c.openClipElementStack = append(c.openClipElementStack, clipElementId)
 			c.layoutElementTreeRoots = append(c.layoutElementTreeRoots, LayoutElementTreeRoot{
 				layoutElementIndex: c.openLayoutElementStack[len(c.openLayoutElementStack)-1],
-				parentId:           floatingConfig.parentId,
+				parentId:           floatingConfig.ParentId,
 				clipElementId:      uint32(clipElementId),
-				zIndex:             floatingConfig.zIndex,
+				zIndex:             floatingConfig.ZIndex,
 			})
 			c.attachElementConfig(c.storeFloatingElementConfig(floatingConfig))
 		}
 	}
-	if declaration.Custom.customData != nil {
+	if declaration.Custom.CustomData != nil {
 		c.attachElementConfig(c.storeCustomElementConfig(declaration.Custom))
 	}
 
@@ -924,7 +923,7 @@ func (c *Context) configureOpenElement(declaration *ElementDeclaration) {
 		openLayoutElementId = c.generateIdForAnonymousElement(openLayoutElement)
 	}
 
-	if declaration.Scroll.horizontal || declaration.Scroll.vertical {
+	if declaration.Scroll.Horizontal || declaration.Scroll.Vertical {
 		c.attachElementConfig(c.storeScrollElementConfig(declaration.Scroll))
 		c.openClipElementStack = append(c.openClipElementStack, (int)(openLayoutElement.id))
 		// Retrieve or create cached data to track scroll position across frames
@@ -1053,7 +1052,7 @@ func (c *Context) Clay__SizeContainersAlongAxis(axis int) {
 
 		// Size floating containers to their parents
 		if floatingElementConfig, ok := findElementConfigWithType[*FloatingElementConfig](rootElement); ok {
-			parentItem := c.getHashMapItem(floatingElementConfig.parentId)
+			parentItem := c.getHashMapItem(floatingElementConfig.ParentId)
 			if parentItem != nil && !parentItem.IsEmpty() {
 				parentLayoutElement := parentItem.layoutElement
 				switch rootElement.layoutConfig.Sizing.Width.(type) {
@@ -1168,7 +1167,7 @@ func (c *Context) Clay__SizeContainersAlongAxis(axis int) {
 				if sizeToDistribute < 0 {
 					// If the parent can scroll in the axis direction in this direction, don't compress children, just leave them alone
 					if scrollElementConfig, ok := findElementConfigWithType[*ScrollElementConfig](parent); ok {
-						if (axis == 0 && scrollElementConfig.horizontal) || (axis == 1 && scrollElementConfig.vertical) {
+						if (axis == 0 && scrollElementConfig.Horizontal) || (axis == 1 && scrollElementConfig.Vertical) {
 							continue
 						}
 					}
@@ -1286,7 +1285,7 @@ func (c *Context) Clay__SizeContainersAlongAxis(axis int) {
 					// If we're laying out the children of a scroll panel, grow containers expand to the size of the inner content, not the outer container
 					maxSize := parentSize - parentPadding
 					if scrollElementConfig, ok := findElementConfigWithType[*ScrollElementConfig](parent); ok {
-						if (axis == 0 && scrollElementConfig.horizontal) || (axis == 1 && scrollElementConfig.vertical) {
+						if (axis == 0 && scrollElementConfig.Horizontal) || (axis == 1 && scrollElementConfig.Vertical) {
 							maxSize = max(maxSize, innerContentSize)
 						}
 					}
@@ -1493,7 +1492,7 @@ func (c *Context) Clay__CalculateFinalLayout() {
 			parentBoundingBox := parentHashMapItem.boundingBox
 			// Set X position
 			var targetAttachPosition vector2.Float32
-			switch config.attachPoints.parent {
+			switch config.AttachPoints.Parent {
 			case ATTACH_POINT_LEFT_TOP, ATTACH_POINT_LEFT_CENTER, ATTACH_POINT_LEFT_BOTTOM:
 				targetAttachPosition.X = parentBoundingBox.X()
 			case ATTACH_POINT_CENTER_TOP, ATTACH_POINT_CENTER_CENTER, ATTACH_POINT_CENTER_BOTTOM:
@@ -1501,7 +1500,7 @@ func (c *Context) Clay__CalculateFinalLayout() {
 			case ATTACH_POINT_RIGHT_TOP, ATTACH_POINT_RIGHT_CENTER, ATTACH_POINT_RIGHT_BOTTOM:
 				targetAttachPosition.X = parentBoundingBox.X() + parentBoundingBox.Width()
 			}
-			switch config.attachPoints.element {
+			switch config.AttachPoints.Element {
 			case ATTACH_POINT_LEFT_TOP, ATTACH_POINT_LEFT_CENTER, ATTACH_POINT_LEFT_BOTTOM:
 				break
 			case ATTACH_POINT_CENTER_TOP, ATTACH_POINT_CENTER_CENTER, ATTACH_POINT_CENTER_BOTTOM:
@@ -1509,7 +1508,7 @@ func (c *Context) Clay__CalculateFinalLayout() {
 			case ATTACH_POINT_RIGHT_TOP, ATTACH_POINT_RIGHT_CENTER, ATTACH_POINT_RIGHT_BOTTOM:
 				targetAttachPosition.X -= rootDimensions.X
 			}
-			switch config.attachPoints.parent { // I know I could merge the x and y switch statements, but this is easier to read
+			switch config.AttachPoints.Parent { // I know I could merge the x and y switch statements, but this is easier to read
 			case ATTACH_POINT_LEFT_TOP, ATTACH_POINT_RIGHT_TOP, ATTACH_POINT_CENTER_TOP:
 				targetAttachPosition.Y = parentBoundingBox.Y()
 			case ATTACH_POINT_LEFT_CENTER, ATTACH_POINT_CENTER_CENTER, ATTACH_POINT_RIGHT_CENTER:
@@ -1517,7 +1516,7 @@ func (c *Context) Clay__CalculateFinalLayout() {
 			case ATTACH_POINT_LEFT_BOTTOM, ATTACH_POINT_CENTER_BOTTOM, ATTACH_POINT_RIGHT_BOTTOM:
 				targetAttachPosition.Y = parentBoundingBox.Y() + parentBoundingBox.Height()
 			}
-			switch config.attachPoints.element {
+			switch config.AttachPoints.Element {
 			case ATTACH_POINT_LEFT_TOP, ATTACH_POINT_RIGHT_TOP, ATTACH_POINT_CENTER_TOP:
 				break
 			case ATTACH_POINT_LEFT_CENTER, ATTACH_POINT_CENTER_CENTER, ATTACH_POINT_RIGHT_CENTER:
@@ -1525,8 +1524,8 @@ func (c *Context) Clay__CalculateFinalLayout() {
 			case ATTACH_POINT_LEFT_BOTTOM, ATTACH_POINT_CENTER_BOTTOM, ATTACH_POINT_RIGHT_BOTTOM:
 				targetAttachPosition.Y -= rootDimensions.Y
 			}
-			targetAttachPosition.X += config.offset.X
-			targetAttachPosition.Y += config.offset.Y
+			targetAttachPosition.X += config.Offset.X
+			targetAttachPosition.Y += config.Offset.Y
 			rootPosition = targetAttachPosition
 		}
 
@@ -1539,10 +1538,10 @@ func (c *Context) Clay__CalculateFinalLayout() {
 						for _, mapping := range c.scrollContainerDatas {
 							if mapping.layoutElement == clipHashMapItem.layoutElement {
 								root.pointerOffset = mapping.scrollPosition
-								if scrollConfig.horizontal {
+								if scrollConfig.Horizontal {
 									rootPosition.X += mapping.scrollPosition.X
 								}
-								if scrollConfig.vertical {
+								if scrollConfig.Vertical {
 									rootPosition.Y += mapping.scrollPosition.Y
 								}
 								break
@@ -1578,7 +1577,7 @@ func (c *Context) Clay__CalculateFinalLayout() {
 
 				currentElementBoundingBox := rect2.NewFloat32(currentElementTreeNode.position, currentElement.dimensions)
 				if floatingElementConfig, ok := findElementConfigWithType[*FloatingElementConfig](currentElement); ok {
-					expand := floatingElementConfig.expand
+					expand := floatingElementConfig.Expand
 					currentElementBoundingBox = currentElementBoundingBox.AddXYWH(-expand.X, -expand.Y, expand.X*2, expand.Y*2)
 				}
 
@@ -1591,10 +1590,10 @@ func (c *Context) Clay__CalculateFinalLayout() {
 						if mapping.layoutElement == currentElement {
 							scrollContainerData = mapping
 							mapping.boundingBox = currentElementBoundingBox
-							if scrollConfig.horizontal {
+							if scrollConfig.Horizontal {
 								scrollOffset.X = mapping.scrollPosition.X
 							}
-							if scrollConfig.vertical {
+							if scrollConfig.Vertical {
 								scrollOffset.Y = mapping.scrollPosition.Y
 							}
 							if c.externalScrollHandlingEnabled {
@@ -1677,8 +1676,8 @@ func (c *Context) Clay__CalculateFinalLayout() {
 						shouldRender = false
 					case *ScrollElementConfig:
 						renderCommand.RenderData = ScissorsStartData{
-							horizontal: cfg.horizontal,
-							vertical:   cfg.vertical,
+							horizontal: cfg.Horizontal,
+							vertical:   cfg.Vertical,
 						}
 					case *ImageElementConfig:
 						renderCommand.RenderData = ImageRenderData{
@@ -1741,7 +1740,7 @@ func (c *Context) Clay__CalculateFinalLayout() {
 							renderCommand.RenderData = CustomRenderData{
 								backgroundColor: sharedConfig.backgroundColor,
 								cornerRadius:    sharedConfig.cornerRadius,
-								customData:      cfg.customData,
+								customData:      cfg.CustomData,
 							}
 							emitRectangle = false
 							break
@@ -1824,10 +1823,10 @@ func (c *Context) Clay__CalculateFinalLayout() {
 					closeScrollElement = true
 					for _, mapping := range c.scrollContainerDatas {
 						if mapping.layoutElement == currentElement {
-							if scrollConfig.horizontal {
+							if scrollConfig.Horizontal {
 								scrollOffset.X = mapping.scrollPosition.X
 							}
-							if scrollConfig.vertical {
+							if scrollConfig.Vertical {
 								scrollOffset.Y = mapping.scrollPosition.Y
 							}
 							if c.externalScrollHandlingEnabled {
@@ -1851,15 +1850,15 @@ func (c *Context) Clay__CalculateFinalLayout() {
 						renderCommand := RenderCommand{
 							BoundingBox: currentElementBoundingBox,
 							RenderData: BorderRenderData{
-								color:        borderConfig.color,
+								color:        borderConfig.Color,
 								cornerRadius: sharedConfig.cornerRadius,
-								width:        borderConfig.width,
+								width:        borderConfig.Width,
 							},
 							UserData: sharedConfig.userData,
 							Id:       hashNumber(currentElement.id, uint32(len(currentElement.children))).id,
 						}
 						c.addRenderCommand(renderCommand)
-						if borderConfig.width.betweenChildren > 0 && borderConfig.color.A > 0 {
+						if borderConfig.Width.betweenChildren > 0 && borderConfig.Color.A > 0 {
 							halfGap := layoutConfig.ChildGap / 2
 							borderOffset := vector2.NewFloat32(float32(layoutConfig.Padding.Left-halfGap), float32(layoutConfig.Padding.Top-halfGap))
 							if layoutConfig.LayoutDirection == LEFT_TO_RIGHT {
@@ -1869,10 +1868,10 @@ func (c *Context) Clay__CalculateFinalLayout() {
 										c.addRenderCommand(RenderCommand{
 											BoundingBox: rect2.NewFloat32(
 												currentElementBoundingBox.Position.Add(borderOffset).Add(scrollOffset),
-												vector2.NewFloat32(float32(borderConfig.width.betweenChildren), currentElement.dimensions.Y),
+												vector2.NewFloat32(float32(borderConfig.Width.betweenChildren), currentElement.dimensions.Y),
 											),
 											RenderData: RectangleRenderData{
-												backgroundColor: borderConfig.color,
+												backgroundColor: borderConfig.Color,
 											},
 											UserData: sharedConfig.userData,
 											Id:       hashNumber(currentElement.id, uint32(len(currentElement.children)+1+i)).id,
@@ -1887,10 +1886,10 @@ func (c *Context) Clay__CalculateFinalLayout() {
 										c.addRenderCommand(RenderCommand{
 											BoundingBox: rect2.NewFloat32(
 												currentElementBoundingBox.Position.Add(scrollOffset).AddY(borderOffset.Y),
-												vector2.NewFloat32(currentElement.dimensions.X, float32(borderConfig.width.betweenChildren)),
+												vector2.NewFloat32(currentElement.dimensions.X, float32(borderConfig.Width.betweenChildren)),
 											),
 											RenderData: RectangleRenderData{
-												backgroundColor: borderConfig.color,
+												backgroundColor: borderConfig.Color,
 											},
 											UserData: sharedConfig.userData,
 											Id:       hashNumber(currentElement.id, uint32(len(currentElement.children)+1+i)).id,

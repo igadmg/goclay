@@ -473,14 +473,14 @@ func (c *Context) Clay__RenderDebugView() {
 			LayoutDirection: TOP_TO_BOTTOM,
 		},
 		Floating: FloatingElementConfig{
-			zIndex: 32765,
-			attachPoints: FloatingAttachPoints{
-				element: ATTACH_POINT_LEFT_CENTER,
-				parent:  ATTACH_POINT_RIGHT_CENTER,
+			ZIndex: 32765,
+			AttachPoints: FloatingAttachPoints{
+				Element: ATTACH_POINT_LEFT_CENTER,
+				Parent:  ATTACH_POINT_RIGHT_CENTER,
 			},
-			attachTo: ATTACH_TO_ROOT,
+			AttachTo: ATTACH_TO_ROOT,
 		},
-		Border: BorderElementConfig{color: CLAY__DEBUGVIEW_COLOR_3, width: BorderWidth{bottom: 1}},
+		Border: BorderElementConfig{Color: CLAY__DEBUGVIEW_COLOR_3, Width: BorderWidth{bottom: 1}},
 	}, func() {
 		c.CLAY(ElementDeclaration{
 			Layout: LayoutConfig{
@@ -509,8 +509,8 @@ func (c *Context) Clay__RenderDebugView() {
 				},
 				BackgroundColor: colorex.RGBA{R: 217, G: 91, B: 67, A: 80},
 				CornerRadius:    CORNER_RADIUS(4),
-				Border: BorderElementConfig{color: colorex.RGBA{R: 217, G: 91, B: 67, A: 255},
-					width: BorderWidth{1, 1, 1, 1, 0},
+				Border: BorderElementConfig{Color: colorex.RGBA{R: 217, G: 91, B: 67, A: 255},
+					Width: BorderWidth{1, 1, 1, 1, 0},
 				},
 			}, func() {
 				//Clay_OnHover(HandleDebugViewCloseButtonInteraction, 0);
@@ -538,8 +538,8 @@ func (c *Context) Clay__RenderDebugView() {
 				},
 			},
 			Scroll: ScrollElementConfig{
-				horizontal: true,
-				vertical:   true,
+				Horizontal: true,
+				Vertical:   true,
 			},
 		}, func() {
 
@@ -566,9 +566,9 @@ func (c *Context) Clay__RenderDebugView() {
 							Width:  SIZING_GROW(0),
 							Height: SIZING_GROW(0),
 						},
-					}, Floating: FloatingElementConfig{zIndex: 32766,
-						pointerCaptureMode: POINTER_CAPTURE_MODE_PASSTHROUGH,
-						attachTo:           ATTACH_TO_PARENT,
+					}, Floating: FloatingElementConfig{ZIndex: 32766,
+						PointerCaptureMode: POINTER_CAPTURE_MODE_PASSTHROUGH,
+						AttachTo:           ATTACH_TO_PARENT,
 					},
 				}, func() {
 					c.CLAY(ElementDeclaration{
@@ -640,9 +640,9 @@ func (c *Context) Clay__RenderDebugView() {
 					},
 					LayoutDirection: TOP_TO_BOTTOM},
 				BackgroundColor: CLAY__DEBUGVIEW_COLOR_2,
-				Scroll:          ScrollElementConfig{vertical: true},
-				Border: BorderElementConfig{color: CLAY__DEBUGVIEW_COLOR_3,
-					width: BorderWidth{betweenChildren: 1},
+				Scroll:          ScrollElementConfig{Vertical: true},
+				Border: BorderElementConfig{Color: CLAY__DEBUGVIEW_COLOR_3,
+					Width: BorderWidth{betweenChildren: 1},
 				},
 			}, func() {
 				c.CLAY(ElementDeclaration{
@@ -835,9 +835,9 @@ func (c *Context) Clay__RenderDebugView() {
 							c.CLAY(ElementDeclaration{
 								Layout: LayoutConfig{LayoutDirection: LEFT_TO_RIGHT}}, func() {
 								c.TEXT("{ x: ", infoTextConfig)
-								c.TEXT(strconv.Itoa(int(cfg.offset.X)), infoTextConfig)
+								c.TEXT(strconv.Itoa(int(cfg.Offset.X)), infoTextConfig)
 								c.TEXT(", y: ", infoTextConfig)
-								c.TEXT(strconv.Itoa(int(cfg.offset.Y)), infoTextConfig)
+								c.TEXT(strconv.Itoa(int(cfg.Offset.Y)), infoTextConfig)
 								c.TEXT(" }", infoTextConfig)
 							})
 							// .expand
@@ -845,17 +845,17 @@ func (c *Context) Clay__RenderDebugView() {
 							c.CLAY(ElementDeclaration{
 								Layout: LayoutConfig{LayoutDirection: LEFT_TO_RIGHT}}, func() {
 								c.TEXT("{ width: ", infoTextConfig)
-								c.TEXT(strconv.Itoa(int(cfg.expand.X)), infoTextConfig)
+								c.TEXT(strconv.Itoa(int(cfg.Expand.X)), infoTextConfig)
 								c.TEXT(", height: ", infoTextConfig)
-								c.TEXT(strconv.Itoa(int(cfg.expand.Y)), infoTextConfig)
+								c.TEXT(strconv.Itoa(int(cfg.Expand.Y)), infoTextConfig)
 								c.TEXT(" }", infoTextConfig)
 							})
 							// .zIndex
 							c.TEXT("z-index", infoTitleConfig)
-							c.TEXT(strconv.Itoa(int(cfg.zIndex)), infoTextConfig)
+							c.TEXT(strconv.Itoa(int(cfg.ZIndex)), infoTextConfig)
 							// .parentId
 							c.TEXT("Parent", infoTitleConfig)
-							hashItem := c.getHashMapItem(cfg.parentId)
+							hashItem := c.getHashMapItem(cfg.ParentId)
 							c.TEXT(hashItem.elementId.stringId, infoTextConfig)
 						})
 					case *BorderElementConfig:
@@ -868,18 +868,18 @@ func (c *Context) Clay__RenderDebugView() {
 							c.CLAY(ElementDeclaration{
 								Layout: LayoutConfig{LayoutDirection: LEFT_TO_RIGHT}}, func() {
 								c.TEXT("{ left: ", infoTextConfig)
-								c.TEXT(strconv.Itoa(int(cfg.width.left)), infoTextConfig)
+								c.TEXT(strconv.Itoa(int(cfg.Width.left)), infoTextConfig)
 								c.TEXT(", right: ", infoTextConfig)
-								c.TEXT(strconv.Itoa(int(cfg.width.right)), infoTextConfig)
+								c.TEXT(strconv.Itoa(int(cfg.Width.right)), infoTextConfig)
 								c.TEXT(", top: ", infoTextConfig)
-								c.TEXT(strconv.Itoa(int(cfg.width.top)), infoTextConfig)
+								c.TEXT(strconv.Itoa(int(cfg.Width.top)), infoTextConfig)
 								c.TEXT(", bottom: ", infoTextConfig)
-								c.TEXT(strconv.Itoa(int(cfg.width.bottom)), infoTextConfig)
+								c.TEXT(strconv.Itoa(int(cfg.Width.bottom)), infoTextConfig)
 								c.TEXT(" }", infoTextConfig)
 							})
 							// .textColor
 							c.TEXT("Border Color", infoTitleConfig)
-							c.Clay__RenderDebugViewColor(cfg.color, infoTextConfig)
+							c.Clay__RenderDebugViewColor(cfg.Color, infoTextConfig)
 						})
 						break
 					case *CustomElementConfig:
@@ -900,8 +900,8 @@ func (c *Context) Clay__RenderDebugView() {
 					LayoutDirection: TOP_TO_BOTTOM,
 				},
 				BackgroundColor: CLAY__DEBUGVIEW_COLOR_2,
-				Scroll: ScrollElementConfig{horizontal: true,
-					vertical: true,
+				Scroll: ScrollElementConfig{Horizontal: true,
+					Vertical: true,
 				},
 			}, func() {
 				warningConfig := c.TEXT_CONFIG(TextElementConfig{

@@ -393,8 +393,8 @@ const (
 
 // Controls where a floating element is offset relative to its parent element.
 type FloatingAttachPoints struct {
-	element FloatingAttachPointType // Controls the origin point on a floating element that attaches to its parent.
-	parent  FloatingAttachPointType // Controls the origin point on the parent element that the floating element attaches to.
+	Element FloatingAttachPointType // Controls the origin point on a floating element that attaches to its parent.
+	Parent  FloatingAttachPointType // Controls the origin point on the parent element that the floating element attaches to.
 }
 
 // Controls how mouse pointer events like hover and click are captured or passed through to elements underneath a floating element.
@@ -427,30 +427,30 @@ const (
 // and not affecting the layout of sibling or parent elements.
 type FloatingElementConfig struct {
 	// Offsets this floating element by the provided x,y coordinates from its attachPoints.
-	offset vector2.Float32
+	Offset vector2.Float32
 	// Expands the boundaries of the outer floating element without affecting its children.
-	expand vector2.Float32
+	Expand vector2.Float32
 	// When used in conjunction with .attachTo = ATTACH_TO_ELEMENT_WITH_ID, attaches this floating element to the element in the hierarchy with the provided ID.
-	// Hint: attach the ID to the other element with .id = ID("yourId"), and specify the id the same way, with .parentId = ID("yourId").id
-	parentId uint32
+	// Hint: attach the ID to the other element with .id = ID("yourId"), and specify the id the same way, with .ParentId = ID("yourId").id
+	ParentId uint32
 	// Controls the z index of this floating element and all its children. Floating elements are sorted in ascending z order before output.
-	// zIndex is also passed to the renderer for all elements contained within this floating element.
-	zIndex int16
+	// ZIndex is also passed to the renderer for all elements contained within this floating element.
+	ZIndex int16
 	// Controls how mouse pointer events like hover and click are captured or passed through to elements underneath / behind a floating element.
 	// Enum is of the form ATTACH_POINT_foo_bar. See Clay_FloatingAttachPoints for more details.
 	// Note: see <img src="https://github.com/user-attachments/assets/b8c6dfaa-c1b1-41a4-be55-013473e4a6ce />
 	// and <img src="https://github.com/user-attachments/assets/ebe75e0d-1904-46b0-982d-418f929d1516 /> for a visual explanation.
-	attachPoints FloatingAttachPoints
+	AttachPoints FloatingAttachPoints
 	// Controls how mouse pointer events like hover and click are captured or passed through to elements underneath a floating element.
 	// POINTER_CAPTURE_MODE_CAPTURE (default) - "Capture" the pointer event and don't allow events like hover and click to pass through to elements underneath.
 	// POINTER_CAPTURE_MODE_PASSTHROUGH - Transparently pass through pointer events like hover and click to elements underneath the floating element.
-	pointerCaptureMode PointerCaptureMode
+	PointerCaptureMode PointerCaptureMode
 	// Controls which element a floating element is "attached" to (i.e. relative offset from).
 	// ATTACH_TO_NONE (default) - Disables floating for this element.
 	// ATTACH_TO_PARENT - Attaches this floating element to its parent, positioned based on the .attachPoints and .offset fields.
 	// ATTACH_TO_ELEMENT_WITH_ID - Attaches this floating element to an element with a specific ID, specified with the .parentId field. positioned based on the .attachPoints and .offset fields.
 	// ATTACH_TO_ROOT - Attaches this floating element to the root of the layout, which combined with the .offset field provides functionality similar to "absolute positioning".
-	attachTo FloatingAttachToElement
+	AttachTo FloatingAttachToElement
 }
 
 var default_FloatingElementConfig FloatingElementConfig
@@ -461,7 +461,7 @@ var default_FloatingElementConfig FloatingElementConfig
 type CustomElementConfig struct {
 	// A transparent pointer through which you can pass custom data to the renderer.
 	// Generates CUSTOM render commands.
-	customData any
+	CustomData any
 }
 
 var default_CustomElementConfig CustomElementConfig
@@ -470,8 +470,8 @@ var default_CustomElementConfig CustomElementConfig
 
 // Controls the axis on which an element switches to "scrolling", which clips the contents and allows scrolling in that direction.
 type ScrollElementConfig struct {
-	horizontal bool // Clip overflowing elements on the X axis and allow scrolling left and right.
-	vertical   bool // Clip overflowing elements on the YU axis and allow scrolling up and down.
+	Horizontal bool // Clip overflowing elements on the X axis and allow scrolling left and right.
+	Vertical   bool // Clip overflowing elements on the YU axis and allow scrolling up and down.
 }
 
 var default_ScrollElementConfig ScrollElementConfig
@@ -500,14 +500,14 @@ func (b BorderWidth) IsEmpty() bool {
 
 // Controls settings related to element borders.
 type BorderElementConfig struct {
-	color colorex.RGBA // Controls the color of all borders with width > 0. Conventionally represented as 0-255, but interpretation is up to the renderer.
-	width BorderWidth  // Controls the widths of individual borders. At least one of these should be > 0 for a BORDER render command to be generated.
+	Color colorex.RGBA // Controls the color of all borders with width > 0. Conventionally represented as 0-255, but interpretation is up to the renderer.
+	Width BorderWidth  // Controls the widths of individual borders. At least one of these should be > 0 for a BORDER render command to be generated.
 }
 
 var default_BorderElementConfig BorderElementConfig
 
 func (b BorderElementConfig) IsEmpty() bool {
-	return b.color.IsZero() && b.width.IsEmpty()
+	return b.Color.IsZero() && b.Width.IsEmpty()
 }
 
 // Render Command Data -----------------------------

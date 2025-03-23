@@ -76,7 +76,7 @@ func (c *Context) SetPointerState(position vector2.Float32, pointerDown bool) {
 		if found {
 			rootElement := c.layoutElements[root.layoutElementIndex]
 			if config, ok := findElementConfigWithType[*FloatingElementConfig](&rootElement); ok {
-				if config.pointerCaptureMode == POINTER_CAPTURE_MODE_CAPTURE {
+				if config.PointerCaptureMode == POINTER_CAPTURE_MODE_CAPTURE {
 					break
 				}
 			}
