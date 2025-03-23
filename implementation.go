@@ -629,17 +629,21 @@ func (c *Context) closeElement() {
 		}
 	}
 
+	leftRightPadding := float32(layoutConfig.Padding.Left + layoutConfig.Padding.Right)
+	topBottomPadding := float32(layoutConfig.Padding.Top + layoutConfig.Padding.Bottom)
+
 	// Attach children to the current open element
-	openLayoutElement.children = c.layoutElementChildren[len(c.layoutElementChildren):len(c.layoutElementChildren)]
+	openLayoutElement.children = c.layoutElementChildren[len(c.layoutElementChildren) : len(c.layoutElementChildren)+len(openLayoutElement.children)]
 	if layoutConfig.LayoutDirection == LEFT_TO_RIGHT {
-		openLayoutElement.dimensions.X = (float32)(layoutConfig.Padding.Left + layoutConfig.Padding.Right)
+		openLayoutElement.dimensions.X = leftRightPadding
+		openLayoutElement.minDimensions.X = leftRightPadding
 		for i := range openLayoutElement.children {
 			childIndex := c.layoutElementChildrenBuffer[len(c.layoutElementChildrenBuffer)-(int)(len(openLayoutElement.children)+i)]
 			child := c.layoutElements[childIndex]
 			openLayoutElement.dimensions.X += child.dimensions.X
 			openLayoutElement.dimensions.Y = max(
 				openLayoutElement.dimensions.Y,
-				child.dimensions.Y+(float32)(layoutConfig.Padding.Top+layoutConfig.Padding.Bottom))
+				child.dimensions.Y+topBottomPadding)
 
 			// Minimum size of child elements doesn't matter to scroll containers as they can shrink and hide their contents
 			if !elementHasScrollHorizontal {
@@ -648,33 +652,36 @@ func (c *Context) closeElement() {
 			if !elementHasScrollVertical {
 				openLayoutElement.minDimensions.Y = max(
 					openLayoutElement.minDimensions.Y,
-					child.minDimensions.Y+(float32)(layoutConfig.Padding.Top+layoutConfig.Padding.Bottom))
+					child.minDimensions.Y+topBottomPadding)
 			}
 			c.layoutElementChildren = append(c.layoutElementChildren, childIndex)
 		}
 
-		childGap := (float32)(max(len(openLayoutElement.children)-1, 0) * int(layoutConfig.ChildGap))
+		childGap := float32(max(len(openLayoutElement.children)-1, 0) * int(layoutConfig.ChildGap))
 		openLayoutElement.dimensions.X += childGap // TODO this is technically a bug with childgap and scroll containers
 		openLayoutElement.minDimensions.X += childGap
 	} else if layoutConfig.LayoutDirection == TOP_TO_BOTTOM {
-		openLayoutElement.dimensions.Y = (float32)(layoutConfig.Padding.Top + layoutConfig.Padding.Bottom)
+		openLayoutElement.dimensions.Y = topBottomPadding
+		openLayoutElement.minDimensions.Y = topBottomPadding
 		for i := range openLayoutElement.children {
 			childIndex := c.layoutElementChildrenBuffer[len(c.layoutElementChildrenBuffer)-len(openLayoutElement.children)+i]
 			child := c.layoutElements[childIndex]
 			openLayoutElement.dimensions.Y += child.dimensions.Y
 			openLayoutElement.dimensions.X = max(
 				openLayoutElement.dimensions.X,
-				child.dimensions.X+(float32)(layoutConfig.Padding.Left+layoutConfig.Padding.Right))
+				child.dimensions.X+leftRightPadding)
 			// Minimum size of child elements doesn't matter to scroll containers as they can shrink and hide their contents
 			if !elementHasScrollVertical {
 				openLayoutElement.minDimensions.Y += child.minDimensions.Y
 			}
 			if !elementHasScrollHorizontal {
-				openLayoutElement.minDimensions.X = max(openLayoutElement.minDimensions.X, child.minDimensions.X+(float32)(layoutConfig.Padding.Left+layoutConfig.Padding.Right))
+				openLayoutElement.minDimensions.X = max(
+					openLayoutElement.minDimensions.X,
+					child.minDimensions.X+leftRightPadding)
 			}
 			c.layoutElementChildren = append(c.layoutElementChildren, childIndex)
 		}
-		childGap := (float32)(max(len(openLayoutElement.children)-1, 0) * int(layoutConfig.ChildGap))
+		childGap := float32(max(len(openLayoutElement.children)-1, 0) * int(layoutConfig.ChildGap))
 		openLayoutElement.dimensions.Y += childGap // TODO this is technically a bug with childgap and scroll containers
 		openLayoutElement.minDimensions.Y += childGap
 	}
@@ -770,7 +777,7 @@ func (c *Context) openTextElement(text string, textConfig *TextElementConfig) {
 	c.layoutElementIdStrings = append(c.layoutElementIdStrings, elementId.stringId)
 	textDimensions := textMeasured.unwrappedDimensions
 	if textConfig.lineHeight > 0 {
-		textDimensions.Y = (float32)(textConfig.lineHeight)
+		textDimensions.Y = float32(textConfig.lineHeight)
 	}
 	textElement.dimensions = textDimensions
 	textElement.minDimensions = vector2.NewFloat32(textMeasured.unwrappedDimensions.Y, textDimensions.Y) // TODO not sure this is the best way to decide min width for text
@@ -804,6 +811,13 @@ func (c *Context) attachId(elementId ElementId) ElementId {
 }
 
 func (c *Context) configureOpenElement(declaration *ElementDeclaration) {
+	if declaration.Layout.Sizing.Width == nil {
+		declaration.Layout.Sizing.Width = SizingAxisFit{}
+	}
+	if declaration.Layout.Sizing.Height == nil {
+		declaration.Layout.Sizing.Height = SizingAxisFit{}
+	}
+
 	openLayoutElement := c.getOpenLayoutElement()
 	openLayoutElement.layoutConfig = c.storeLayoutConfig(declaration.Layout)
 
@@ -1031,23 +1045,7 @@ func Clay__FloatEqual(left float32, right float32) bool {
 	return subtracted < CLAY__EPSILON && subtracted > -CLAY__EPSILON
 }
 
-func (c *Context) Clay__SizeContainersAlongAxis(xAxis bool) {
-
-	getSize := func(d vector2.Float32) float32 {
-		if xAxis {
-			return d.X
-		} else {
-			return d.Y
-		}
-	}
-	getSizePtr := func(d *vector2.Float32) *float32 {
-		if xAxis {
-			return &d.X
-		} else {
-			return &d.Y
-		}
-	}
-
+func (c *Context) Clay__SizeContainersAlongAxis(axis int) {
 	bfsBuffer := c.layoutElementChildrenBuffer
 	resizableContainerBuffer := c.openLayoutElementStack
 	for rootIndex := range c.layoutElementTreeRoots {
@@ -1083,25 +1081,25 @@ func (c *Context) Clay__SizeContainersAlongAxis(xAxis bool) {
 			parent := c.layoutElements[parentIndex]
 			parentStyleConfig := parent.layoutConfig
 			var growContainerCount int32
-			parentSize := getSize(parent.dimensions)
+			parentSize := parent.dimensions.Axis(axis)
 			var parentPadding float32
 			var innerContentSize float32
 
-			if xAxis {
+			if axis == 0 {
 				parentPadding = float32(parent.layoutConfig.Padding.Left + parent.layoutConfig.Padding.Right)
 			} else {
 				parentPadding = float32(parent.layoutConfig.Padding.Top + parent.layoutConfig.Padding.Bottom)
 			}
 
 			totalPaddingAndChildGaps := parentPadding
-			sizingAlongAxis := (xAxis && parentStyleConfig.LayoutDirection == LEFT_TO_RIGHT) || (!xAxis && parentStyleConfig.LayoutDirection == TOP_TO_BOTTOM)
+			sizingAlongAxis := parentStyleConfig.LayoutDirection.IsAlongAxis(axis)
 			resizableContainerBuffer = resizableContainerBuffer[:0]
 			parentChildGap := parentStyleConfig.ChildGap
 
 			for childOffset, childElementIndex := range parent.children {
 				childElement := c.layoutElements[childElementIndex]
-				childSizing := childElement.layoutConfig.Sizing.GetAxis(xAxis)
-				childSize := getSize(childElement.dimensions)
+				childSizing := childElement.layoutConfig.Sizing.GetAxis(axis)
+				childSize := childElement.dimensions.Axis(axis)
 
 				if !elementHasConfig[*TextElementConfig](&childElement) && len(childElement.children) > 0 {
 					bfsBuffer = append(bfsBuffer, childElementIndex)
@@ -1137,8 +1135,8 @@ func (c *Context) Clay__SizeContainersAlongAxis(xAxis bool) {
 			// Expand percentage containers to size
 			for _, childElementIndex := range parent.children {
 				childElement := c.layoutElements[childElementIndex]
-				childSizing := childElement.layoutConfig.Sizing.GetAxis(xAxis)
-				childSize := getSizePtr(&childElement.dimensions)
+				childSizing := childElement.layoutConfig.Sizing.GetAxis(axis)
+				childSize := childElement.dimensions.AxisPtr(axis)
 
 				switch p := childSizing.(type) {
 				case SizingAxisPercent:
@@ -1156,7 +1154,7 @@ func (c *Context) Clay__SizeContainersAlongAxis(xAxis bool) {
 				if sizeToDistribute < 0 {
 					// If the parent can scroll in the axis direction in this direction, don't compress children, just leave them alone
 					if scrollElementConfig, ok := findElementConfigWithType[*ScrollElementConfig](&parent); ok {
-						if (xAxis && scrollElementConfig.horizontal) || (!xAxis && scrollElementConfig.vertical) {
+						if (axis == 0 && scrollElementConfig.horizontal) || (axis == 1 && scrollElementConfig.vertical) {
 							continue
 						}
 					}
@@ -1167,7 +1165,7 @@ func (c *Context) Clay__SizeContainersAlongAxis(xAxis bool) {
 						widthToAdd := sizeToDistribute
 						for _, childIndex := range resizableContainerBuffer {
 							child := c.layoutElements[childIndex]
-							childSize := getSize(child.dimensions)
+							childSize := child.dimensions.Axis(axis)
 							if Clay__FloatEqual(childSize, largest) {
 								continue
 							}
@@ -1185,8 +1183,8 @@ func (c *Context) Clay__SizeContainersAlongAxis(xAxis bool) {
 
 						for childIndex := range resizableContainerBuffer {
 							child := &c.layoutElements[resizableContainerBuffer[childIndex]]
-							childSize := getSizePtr(&child.dimensions)
-							minSize := getSize(child.minDimensions)
+							childSize := child.dimensions.AxisPtr(axis)
+							minSize := child.minDimensions.Axis(axis)
 							previousWidth := *childSize
 							if Clay__FloatEqual(*childSize, largest) {
 								*childSize += widthToAdd
@@ -1203,7 +1201,7 @@ func (c *Context) Clay__SizeContainersAlongAxis(xAxis bool) {
 				} else if sizeToDistribute > 0 && growContainerCount > 0 {
 					for childIndex := range resizableContainerBuffer {
 						child := &c.layoutElements[resizableContainerBuffer[childIndex]]
-						childSizing := child.layoutConfig.Sizing.GetAxis(xAxis)
+						childSizing := child.layoutConfig.Sizing.GetAxis(axis)
 						switch childSizing.(type) {
 						case SizingAxisGrow:
 						default:
@@ -1218,7 +1216,7 @@ func (c *Context) Clay__SizeContainersAlongAxis(xAxis bool) {
 						widthToAdd := sizeToDistribute
 						for _, rcb := range resizableContainerBuffer {
 							child := c.layoutElements[rcb]
-							childSize := getSize(child.dimensions)
+							childSize := child.dimensions.Axis(axis)
 							if Clay__FloatEqual(childSize, smallest) {
 								continue
 							}
@@ -1236,8 +1234,8 @@ func (c *Context) Clay__SizeContainersAlongAxis(xAxis bool) {
 
 						for childIndex := range resizableContainerBuffer {
 							child := c.layoutElements[resizableContainerBuffer[childIndex]]
-							childSize := getSizePtr(&child.dimensions)
-							childSizing := child.layoutConfig.Sizing.GetAxis(xAxis)
+							childSize := child.dimensions.AxisPtr(axis)
+							childSizing := child.layoutConfig.Sizing.GetAxis(axis)
 							var maxSize float32
 							switch mm := childSizing.(type) {
 							case SizingMinMax:
@@ -1261,17 +1259,17 @@ func (c *Context) Clay__SizeContainersAlongAxis(xAxis bool) {
 			} else {
 				for _, rcb := range resizableContainerBuffer {
 					childElement := c.layoutElements[rcb]
-					childSizing := childElement.layoutConfig.Sizing.GetAxis(xAxis)
-					childSize := getSizePtr(&childElement.dimensions)
+					childSizing := childElement.layoutConfig.Sizing.GetAxis(axis)
+					childSize := childElement.dimensions.AxisPtr(axis)
 
-					if !xAxis && elementHasConfig[*ImageElementConfig](&childElement) {
+					if axis == 1 && elementHasConfig[*ImageElementConfig](&childElement) {
 						continue // Currently we don't support resizing aspect ratio images on the Y axis because it would break the ratio
 					}
 
 					// If we're laying out the children of a scroll panel, grow containers expand to the height of the inner content, not the outer container
 					maxSize := parentSize - parentPadding
 					if scrollElementConfig, ok := findElementConfigWithType[*ScrollElementConfig](&parent); ok {
-						if (xAxis && scrollElementConfig.horizontal) || (!xAxis && scrollElementConfig.vertical) {
+						if (axis == 0 && scrollElementConfig.horizontal) || (axis == 1 && scrollElementConfig.vertical) {
 							maxSize = max(maxSize, innerContentSize)
 						}
 					}
@@ -1316,7 +1314,7 @@ func (c *Context) Clay__ElementIsOffscreen(boundingBox rect2.Float32) bool {
 
 func (c *Context) Clay__CalculateFinalLayout() {
 	// Calculate sizing along the X axis
-	c.Clay__SizeContainersAlongAxis(true)
+	c.Clay__SizeContainersAlongAxis(0)
 
 	/*
 		    // Wrap text
@@ -1328,7 +1326,7 @@ func (c *Context) Clay__CalculateFinalLayout() {
 		        Clay_TextElementConfig *textConfig = findElementConfigWithType(containerElement, CLAY__ELEMENT_CONFIG_TYPE_TEXT).textElementConfig;
 		        Clay__MeasureTextCacheItem *measureTextCacheItem = Clay__MeasureTextCached(&textElementData.text, textConfig);
 		        float lineWidth = 0;
-		        float lineHeight = textConfig.lineHeight > 0 ? (float32)textConfig.lineHeight : textElementData.preferredDimensions.Y;
+		        float lineHeight = textConfig.lineHeight > 0 ? float32textConfig.lineHeight : textElementData.preferredDimensions.Y;
 		        int32 lineLengthChars = 0;
 		        int32 lineStartOffset = 0;
 		        if (!measureTextCacheItem.containsNewlines && textElementData.preferredDimensions.X <= containerElement.dimensions.X) {
@@ -1377,7 +1375,7 @@ func (c *Context) Clay__CalculateFinalLayout() {
 						 { { lineWidth, lineHeight }, {.length = lineLengthChars, .chars = &textElementData.text.chars[lineStartOffset] } });
 		            textElementData.wrappedLines.length++;
 		        }
-		        containerElement.dimensions.Y = lineHeight * (float32)textElementData.wrappedLines.length;
+		        containerElement.dimensions.Y = lineHeight * float32textElementData.wrappedLines.length;
 		    }
 	*/
 	// Scale vertical image heights according to aspect ratio
@@ -1431,12 +1429,12 @@ func (c *Context) Clay__CalculateFinalLayout() {
 			}
 		} else if layoutConfig.LayoutDirection == TOP_TO_BOTTOM {
 			// Resizing along the layout axis
-			contentHeight := (float32)(layoutConfig.Padding.Top + layoutConfig.Padding.Bottom)
+			contentHeight := float32(layoutConfig.Padding.Top + layoutConfig.Padding.Bottom)
 			for _, child := range currentElement.children {
 				childElement := c.layoutElements[child]
 				contentHeight += childElement.dimensions.Y
 			}
-			contentHeight += (float32)(max(uint16(len(currentElement.children))-1, 0) * layoutConfig.ChildGap)
+			contentHeight += float32(max(uint16(len(currentElement.children))-1, 0) * layoutConfig.ChildGap)
 			switch mm := layoutConfig.Sizing.Height.(type) {
 			case SizingAxisMinMax:
 				currentElement.dimensions.Y = min(max(contentHeight, mm.GetMinMax().Min), mm.GetMinMax().Max)
@@ -1445,7 +1443,7 @@ func (c *Context) Clay__CalculateFinalLayout() {
 	}
 
 	// Calculate sizing along the Y axis
-	c.Clay__SizeContainersAlongAxis(false)
+	c.Clay__SizeContainersAlongAxis(1)
 
 	// Sort tree roots by z-index
 	sortMax := len(c.layoutElementTreeRoots) - 1
@@ -1544,7 +1542,7 @@ func (c *Context) Clay__CalculateFinalLayout() {
 		dfsBuffer = append(dfsBuffer, LayoutElementTreeNode{
 			layoutElement:   rootElement,
 			position:        rootPosition,
-			nextChildOffset: vector2.NewFloat32((float32)(rootElement.layoutConfig.Padding.Left), (float32)(rootElement.layoutConfig.Padding.Top)),
+			nextChildOffset: vector2.NewFloat32(float32(rootElement.layoutConfig.Padding.Left), float32(rootElement.layoutConfig.Padding.Top)),
 		})
 
 		c.treeNodeVisited[0] = false
@@ -1604,19 +1602,27 @@ func (c *Context) Clay__CalculateFinalLayout() {
 				}
 				sortMax = len(currentElement.elementConfigs) - 1
 				for sortMax > 0 { // todo dumb bubble sort
+
+					sortOrder := func(ec AnyElementConfig) int {
+						switch ec.(type) {
+						case *ScrollElementConfig:
+							return 1
+						case *BorderElementConfig:
+							return -1
+						default:
+							return 0
+						}
+					}
+
 					for i := range sortMax {
 						current := sortedConfigIndexes[i]
 						next := sortedConfigIndexes[i+1]
-						_ = current
-						_ = next
-						/* TODO: fix that
-						currentType := currentElement.elementConfigs[current].type;
-						nextType := currentElement.elementConfigs[next].type;
-						if (nextType == CLAY__ELEMENT_CONFIG_TYPE_SCROLL || currentType == CLAY__ELEMENT_CONFIG_TYPE_BORDER) {
-							sortedConfigIndexes[i] = next;
-							sortedConfigIndexes[i + 1] = current;
+						currentConfig := currentElement.elementConfigs[current]
+						nextConfig := currentElement.elementConfigs[next]
+						if sortOrder(nextConfig) > 0 || sortOrder(currentConfig) < 0 {
+							sortedConfigIndexes[i] = next
+							sortedConfigIndexes[i+1] = current
 						}
-						*/
 					}
 					sortMax--
 				}
@@ -1671,7 +1677,7 @@ func (c *Context) Clay__CalculateFinalLayout() {
 						naturalLineHeight := currentElement.textElementData.preferredDimensions.Y
 						finalLineHeight := naturalLineHeight
 						if cfg.lineHeight > 0 {
-							finalLineHeight = (float32)(cfg.lineHeight)
+							finalLineHeight = float32(cfg.lineHeight)
 						}
 						lineHeightOffset := (finalLineHeight - naturalLineHeight) / 2
 						yPosition := lineHeightOffset
@@ -1756,7 +1762,7 @@ func (c *Context) Clay__CalculateFinalLayout() {
 							contentSize.Y = max(contentSize.Y, childElement.dimensions.Y)
 						}
 						contentSize.X += float32(max(len(currentElement.children)-1, 0) * int(layoutConfig.ChildGap))
-						extraSpace := currentElement.dimensions.X - (float32)(layoutConfig.Padding.Left+layoutConfig.Padding.Right) - contentSize.X
+						extraSpace := currentElement.dimensions.X - float32(layoutConfig.Padding.Left+layoutConfig.Padding.Right) - contentSize.X
 						switch layoutConfig.ChildAlignment.X {
 						case ALIGN_X_LEFT:
 							extraSpace = 0
@@ -1772,8 +1778,8 @@ func (c *Context) Clay__CalculateFinalLayout() {
 							contentSize.X = max(contentSize.X, childElement.dimensions.X)
 							contentSize.Y += childElement.dimensions.Y
 						}
-						contentSize.Y += (float32)(max(len(currentElement.children)-1, 0) * int(layoutConfig.ChildGap))
-						extraSpace := currentElement.dimensions.Y - (float32)(layoutConfig.Padding.Top+layoutConfig.Padding.Bottom) - contentSize.Y
+						contentSize.Y += float32(max(len(currentElement.children)-1, 0) * int(layoutConfig.ChildGap))
+						extraSpace := currentElement.dimensions.Y - float32(layoutConfig.Padding.Top+layoutConfig.Padding.Bottom) - contentSize.Y
 						switch layoutConfig.ChildAlignment.Y {
 						case ALIGN_Y_TOP:
 							extraSpace = 0
@@ -1787,8 +1793,8 @@ func (c *Context) Clay__CalculateFinalLayout() {
 
 					if scrollContainerData != nil {
 						scrollContainerData.contentSize = vector2.NewFloat32(
-							contentSize.X+(float32)(layoutConfig.Padding.Left+layoutConfig.Padding.Right),
-							contentSize.Y+(float32)(layoutConfig.Padding.Top+layoutConfig.Padding.Bottom))
+							contentSize.X+float32(layoutConfig.Padding.Left+layoutConfig.Padding.Right),
+							contentSize.Y+float32(layoutConfig.Padding.Top+layoutConfig.Padding.Bottom))
 					}
 				}
 			} else {
@@ -1897,29 +1903,25 @@ func (c *Context) Clay__CalculateFinalLayout() {
 					// Alignment along non layout axis
 					if layoutConfig.LayoutDirection == LEFT_TO_RIGHT {
 						currentElementTreeNode.nextChildOffset.Y = float32(currentElement.layoutConfig.Padding.Top)
-						whiteSpaceAroundChild := currentElement.dimensions.Y - (float32)(layoutConfig.Padding.Top+layoutConfig.Padding.Bottom) - childElement.dimensions.Y
+						whiteSpaceAroundChild := currentElement.dimensions.Y - float32(layoutConfig.Padding.Top+layoutConfig.Padding.Bottom) - childElement.dimensions.Y
 						switch layoutConfig.ChildAlignment.Y {
 						case ALIGN_Y_TOP:
 							break
 						case ALIGN_Y_CENTER:
 							currentElementTreeNode.nextChildOffset.Y += whiteSpaceAroundChild / 2
-							break
 						case ALIGN_Y_BOTTOM:
 							currentElementTreeNode.nextChildOffset.Y += whiteSpaceAroundChild
-							break
 						}
 					} else {
 						currentElementTreeNode.nextChildOffset.X = float32(currentElement.layoutConfig.Padding.Left)
-						whiteSpaceAroundChild := currentElement.dimensions.X - (float32)(layoutConfig.Padding.Left+layoutConfig.Padding.Right) - childElement.dimensions.X
+						whiteSpaceAroundChild := currentElement.dimensions.X - float32(layoutConfig.Padding.Left+layoutConfig.Padding.Right) - childElement.dimensions.X
 						switch layoutConfig.ChildAlignment.X {
 						case ALIGN_X_LEFT:
 							break
 						case ALIGN_X_CENTER:
 							currentElementTreeNode.nextChildOffset.X += whiteSpaceAroundChild / 2
-							break
 						case ALIGN_X_RIGHT:
 							currentElementTreeNode.nextChildOffset.X += whiteSpaceAroundChild
-							break
 						}
 					}
 

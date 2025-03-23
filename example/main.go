@@ -2,6 +2,7 @@ package main
 
 import (
 	"fmt"
+	"reflect"
 
 	clay "github.com/igadmg/goclay"
 	"github.com/igadmg/goex/gx"
@@ -17,7 +18,7 @@ var COLOR_ORANGE colorex.RGBA = colorex.RGBA{R: 225, G: 138, B: 50, A: 255}
 func main() {
 	defer gx.Must(pprofex.WriteCPUProfile("goclay"))()
 
-	screenSize := vector2.NewFloat32(320, 200)
+	screenSize := vector2.NewFloat32(640, 480)
 	mousePosition := vector2.NewFloat32(160, 100)
 	mouseWheel := vector2.NewFloat32(0, 0)
 	isMouseDown := false
@@ -27,7 +28,7 @@ func main() {
 	// Note: screenWidth and screenHeight will need to come from your environment, Clay doesn't handle window related tasks
 	ctx := clay.Initialize(nil, screenSize, clay.ErrorHandler{})
 
-	for range 10000 {
+	for range 1 {
 		// Optional: Update internal layout dimensions to support resizing
 		ctx.SetLayoutDimensions(screenSize)
 		// Optional: Update internal pointer position for handling mouseover / click / touch events - needed for scrolling & debug tools
@@ -94,15 +95,7 @@ func main() {
 
 		// More comprehensive rendering examples can be found in the renderers/ directory
 		for _, renderCommand := range renderCommands {
-			switch renderCommand.RenderData.(type) {
-			case clay.RectangleRenderData:
-				fmt.Println("Rectangle Render Data")
-				//        DrawRectangle( renderCommand->boundingBox, renderCommand->renderData.rectangle.backgroundColor);
-				//    }
-				//    // ... Implement handling of other command types
-			case clay.ImageRenderData:
-				fmt.Println("Image Render Data")
-			}
+			fmt.Printf("%d: %s\t\t%s\n", renderCommand.Id, renderCommand.BoundingBox, reflect.TypeOf(renderCommand.RenderData))
 		}
 	}
 }

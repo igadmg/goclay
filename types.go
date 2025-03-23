@@ -68,6 +68,17 @@ const (
 	TOP_TO_BOTTOM
 )
 
+func (d LayoutDirection) IsAlongAxis(axis int) bool {
+	switch axis {
+	case 0:
+		return d == LEFT_TO_RIGHT
+	case 1:
+		return d == TOP_TO_BOTTOM
+	}
+
+	return false
+}
+
 // Controls the alignment along the x axis (horizontal) of child elements.
 type LayoutAlignmentX uint8
 
@@ -201,12 +212,15 @@ type Sizing struct {
 	Height AnySizingAxis // Controls the height sizing of the element, along the y axis.
 }
 
-func (s Sizing) GetAxis(xAxis bool) AnySizingAxis {
-	if xAxis {
+func (s Sizing) GetAxis(axis int) AnySizingAxis {
+	switch axis {
+	case 0:
 		return s.Width
-	} else {
+	case 1:
 		return s.Height
 	}
+
+	return SizingAxisFit{}
 }
 
 // Controls "padding" in pixels, which is a gap between the bounding box of this element and where its children
