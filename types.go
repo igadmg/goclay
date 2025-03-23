@@ -1,6 +1,8 @@
 package goclay
 
 import (
+	"math"
+
 	"github.com/igadmg/goex/image/colorex"
 	"github.com/igadmg/raylib-go/raymath/rect2"
 	"github.com/igadmg/raylib-go/raymath/vector2"
@@ -179,9 +181,9 @@ type AnySizingAxis any
 func SIZING_FIT(s ...float32) AnySizingAxis {
 	switch len(s) {
 	case 0:
-		return SizingAxisFit{}
+		return SizingAxisFit{MinMax: SizingMinMax{Min: 0, Max: math.MaxFloat32}}
 	case 1:
-		return SizingAxisFit{MinMax: SizingMinMax{Min: s[0]}}
+		return SizingAxisFit{MinMax: SizingMinMax{Min: s[0], Max: math.MaxFloat32}}
 	default:
 		return SizingAxisFit{MinMax: SizingMinMax{Min: s[0], Max: s[1]}}
 	}
@@ -190,9 +192,9 @@ func SIZING_FIT(s ...float32) AnySizingAxis {
 func SIZING_GROW(s ...float32) AnySizingAxis {
 	switch len(s) {
 	case 0:
-		return SizingAxisGrow{}
+		return SizingAxisGrow{MinMax: SizingMinMax{Min: 0, Max: math.MaxFloat32}}
 	case 1:
-		return SizingAxisGrow{MinMax: SizingMinMax{Min: s[0]}}
+		return SizingAxisGrow{MinMax: SizingMinMax{Min: s[0], Max: math.MaxFloat32}}
 	default:
 		return SizingAxisGrow{MinMax: SizingMinMax{Min: s[0], Max: s[1]}}
 	}
