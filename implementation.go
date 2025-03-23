@@ -642,7 +642,7 @@ func (c *Context) closeElement() {
 		openLayoutElement.dimensions.X = leftRightPadding
 		openLayoutElement.minDimensions.X = leftRightPadding
 		for i := range openLayoutElement.children {
-			childIndex := c.layoutElementChildrenBuffer[len(c.layoutElementChildrenBuffer)-(int)(len(openLayoutElement.children)+i)]
+			childIndex := c.layoutElementChildrenBuffer[len(c.layoutElementChildrenBuffer)-len(openLayoutElement.children)+i]
 			child := c.layoutElements[childIndex]
 			openLayoutElement.dimensions.X += child.dimensions.X
 			openLayoutElement.dimensions.Y = max(

@@ -91,10 +91,18 @@ func main() {
 							SourceDimensions: vector2.NewFloat32(60, 60),
 						},
 					})
-					ctx.TEXT("Clay - UI Library", ctx.TEXT_CONFIG(clay.TextElementConfig{
-						FontSize:  24,
-						TextColor: colorex.RGBA{R: 255, G: 255, B: 255, A: 255},
-					}))
+					ctx.CLAY(clay.ElementDeclaration{
+						Id: clay.ID("TextContent"),
+						Layout: clay.LayoutConfig{
+							Sizing: clay.Sizing{Width: clay.SIZING_GROW(0), Height: clay.SIZING_GROW(0)},
+						},
+						BackgroundColor: COLOR_LIGHT})
+					/*
+						ctx.TEXT("Clay - UI Library", ctx.TEXT_CONFIG(clay.TextElementConfig{
+							FontSize:  24,
+							TextColor: colorex.RGBA{R: 255, G: 255, B: 255, A: 255},
+						}))
+					*/
 				})
 
 				// Standard C code like loops etc work inside components
