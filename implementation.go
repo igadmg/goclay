@@ -1283,7 +1283,7 @@ func (c *Context) sizeContainersAlongAxis(axis int) {
 					}
 					switch s := childSizing.(type) {
 					case SizingAxisGrow:
-						child.dimensions = child.dimensions.SetAxis(axis, min(maxSize, s.MinMax.Max))
+						childSize = min(maxSize, s.MinMax.Max)
 					}
 					child.dimensions = child.dimensions.SetAxis(axis, max(minSize, min(childSize, maxSize)))
 				}

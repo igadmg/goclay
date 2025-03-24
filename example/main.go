@@ -106,9 +106,9 @@ func main() {
 				})
 
 				// Standard C code like loops etc work inside components
-				//for (int i = 0; i < 5; i++) {
-				//    SidebarItemComponent();
-				//}
+				for range 5 {
+					SidebarItemComponent(ctx)
+				}
 
 				ctx.CLAY(clay.ElementDeclaration{
 					Id: clay.ID("MainContent"),
