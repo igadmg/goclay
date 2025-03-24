@@ -172,10 +172,9 @@ type Context struct {
 	externalScrollHandlingEnabled bool
 	debugSelectedElementId        uint32
 	generation                    uint32
-	//arenaResetOffset              any ///uintptr_t
-	measureTextUserData       any
-	queryScrollOffsetUserData any
-	//internalArena                 any ///Clay_Arena
+	measureTextUserData           any
+	queryScrollOffsetUserData     any
+
 	// Layout Elements / Render Commands
 	layoutElements              []LayoutElement
 	renderCommands              []RenderCommand
@@ -186,6 +185,7 @@ type Context struct {
 	imageElementPointers        []int
 	reusableElementIndexBuffer  []int32
 	layoutElementClipElementIds []int
+
 	// Configs
 	layoutConfigs          []LayoutConfig
 	elementConfigs         []AnyElementConfig
@@ -196,6 +196,7 @@ type Context struct {
 	customElementConfigs   []CustomElementConfig
 	borderElementConfigs   []BorderElementConfig
 	sharedElementConfigs   []SharedElementConfig
+
 	// Misc Data Structures
 	layoutElementIdStrings        []string
 	wrappedTextLines              []WrappedTextLine
@@ -627,7 +628,7 @@ func (c *Context) closeElement() {
 	topBottomPadding := float32(layoutConfig.Padding.Top + layoutConfig.Padding.Bottom)
 
 	// Attach children to the current open element
-	c.layoutElementChildren = slicesex.Reserve(c.layoutElementChildren, len(c.layoutElementChildren)+len(openLayoutElement.children))
+	c.layoutElementChildren = c.layoutElementChildren[0 : len(c.layoutElementChildren)+len(openLayoutElement.children)]
 	openLayoutElement.children = c.layoutElementChildren[len(c.layoutElementChildren) : len(c.layoutElementChildren)+len(openLayoutElement.children)]
 	if layoutConfig.LayoutDirection == LEFT_TO_RIGHT {
 		openLayoutElement.dimensions.X = leftRightPadding
@@ -1342,7 +1343,7 @@ func (c *Context) calculateFinalLayout() {
 			textElementData.wrappedLines = append(textElementData.wrappedLines, WrappedTextLine{containerElement.dimensions, textElementData.text})
 			continue
 		}
-		spaceWidth := measureText(" ", textConfig, c.measureTextUserData).X
+		spaceWidth := measureText(SPACECHAR, textConfig, c.measureTextUserData).X
 		wordIndex := measureTextCacheItem.measuredWordsStartIndex
 		for wordIndex != -1 {
 			if len(c.wrappedTextLines) > cap(c.wrappedTextLines)-1 {
@@ -1909,7 +1910,7 @@ func (c *Context) calculateFinalLayout() {
 
 			// Add children to the DFS buffer
 			if !elementHasConfig[*TextElementConfig](currentElement) {
-				c.layoutElementTreeNodeArray1 = slicesex.Reserve(c.layoutElementTreeNodeArray1, len(c.layoutElementTreeNodeArray1)+len(currentElement.children))
+				c.layoutElementTreeNodeArray1 = c.layoutElementTreeNodeArray1[0 : len(c.layoutElementTreeNodeArray1)+len(currentElement.children)]
 				for i, child := range currentElement.children {
 					childElement := &c.layoutElements[child]
 					// Alignment along non layout axis

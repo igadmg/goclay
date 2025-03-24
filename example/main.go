@@ -1,9 +1,6 @@
 package main
 
 import (
-	"fmt"
-	"reflect"
-
 	clay "github.com/igadmg/goclay"
 	"github.com/igadmg/goex/gx"
 	"github.com/igadmg/goex/image/colorex"
@@ -46,7 +43,7 @@ func main() {
 	// Note: screenWidth and screenHeight will need to come from your environment, Clay doesn't handle window related tasks
 	ctx := clay.Initialize(nil, screenSize, clay.ErrorHandler{})
 
-	for range 1 {
+	for range 10000 {
 		// Optional: Update internal layout dimensions to support resizing
 		ctx.SetLayoutDimensions(screenSize)
 		// Optional: Update internal pointer position for handling mouseover / click / touch events - needed for scrolling & debug tools
@@ -124,7 +121,8 @@ func main() {
 
 		// More comprehensive rendering examples can be found in the renderers/ directory
 		for _, renderCommand := range renderCommands {
-			fmt.Printf("%d: %s\t\t%s\n", renderCommand.Id, renderCommand.BoundingBox, reflect.TypeOf(renderCommand.RenderData))
+			_ = renderCommand
+			//fmt.Printf("%d: %s\t\t%s\n", renderCommand.Id, renderCommand.BoundingBox, reflect.TypeOf(renderCommand.RenderData))
 		}
 	}
 }
