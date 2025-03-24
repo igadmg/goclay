@@ -214,8 +214,8 @@ type Context struct {
 	debugElementData              []DebugElementData
 }
 
-var measureText func(text string, config *TextElementConfig, userData any) Dimensions
-var queryScrollOffset func(elementId uint32, userData any) Vector2
+var measureText MeasureTextFn
+var queryScrollOffset QueryScrollOffsetFn
 
 func (c *Context) getOpenLayoutElement() *LayoutElement {
 	return &c.layoutElements[c.openLayoutElementStack[len(c.openLayoutElementStack)-1]]
@@ -1853,7 +1853,7 @@ func (c *Context) calculateFinalLayout() {
 						c.addRenderCommand(renderCommand)
 						if borderConfig.Width.BetweenChildren > 0 && borderConfig.Color.A > 0 {
 							halfGap := layoutConfig.ChildGap / 2
-							borderOffset := clay.MakeVector2(float32(layoutConfig.Padding.Left-halfGap), float32(layoutConfig.Padding.Top-halfGap))
+							borderOffset := MakeVector2(float32(layoutConfig.Padding.Left-halfGap), float32(layoutConfig.Padding.Top-halfGap))
 							if layoutConfig.LayoutDirection == LEFT_TO_RIGHT {
 								for i, child := range currentElement.children {
 									childElement := c.layoutElements[child]

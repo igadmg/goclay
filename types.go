@@ -37,6 +37,9 @@ func (c Color) IsZero() bool {
 		c.A == 0
 }
 
+type MeasureTextFn func(text string, config *TextElementConfig, userData any) Dimensions
+type QueryScrollOffsetFn func(elementId uint32, userData any) Vector2
+
 // Primarily created via the ID(), IDI(), ID_LOCAL() and IDI_LOCAL() macros.
 // Represents a hashed string ID used for identifying and finding specific clay UI elements, required
 // by functions such as PointerOver() and GetElementData().

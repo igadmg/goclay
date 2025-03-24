@@ -1,6 +1,9 @@
 package main
 
 import (
+	"fmt"
+	"reflect"
+
 	clay "github.com/igadmg/goclay"
 	"github.com/igadmg/goex/gx"
 	"github.com/igadmg/goex/pprofex"
@@ -40,8 +43,15 @@ func main() {
 
 	// Note: screenWidth and screenHeight will need to come from your environment, Clay doesn't handle window related tasks
 	ctx := clay.Initialize(nil, screenSize, clay.ErrorHandler{})
+	ctx.SetMeasureTextFunction(func(text string, config *clay.TextElementConfig, userData any) clay.Dimensions {
+		width := config.FontSize * 3 / 4
+		return clay.MakeDimensions(
+			width*uint16(len(text)),
+			config.FontSize,
+		)
+	}, nil)
 
-	for range 10000 {
+	for range 1 {
 		// Optional: Update internal layout dimensions to support resizing
 		ctx.SetLayoutDimensions(screenSize)
 		// Optional: Update internal pointer position for handling mouseover / click / touch events - needed for scrolling & debug tools
@@ -92,11 +102,11 @@ func main() {
 							Sizing: clay.Sizing{Width: clay.SIZING_GROW(0), Height: clay.SIZING_GROW(0)},
 						},
 						BackgroundColor: COLOR_LIGHT})
-					/*
-						ctx.TEXT("Clay - UI Library", ctx.TEXT_CONFIG(clay.TextElementConfig{
-							FontSize:  24,
-							TextColor: Color{R: 255, G: 255, B: 255, A: 255},
-						}))
+					/*/
+					ctx.TEXT("Clay - UI Library", ctx.TEXT_CONFIG(clay.TextElementConfig{
+						FontSize:  24,
+						TextColor: clay.Color{R: 255, G: 255, B: 255, A: 255},
+					}))
 					*/
 				})
 
@@ -120,7 +130,7 @@ func main() {
 		// More comprehensive rendering examples can be found in the renderers/ directory
 		for _, renderCommand := range renderCommands {
 			_ = renderCommand
-			//fmt.Printf("%d: %s\t\t%s\n", renderCommand.Id, renderCommand.BoundingBox, reflect.TypeOf(renderCommand.RenderData))
+			fmt.Printf("%d: %s\t\t%s\n", renderCommand.Id, renderCommand.BoundingBox, reflect.TypeOf(renderCommand.RenderData))
 		}
 	}
 }

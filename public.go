@@ -348,14 +348,17 @@ func (c *Context) EndLayout() []RenderCommand {
 // Binds a callback function that Clay will call to determine the dimensions of a given string slice.
 // - measureTextFunction is a user provided function that adheres to the interface clay.Dimensions (clay.StringSlice text, clay.TextElementConfig *config, void *userData);
 // - userData is a pointer that will be transparently passed through when the measureTextFunction is called.
-///CLAY_DLL_EXPORT void SetMeasureTextFunction(Dimensions (*measureTextFunction)(StringSlice text, TextElementConfig *config, void *userData), void *userData);
+func (c *Context) SetMeasureTextFunction(fn MeasureTextFn, userData any) {
+	measureText = fn
+	c.measureTextUserData = userData
+}
 
 // Experimental - Used in cases where Clay needs to integrate with a system that manages its own scrolling containers externally.
 // Please reach out if you plan to use this function, as it may be subject to change.
-///CLAY_DLL_EXPORT void SetQueryScrollOffsetFunction(Vector2 (*queryScrollOffsetFunction)(uint32_t elementId, void *userData), void *userData);
-
-// A bounds-checked "get" function for the clay.RenderCommandArray returned from clay.EndLayout().
-///CLAY_DLL_EXPORT RenderCommand * RenderCommandArray_Get(RenderCommandArray* array, int32_t index);
+func (c *Context) SetQueryScrollOffsetFunction(fn QueryScrollOffsetFn, userData any) {
+	queryScrollOffset = fn
+	c.queryScrollOffsetUserData = userData
+}
 
 // Enables and disables Clay's internal debug tools.
 // This state is retained and does not need to be set each frame.
