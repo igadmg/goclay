@@ -6,7 +6,36 @@ import (
 	"github.com/igadmg/goex/image/colorex"
 	"github.com/igadmg/raylib-go/raymath/rect2"
 	"github.com/igadmg/raylib-go/raymath/vector2"
+	"golang.org/x/exp/constraints"
 )
+
+type Coordinate interface {
+	constraints.Integer | constraints.Float
+}
+
+type Color colorex.RGBA
+type Vector2 = vector2.Float32
+type Dimensions = vector2.Float32
+type BoundingBox = rect2.Float32
+
+func MakeDimensions[T Coordinate](x, y T) Dimensions {
+	return vector2.NewFloat32(x, y)
+}
+
+func MakeVector2[T Coordinate](x, y T) Vector2 {
+	return vector2.NewFloat32(x, y)
+}
+
+func MakeBoundingBox(position Vector2, size Dimensions) BoundingBox {
+	return rect2.NewFloat32(position, size)
+}
+
+func (c Color) IsZero() bool {
+	return c.R == 0 &&
+		c.G == 0 &&
+		c.B == 0 &&
+		c.A == 0
+}
 
 // Primarily created via the ID(), IDI(), ID_LOCAL() and IDI_LOCAL() macros.
 // Represents a hashed string ID used for identifying and finding specific clay UI elements, required
@@ -335,7 +364,7 @@ type TextElementConfig struct {
 	// A pointer that will be transparently passed through to the resulting render command.
 	UserData any
 	// The RGBA color of the font to render, conventionally specified as 0-255.
-	TextColor colorex.RGBA
+	TextColor Color
 	// An integer transparently passed to MeasureText to identify the font to use.
 	// The debug view will pass FontId = 0 for its internal text.
 	FontId uint16
@@ -367,8 +396,8 @@ var default_TextElementConfig TextElementConfig
 
 // Controls various settings related to image elements.
 type ImageElementConfig struct {
-	ImageData        any             // A transparent pointer used to pass image data through to the renderer.
-	SourceDimensions vector2.Float32 // The original dimensions of the source image, used to control aspect ratio.
+	ImageData        any        // A transparent pointer used to pass image data through to the renderer.
+	SourceDimensions Dimensions // The original dimensions of the source image, used to control aspect ratio.
 }
 
 var default_ImageElementConfig ImageElementConfig
@@ -427,9 +456,9 @@ const (
 // and not affecting the layout of sibling or parent elements.
 type FloatingElementConfig struct {
 	// Offsets this floating element by the provided x,y coordinates from its attachPoints.
-	Offset vector2.Float32
+	Offset Vector2
 	// Expands the boundaries of the outer floating element without affecting its children.
-	Expand vector2.Float32
+	Expand Dimensions
 	// When used in conjunction with .attachTo = ATTACH_TO_ELEMENT_WITH_ID, attaches this floating element to the element in the hierarchy with the provided ID.
 	// Hint: attach the ID to the other element with .id = ID("yourId"), and specify the id the same way, with .ParentId = ID("yourId").id
 	ParentId uint32
@@ -500,8 +529,8 @@ func (b BorderWidth) IsEmpty() bool {
 
 // Controls settings related to element borders.
 type BorderElementConfig struct {
-	Color colorex.RGBA // Controls the color of all borders with width > 0. Conventionally represented as 0-255, but interpretation is up to the renderer.
-	Width BorderWidth  // Controls the widths of individual borders. At least one of these should be > 0 for a BORDER render command to be generated.
+	Color Color       // Controls the color of all borders with width > 0. Conventionally represented as 0-255, but interpretation is up to the renderer.
+	Width BorderWidth // Controls the widths of individual borders. At least one of these should be > 0 for a BORDER render command to be generated.
 }
 
 var default_BorderElementConfig BorderElementConfig
@@ -518,7 +547,7 @@ type TextRenderData struct {
 	// Note: this is not guaranteed to be null terminated.
 	StringContents string
 	// Conventionally represented as 0-255 for each channel, but interpretation is up to the renderer.
-	TextColor colorex.RGBA
+	TextColor Color
 	// An integer representing the font to use to render this text, transparently passed through from the text declaration.
 	FontId   uint16
 	FontSize uint16
@@ -531,7 +560,7 @@ type TextRenderData struct {
 // Render command data when commandType == CLAY_RENDER_COMMAND_TYPE_RECTANGLE
 type RectangleRenderData struct {
 	// The solid background color to fill this rectangle with. Conventionally represented as 0-255 for each channel, but interpretation is up to the renderer.
-	BackgroundColor colorex.RGBA
+	BackgroundColor Color
 	// Controls the "radius", or corner rounding of elements, including rectangles, borders and images.
 	// The rounding is determined by drawing a circle inset into the element corner by (radius, radius) pixels.
 	CornerRadius CornerRadius
@@ -542,12 +571,12 @@ type ImageRenderData struct {
 	// The tint color for this image. Note that the default value is 0,0,0,0 and should likely be interpreted
 	// as "untinted".
 	// Conventionally represented as 0-255 for each channel, but interpretation is up to the renderer.
-	BackgroundColor colorex.RGBA
+	BackgroundColor Color
 	// Controls the "radius", or corner rounding of this image.
 	// The rounding is determined by drawing a circle inset into the element corner by (radius, radius) pixels.
 	CornerRadius CornerRadius
 	// The original dimensions of the source image, used to control aspect ratio.
-	SourceDimensions vector2.Float32
+	SourceDimensions Dimensions
 	// A pointer transparently passed through from the original element definition, typically used to represent image data.
 	ImageData any
 }
@@ -556,7 +585,7 @@ type ImageRenderData struct {
 type CustomRenderData struct {
 	// Passed through from .BackgroundColor in the original element declaration.
 	// Conventionally represented as 0-255 for each channel, but interpretation is up to the renderer.
-	BackgroundColor colorex.RGBA
+	BackgroundColor Color
 	// Controls the "radius", or corner rounding of this custom element.
 	// The rounding is determined by drawing a circle inset into the element corner by (radius, radius) pixels.
 	CornerRadius CornerRadius
@@ -574,7 +603,7 @@ type ScrollRenderData struct {
 type BorderRenderData struct {
 	// Controls a shared Color for all this element's borders.
 	// Conventionally represented as 0-255 for each channel, but interpretation is up to the renderer.
-	Color colorex.RGBA
+	Color Color
 	// Specifies the "radius", or corner rounding of this border element.
 	// The rounding is determined by drawing a circle inset into the element corner by (radius, radius) pixels.
 	CornerRadius CornerRadius
@@ -627,7 +656,7 @@ const (
 // Information on the current state of pointer interactions this frame.
 type PointerData struct {
 	// The Position of the mouse / touch / pointer relative to the root of the layout.
-	Position vector2.Float32
+	Position Vector2
 	// Represents the current State of interaction with clay this frame.
 	// POINTER_DATA_PRESSED_THIS_FRAME - A left mouse click, or touch occurred this frame.
 	// POINTER_DATA_PRESSED - The left mouse button click or touch happened at some point in the past, and is still currently held down this frame.
@@ -645,7 +674,7 @@ type ElementDeclaration struct {
 	// Controls the background color of the resulting element.
 	// By convention specified as 0-255, but interpretation is up to the renderer.
 	// If no other config is specified, .BackgroundColor will generate a RECTANGLE render command, otherwise it will be passed as a property to IMAGE or CUSTOM render commands.
-	BackgroundColor colorex.RGBA
+	BackgroundColor Color
 	// Controls the "radius", or corner rounding of elements, including rectangles, borders and images.
 	CornerRadius CornerRadius
 	// Controls settings related to Image elements.

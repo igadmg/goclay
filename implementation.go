@@ -3,14 +3,12 @@ package goclay
 import (
 	"math"
 
-	"github.com/igadmg/goex/image/colorex"
 	"github.com/igadmg/goex/slicesex"
-	"github.com/igadmg/raylib-go/raymath/rect2"
 	"github.com/igadmg/raylib-go/raymath/vector2"
 )
 
 var LAYOUT_DEFAULT LayoutConfig
-var Color_DEFAULT colorex.RGBA
+var Color_DEFAULT Color
 var CornerRadius_DEFAULT CornerRadius
 var BorderWidth_DEFAULT BorderWidth
 
@@ -39,7 +37,7 @@ type Warning struct {
 var default_SharedElementConfig SharedElementConfig
 
 type SharedElementConfig struct {
-	backgroundColor colorex.RGBA
+	backgroundColor Color
 	cornerRadius    CornerRadius
 	userData        any
 }
@@ -60,13 +58,13 @@ type ElementConfigType interface {
 type AnyElementConfig any
 
 type WrappedTextLine struct {
-	dimensions vector2.Float32
+	dimensions Dimensions
 	line       string
 }
 
 type TextElementData struct {
 	text                string
-	preferredDimensions vector2.Float32
+	preferredDimensions Dimensions
 	elementIndex        int
 	wrappedLines        []WrappedTextLine
 }
@@ -76,8 +74,8 @@ type LayoutElement struct {
 	children        []int
 	textElementData *TextElementData
 	//}
-	dimensions     vector2.Float32
-	minDimensions  vector2.Float32
+	dimensions     Dimensions
+	minDimensions  Dimensions
 	layoutConfig   *LayoutConfig
 	elementConfigs []AnyElementConfig
 	id             uint32
@@ -85,13 +83,13 @@ type LayoutElement struct {
 
 type ScrollContainerDataInternal struct {
 	layoutElement       *LayoutElement
-	boundingBox         rect2.Float32
-	contentSize         vector2.Float32
-	scrollOrigin        vector2.Float32
-	pointerOrigin       vector2.Float32
-	scrollMomentum      vector2.Float32
-	scrollPosition      vector2.Float32
-	previousDelta       vector2.Float32
+	boundingBox         BoundingBox
+	contentSize         Dimensions
+	scrollOrigin        Vector2
+	pointerOrigin       Vector2
+	scrollMomentum      Vector2
+	scrollPosition      Vector2
+	previousDelta       Vector2
 	momentumTime        float32
 	elementId           uint32
 	openThisFrame       bool
@@ -104,7 +102,7 @@ type DebugElementData struct {
 }
 
 type LayoutElementHashMapItem struct { // todo get this struct into a single cache line
-	boundingBox           rect2.Float32
+	boundingBox           BoundingBox
 	elementId             ElementId
 	layoutElement         *LayoutElement
 	onHoverFunction       func(elementId ElementId, pointerInfo PointerData, userData any)
@@ -129,7 +127,7 @@ type MeasuredWord struct {
 }
 
 type MeasureTextCacheItem struct {
-	unwrappedDimensions     vector2.Float32
+	unwrappedDimensions     Dimensions
 	measuredWordsStartIndex int32
 	minWidth                float32
 	containsNewlines        bool
@@ -143,8 +141,8 @@ var default_MeasureTextCacheItem MeasureTextCacheItem
 
 type LayoutElementTreeNode struct {
 	layoutElement   *LayoutElement
-	position        vector2.Float32
-	nextChildOffset vector2.Float32
+	position        Vector2
+	nextChildOffset Vector2
 }
 
 type LayoutElementTreeRoot struct {
@@ -152,7 +150,7 @@ type LayoutElementTreeRoot struct {
 	parentId           uint32 // This can be zero in the case of the root layout tree
 	clipElementId      uint32 // This can be zero if there is no clip element
 	zIndex             int16
-	pointerOffset      vector2.Float32 // Only used when scroll containers are managed externally
+	pointerOffset      Vector2 // Only used when scroll containers are managed externally
 }
 
 type Context struct {
@@ -164,7 +162,7 @@ type Context struct {
 	warnings                     []Warning
 
 	pointerInfo                   PointerData
-	layoutDimensions              vector2.Float32
+	layoutDimensions              Dimensions
 	dynamicElementIndexBaseHash   ElementId
 	dynamicElementIndex           uint32
 	debugModeEnabled              bool
@@ -216,8 +214,8 @@ type Context struct {
 	debugElementData              []DebugElementData
 }
 
-var measureText func(text string, config *TextElementConfig, userData any) vector2.Float32
-var queryScrollOffset func(elementId uint32, userData any) vector2.Float32
+var measureText func(text string, config *TextElementConfig, userData any) Dimensions
+var queryScrollOffset func(elementId uint32, userData any) Vector2
 
 func (c *Context) getOpenLayoutElement() *LayoutElement {
 	return &c.layoutElements[c.openLayoutElementStack[len(c.openLayoutElementStack)-1]]
@@ -774,7 +772,7 @@ func (c *Context) openTextElement(text string, textConfig *TextElementConfig) {
 		textDimensions.Y = float32(textConfig.LineHeight)
 	}
 	textElement.dimensions = textDimensions
-	textElement.minDimensions = vector2.NewFloat32(textMeasured.minWidth, textDimensions.Y)
+	textElement.minDimensions = MakeDimensions(textMeasured.minWidth, textDimensions.Y)
 	c.textElementData = append(c.textElementData, TextElementData{
 		text:                text,
 		preferredDimensions: textMeasured.unwrappedDimensions,
@@ -932,7 +930,7 @@ func (c *Context) configureOpenElement(declaration *ElementDeclaration) {
 		if scrollOffset == nil {
 			c.scrollContainerDatas = append(c.scrollContainerDatas, ScrollContainerDataInternal{
 				layoutElement: openLayoutElement,
-				scrollOrigin:  vector2.NewFloat32(-1, -1),
+				scrollOrigin:  MakeVector2(-1, -1),
 				elementId:     openLayoutElement.id,
 				openThisFrame: true,
 			})
@@ -1308,7 +1306,7 @@ func (c *Context) addRenderCommand(renderCommand RenderCommand) {
 	}
 }
 
-func (c *Context) elementIsOffscreen(boundingBox rect2.Float32) bool {
+func (c *Context) elementIsOffscreen(boundingBox BoundingBox) bool {
 	if c.disableCulling {
 		return false
 	}
@@ -1354,7 +1352,7 @@ func (c *Context) calculateFinalLayout() {
 			if lineLengthChars == 0 && lineWidth+measuredWord.width > containerElement.dimensions.X {
 				c.wrappedTextLines = append(c.wrappedTextLines, WrappedTextLine{})
 				textElementData.wrappedLines = append(textElementData.wrappedLines, WrappedTextLine{
-					vector2.NewFloat32(measuredWord.width, lineHeight),
+					MakeDimensions(measuredWord.width, lineHeight),
 					textElementData.text[measuredWord.startOffset : measuredWord.startOffset+measuredWord.length]})
 				wordIndex = measuredWord.next
 				lineStartOffset = measuredWord.startOffset + measuredWord.length
@@ -1368,7 +1366,7 @@ func (c *Context) calculateFinalLayout() {
 				}
 				c.wrappedTextLines = append(c.wrappedTextLines, WrappedTextLine{})
 				textElementData.wrappedLines = append(textElementData.wrappedLines, WrappedTextLine{
-					vector2.NewFloat32(lineWidth+addSpace, lineHeight),
+					MakeDimensions(lineWidth+addSpace, lineHeight),
 					textElementData.text[lineStartOffset : lineStartOffset+lineLengthChars],
 				})
 				if lineLengthChars == 0 || measuredWord.length == 0 {
@@ -1386,7 +1384,7 @@ func (c *Context) calculateFinalLayout() {
 		if lineLengthChars > 0 {
 			c.wrappedTextLines = append(c.wrappedTextLines, WrappedTextLine{})
 			textElementData.wrappedLines = append(textElementData.wrappedLines, WrappedTextLine{
-				vector2.NewFloat32(lineWidth, lineHeight), textElementData.text[lineStartOffset : lineStartOffset+lineLengthChars]})
+				MakeDimensions(lineWidth, lineHeight), textElementData.text[lineStartOffset : lineStartOffset+lineLengthChars]})
 		}
 		containerElement.dimensions.Y = lineHeight * float32(len(textElementData.wrappedLines))
 	}
@@ -1477,14 +1475,14 @@ func (c *Context) calculateFinalLayout() {
 		root := &c.layoutElementTreeRoots[iroot]
 		c.layoutElementTreeNodeArray1 = c.layoutElementTreeNodeArray1[0:0]
 		rootElement := &c.layoutElements[root.layoutElementIndex]
-		var rootPosition vector2.Float32
+		var rootPosition Vector2
 		parentHashMapItem := c.getHashMapItem(root.parentId)
 		// Position root floating containers
 		if config, ok := findElementConfigWithType[*FloatingElementConfig](rootElement); ok && parentHashMapItem != nil {
 			rootDimensions := rootElement.dimensions
 			parentBoundingBox := parentHashMapItem.boundingBox
 			// Set X position
-			var targetAttachPosition vector2.Float32
+			var targetAttachPosition Vector2
 			switch config.AttachPoints.Parent {
 			case ATTACH_POINT_LEFT_TOP, ATTACH_POINT_LEFT_CENTER, ATTACH_POINT_LEFT_BOTTOM:
 				targetAttachPosition.X = parentBoundingBox.X()
@@ -1554,7 +1552,7 @@ func (c *Context) calculateFinalLayout() {
 		c.layoutElementTreeNodeArray1 = append(c.layoutElementTreeNodeArray1, LayoutElementTreeNode{
 			layoutElement:   rootElement,
 			position:        rootPosition,
-			nextChildOffset: vector2.NewFloat32(float32(rootElement.layoutConfig.Padding.Left), float32(rootElement.layoutConfig.Padding.Top)),
+			nextChildOffset: Vector2{float32(rootElement.layoutConfig.Padding.Left), float32(rootElement.layoutConfig.Padding.Top)},
 		})
 
 		c.treeNodeVisited[0] = false
@@ -1562,13 +1560,13 @@ func (c *Context) calculateFinalLayout() {
 			currentElementTreeNode := &c.layoutElementTreeNodeArray1[len(c.layoutElementTreeNodeArray1)-1]
 			currentElement := currentElementTreeNode.layoutElement
 			layoutConfig := currentElement.layoutConfig
-			var scrollOffset vector2.Float32
+			var scrollOffset Vector2
 
 			// This will only be run a single time for each element in downwards DFS order
 			if !c.treeNodeVisited[len(c.layoutElementTreeNodeArray1)-1] {
 				c.treeNodeVisited[len(c.layoutElementTreeNodeArray1)-1] = true
 
-				currentElementBoundingBox := rect2.NewFloat32(currentElementTreeNode.position, currentElement.dimensions)
+				currentElementBoundingBox := MakeBoundingBox(currentElementTreeNode.position, currentElement.dimensions)
 				if floatingElementConfig, ok := findElementConfigWithType[*FloatingElementConfig](currentElement); ok {
 					expand := floatingElementConfig.Expand
 					currentElementBoundingBox = currentElementBoundingBox.AddXYWH(-expand.X, -expand.Y, expand.X*2, expand.Y*2)
@@ -1708,7 +1706,7 @@ func (c *Context) calculateFinalLayout() {
 								offset /= 2
 							}
 							c.addRenderCommand(RenderCommand{
-								BoundingBox: rect2.NewFloat32(
+								BoundingBox: MakeBoundingBox(
 									currentElementBoundingBox.Position.AddXY(offset, yPosition),
 									wrappedLine.dimensions,
 								),
@@ -1768,7 +1766,7 @@ func (c *Context) calculateFinalLayout() {
 
 				// Setup initial on-axis alignment
 				if !elementHasConfig[*TextElementConfig](currentElementTreeNode.layoutElement) {
-					var contentSize vector2.Float32
+					var contentSize Dimensions
 					if layoutConfig.LayoutDirection == LEFT_TO_RIGHT {
 						for child := range currentElement.children {
 							childElement := c.layoutElements[child]
@@ -1806,7 +1804,7 @@ func (c *Context) calculateFinalLayout() {
 					}
 
 					if scrollContainerData != nil {
-						scrollContainerData.contentSize = vector2.NewFloat32(
+						scrollContainerData.contentSize = MakeDimensions(
 							contentSize.X+float32(layoutConfig.Padding.Left+layoutConfig.Padding.Right),
 							contentSize.Y+float32(layoutConfig.Padding.Top+layoutConfig.Padding.Bottom))
 					}
@@ -1855,15 +1853,15 @@ func (c *Context) calculateFinalLayout() {
 						c.addRenderCommand(renderCommand)
 						if borderConfig.Width.BetweenChildren > 0 && borderConfig.Color.A > 0 {
 							halfGap := layoutConfig.ChildGap / 2
-							borderOffset := vector2.NewFloat32(float32(layoutConfig.Padding.Left-halfGap), float32(layoutConfig.Padding.Top-halfGap))
+							borderOffset := clay.MakeVector2(float32(layoutConfig.Padding.Left-halfGap), float32(layoutConfig.Padding.Top-halfGap))
 							if layoutConfig.LayoutDirection == LEFT_TO_RIGHT {
 								for i, child := range currentElement.children {
 									childElement := c.layoutElements[child]
 									if i > 0 {
 										c.addRenderCommand(RenderCommand{
-											BoundingBox: rect2.NewFloat32(
+											BoundingBox: MakeBoundingBox(
 												currentElementBoundingBox.Position.Add(borderOffset).Add(scrollOffset),
-												vector2.NewFloat32(float32(borderConfig.Width.BetweenChildren), currentElement.dimensions.Y),
+												MakeDimensions(float32(borderConfig.Width.BetweenChildren), currentElement.dimensions.Y),
 											),
 											RenderData: RectangleRenderData{
 												BackgroundColor: borderConfig.Color,
@@ -1879,9 +1877,9 @@ func (c *Context) calculateFinalLayout() {
 									childElement := c.layoutElements[child]
 									if i > 0 {
 										c.addRenderCommand(RenderCommand{
-											BoundingBox: rect2.NewFloat32(
+											BoundingBox: MakeBoundingBox(
 												currentElementBoundingBox.Position.Add(scrollOffset).AddY(borderOffset.Y),
-												vector2.NewFloat32(currentElement.dimensions.X, float32(borderConfig.Width.BetweenChildren)),
+												MakeDimensions(currentElement.dimensions.X, float32(borderConfig.Width.BetweenChildren)),
 											),
 											RenderData: RectangleRenderData{
 												BackgroundColor: borderConfig.Color,
@@ -1938,7 +1936,7 @@ func (c *Context) calculateFinalLayout() {
 						}
 					}
 
-					childPosition := vector2.NewFloat32(
+					childPosition := MakeVector2(
 						currentElementTreeNode.position.X+currentElementTreeNode.nextChildOffset.X+scrollOffset.X,
 						currentElementTreeNode.position.Y+currentElementTreeNode.nextChildOffset.Y+scrollOffset.Y,
 					)
@@ -1948,7 +1946,7 @@ func (c *Context) calculateFinalLayout() {
 					c.layoutElementTreeNodeArray1[newNodeIndex] = LayoutElementTreeNode{
 						layoutElement:   childElement,
 						position:        childPosition,
-						nextChildOffset: vector2.NewFloat32(float32(childElement.layoutConfig.Padding.Left), float32(childElement.layoutConfig.Padding.Top)),
+						nextChildOffset: MakeVector2(float32(childElement.layoutConfig.Padding.Left), float32(childElement.layoutConfig.Padding.Top)),
 					}
 					c.treeNodeVisited[newNodeIndex] = false
 

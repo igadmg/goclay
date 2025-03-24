@@ -3,14 +3,12 @@ package main
 import (
 	clay "github.com/igadmg/goclay"
 	"github.com/igadmg/goex/gx"
-	"github.com/igadmg/goex/image/colorex"
 	"github.com/igadmg/goex/pprofex"
-	"github.com/igadmg/raylib-go/raymath/vector2"
 )
 
-var COLOR_LIGHT colorex.RGBA = colorex.RGBA{R: 224, G: 215, B: 210, A: 255}
-var COLOR_RED colorex.RGBA = colorex.RGBA{R: 168, G: 66, B: 28, A: 255}
-var COLOR_ORANGE colorex.RGBA = colorex.RGBA{R: 225, G: 138, B: 50, A: 255}
+var COLOR_LIGHT clay.Color = clay.Color{R: 224, G: 215, B: 210, A: 255}
+var COLOR_RED clay.Color = clay.Color{R: 168, G: 66, B: 28, A: 255}
+var COLOR_ORANGE clay.Color = clay.Color{R: 225, G: 138, B: 50, A: 255}
 
 // Layout config is just a struct that can be declared statically, or inline
 var sidebarItemConfig clay.ElementDeclaration = clay.ElementDeclaration{
@@ -33,9 +31,9 @@ func SidebarItemComponent(ctx *clay.Context) {
 func main() {
 	defer gx.Must(pprofex.WriteCPUProfile("goclay"))()
 
-	screenSize := vector2.NewFloat32(640, 480)
-	mousePosition := vector2.NewFloat32(160, 100)
-	mouseWheel := vector2.NewFloat32(0, 0)
+	screenSize := clay.MakeDimensions(640, 480)
+	mousePosition := clay.MakeVector2(160, 100)
+	mouseWheel := clay.MakeVector2(0, 0)
 	isMouseDown := false
 	var profilePicture any = &struct{ ImageData []byte }{ImageData: nil}
 	var deltaTime float32 = 0.1
@@ -61,7 +59,7 @@ func main() {
 				Sizing:   clay.Sizing{Width: clay.SIZING_GROW(0), Height: clay.SIZING_GROW(0)},
 				Padding:  clay.PADDING_ALL(16),
 				ChildGap: 16},
-			BackgroundColor: colorex.RGBA{R: 250, G: 250, B: 255, A: 255},
+			BackgroundColor: clay.Color{R: 250, G: 250, B: 255, A: 255},
 		}, func() {
 			ctx.CLAY(clay.ElementDeclaration{
 				Id: clay.ID("SideBar"),
@@ -85,7 +83,7 @@ func main() {
 						},
 						Image: clay.ImageElementConfig{
 							ImageData:        profilePicture,
-							SourceDimensions: vector2.NewFloat32(60, 60),
+							SourceDimensions: clay.MakeDimensions(60, 60),
 						},
 					})
 					ctx.CLAY(clay.ElementDeclaration{
@@ -97,7 +95,7 @@ func main() {
 					/*
 						ctx.TEXT("Clay - UI Library", ctx.TEXT_CONFIG(clay.TextElementConfig{
 							FontSize:  24,
-							TextColor: colorex.RGBA{R: 255, G: 255, B: 255, A: 255},
+							TextColor: Color{R: 255, G: 255, B: 255, A: 255},
 						}))
 					*/
 				})

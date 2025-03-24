@@ -1,8 +1,6 @@
 package goclay
 
 import (
-	"github.com/igadmg/goex/image/colorex"
-	"github.com/igadmg/raylib-go/raymath/rect2"
 	"github.com/igadmg/raylib-go/raymath/vector2"
 )
 
@@ -21,7 +19,7 @@ import (
 
 // Sets the state of the "pointer" (i.e. the mouse or touch) in Clay's internal data. Used for detecting and responding to mouse events in the debug view,
 // as well as for clay.Hovered() and scroll element handling.
-func (c *Context) SetPointerState(position vector2.Float32, pointerDown bool) {
+func (c *Context) SetPointerState(position Vector2, pointerDown bool) {
 	if c.booleanWarnings.maxElementsExceeded {
 		return
 	}
@@ -102,7 +100,7 @@ func (c *Context) SetPointerState(position vector2.Float32, pointerDown bool) {
 // - arena can be created using clay.CreateArenaWithCapacityAndMemory()
 // - layoutDimensions are the initial bounding dimensions of the layout (i.e. the screen width and height for a full screen layout)
 // - errorHandler is used by Clay to inform you if something has gone wrong in configuration or layout.
-func Initialize(arena any /*Arena*/, layoutDimensions vector2.Float32, errorHandler ErrorHandler) *Context {
+func Initialize(arena any /*Arena*/, layoutDimensions Dimensions, errorHandler ErrorHandler) *Context {
 	// DEFAULTS
 	if errorHandler.ErrorHandlerFunction == nil {
 		errorHandler.ErrorHandlerFunction = errorHandlerFunctionDefault
@@ -146,7 +144,7 @@ func SetCurrentContext(context *Context) {
 // - enableDragScrolling when set to true will enable mobile device like "touch drag" scroll of scroll containers, including momentum scrolling after the touch has ended.
 // - scrollDelta is the amount to scroll this frame on each axis in pixels.
 // - deltaTime is the time in seconds since the last "frame" (scroll update)
-func (c *Context) UpdateScrollContainers(enableDragScrolling bool, scrollDelta vector2.Float32, deltaTime float32) {
+func (c *Context) UpdateScrollContainers(enableDragScrolling bool, scrollDelta Vector2, deltaTime float32) {
 	/*
 	   context := GetCurrentContext();
 	       bool isPointerActive = enableDragScrolling && (context.pointerInfo.state == CLAY_POINTER_DATA_PRESSED || context.pointerInfo.state == CLAY_POINTER_DATA_PRESSED_THIS_FRAME);
@@ -262,7 +260,7 @@ func (c *Context) UpdateScrollContainers(enableDragScrolling bool, scrollDelta v
 }
 
 // Updates the layout dimensions in response to the window or outer container being resized.
-func (c *Context) SetLayoutDimensions(dimensions vector2.Float32) {
+func (c *Context) SetLayoutDimensions(dimensions Dimensions) {
 	c.layoutDimensions = dimensions
 }
 
@@ -309,10 +307,10 @@ func (c *Context) EndLayout() []RenderCommand {
 			message = "Clay Error: Layout elements exceeded Clay__maxElementCount"
 		}
 		c.addRenderCommand(RenderCommand{
-			BoundingBox: rect2.NewFloat32(c.layoutDimensions.ScaleF(0.5).AddX(-59*4), vector2.Zero[float32]()),
+			BoundingBox: MakeBoundingBox(c.layoutDimensions.ScaleF(0.5).AddX(-59*4), vector2.Zero[float32]()),
 			RenderData: TextRenderData{
 				StringContents: message,
-				TextColor:      colorex.RGBA{R: 255, G: 0, B: 0, A: 255},
+				TextColor:      Color{R: 255, G: 0, B: 0, A: 255},
 				FontSize:       16,
 			},
 		})
@@ -354,7 +352,7 @@ func (c *Context) EndLayout() []RenderCommand {
 
 // Experimental - Used in cases where Clay needs to integrate with a system that manages its own scrolling containers externally.
 // Please reach out if you plan to use this function, as it may be subject to change.
-///CLAY_DLL_EXPORT void SetQueryScrollOffsetFunction(vector2.Float32 (*queryScrollOffsetFunction)(uint32_t elementId, void *userData), void *userData);
+///CLAY_DLL_EXPORT void SetQueryScrollOffsetFunction(Vector2 (*queryScrollOffsetFunction)(uint32_t elementId, void *userData), void *userData);
 
 // A bounds-checked "get" function for the clay.RenderCommandArray returned from clay.EndLayout().
 ///CLAY_DLL_EXPORT RenderCommand * RenderCommandArray_Get(RenderCommandArray* array, int32_t index);

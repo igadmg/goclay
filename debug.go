@@ -3,33 +3,31 @@ package goclay
 import (
 	"math"
 	"strconv"
-
-	"github.com/igadmg/goex/image/colorex"
 )
 
-var CLAY__DEBUGVIEW_COLOR_1 colorex.RGBA = colorex.RGBA{R: 58, G: 56, B: 52, A: 255}
-var CLAY__DEBUGVIEW_COLOR_2 colorex.RGBA = colorex.RGBA{R: 62, G: 60, B: 58, A: 255}
-var CLAY__DEBUGVIEW_COLOR_3 colorex.RGBA = colorex.RGBA{R: 141, G: 133, B: 135, A: 255}
-var CLAY__DEBUGVIEW_COLOR_4 colorex.RGBA = colorex.RGBA{R: 238, G: 226, B: 231, A: 255}
-var CLAY__DEBUGVIEW_COLOR_SELECTED_ROW colorex.RGBA = colorex.RGBA{R: 102, G: 80, B: 78, A: 255}
+var CLAY__DEBUGVIEW_COLOR_1 Color = Color{R: 58, G: 56, B: 52, A: 255}
+var CLAY__DEBUGVIEW_COLOR_2 Color = Color{R: 62, G: 60, B: 58, A: 255}
+var CLAY__DEBUGVIEW_COLOR_3 Color = Color{R: 141, G: 133, B: 135, A: 255}
+var CLAY__DEBUGVIEW_COLOR_4 Color = Color{R: 238, G: 226, B: 231, A: 255}
+var CLAY__DEBUGVIEW_COLOR_SELECTED_ROW Color = Color{R: 102, G: 80, B: 78, A: 255}
 var CLAY__DEBUGVIEW_ROW_HEIGHT float32 = 30
 var CLAY__DEBUGVIEW_OUTER_PADDING uint16 = 10
 var CLAY__DEBUGVIEW_INDENT_WIDTH int32 = 16
 var Clay__DebugView_TextNameConfig TextElementConfig = TextElementConfig{
-	TextColor: colorex.RGBA{R: 238, G: 226, B: 231, A: 255},
+	TextColor: Color{R: 238, G: 226, B: 231, A: 255},
 	FontSize:  16,
 	WrapMode:  TEXT_WRAP_NONE,
 }
 var Clay__DebugView_ScrollViewItemLayoutConfig LayoutConfig
 var debugViewWidth uint32 = 400
-var debugViewHighlightColor = colorex.RGBA{R: 168, G: 66, B: 28, A: 100}
+var debugViewHighlightColor = Color{R: 168, G: 66, B: 28, A: 100}
 
 /*
 #pragma region DebugTools
 
 	typedef struct {
 	    string label;
-	    colorex.RGBA color;
+	    Color color;
 	} Clay__DebugElementConfigTypeLabelConfig;
 
 	Clay__DebugElementConfigTypeLabelConfig Clay__DebugGetElementConfigTypeLabel(Clay__ElementConfigType type) {
@@ -163,7 +161,7 @@ func (c *Context) renderDebugLayoutElementsList(initialRootsLength int32, highli
 						if (currentElementData.debugData.collision) {
 							CLAY({
 							Layout: LayoutConfig{ Padding: { 8, 8, 2, 2 },
-							}, Border: BorderElementConfig { color: colorex.RGBA{177, 147, 8, 255,
+							}, Border: BorderElementConfig { color: Color{177, 147, 8, 255,
 							},
 							width: BorderWidth {1, 1, 1, 1, 0,
 							} } }) {
@@ -192,10 +190,10 @@ func (c *Context) renderDebugLayoutElementsList(initialRootsLength int32, highli
 					for (int32 elementConfigIndex = 0; elementConfigIndex < currentElement.elementConfigs.length; ++elementConfigIndex) {
 						Clay_ElementConfig *elementConfig = Clay__ElementConfigArraySlice_Get(&currentElement.elementConfigs, elementConfigIndex);
 						if (elementConfig.type == CLAY__ELEMENT_CONFIG_TYPE_SHARED) {
-							colorex.RGBA labelColor = {243,134,48,90,
+							Color labelColor = {243,134,48,90,
 							};
 							labelColor.a = 90;
-							colorex.RGBA backgroundColor = elementConfig.config.sharedElementConfig.backgroundColor;
+							Color backgroundColor = elementConfig.config.sharedElementConfig.backgroundColor;
 							Clay_CornerRadius radius = elementConfig.config.sharedElementConfig.cornerRadius;
 							if (backgroundColor.a > 0) {
 								CLAY({
@@ -221,7 +219,7 @@ func (c *Context) renderDebugLayoutElementsList(initialRootsLength int32, highli
 							continue;
 						}
 						Clay__DebugElementConfigTypeLabelConfig config = Clay__DebugGetElementConfigTypeLabel(elementConfig.type);
-						colorex.RGBA backgroundColor = config.color;
+						Color backgroundColor = config.color;
 						backgroundColor.a = 90;
 						CLAY({
 						Layout: LayoutConfig{ Padding: { 8, 8, 2, 2 } },
@@ -338,7 +336,7 @@ func (c *Context) renderDebugLayoutSizing(sizing AnySizingAxis, infoTextConfig *
 func (c *Context) Clay__RenderDebugViewElementConfigHeader(elementId string, config AnyElementConfig) {
 	/*
 		Clay__DebugElementConfigTypeLabelConfig config = Clay__DebugGetElementConfigTypeLabel(type);
-			    colorex.RGBA backgroundColor = config.color;
+			    Color backgroundColor = config.color;
 			    backgroundColor.a = 90;
 			    CLAY({
 				Layout: LayoutConfig{
@@ -364,7 +362,7 @@ func (c *Context) Clay__RenderDebugViewElementConfigHeader(elementId string, con
 	*/
 }
 
-func (c *Context) Clay__RenderDebugViewColor(color colorex.RGBA, textConfig *TextElementConfig) {
+func (c *Context) Clay__RenderDebugViewColor(color Color, textConfig *TextElementConfig) {
 	/*
 		    CLAY({
 			Layout: LayoutConfig{ .childAlignment = {Y: ALIGN_Y_CENTER,
@@ -507,9 +505,9 @@ func (c *Context) Clay__RenderDebugView() {
 					},
 					ChildAlignment: ChildAlignment{ALIGN_X_CENTER, ALIGN_Y_CENTER},
 				},
-				BackgroundColor: colorex.RGBA{R: 217, G: 91, B: 67, A: 80},
+				BackgroundColor: Color{R: 217, G: 91, B: 67, A: 80},
 				CornerRadius:    CORNER_RADIUS(4),
-				Border: BorderElementConfig{Color: colorex.RGBA{R: 217, G: 91, B: 67, A: 255},
+				Border: BorderElementConfig{Color: Color{R: 217, G: 91, B: 67, A: 255},
 					Width: BorderWidth{1, 1, 1, 1, 0},
 				},
 			}, func() {
@@ -924,7 +922,7 @@ func (c *Context) Clay__RenderDebugView() {
 					Layout: LayoutConfig{
 						Sizing: Sizing{Width: SIZING_GROW(0), Height: SIZING_FIXED(1)},
 					},
-					BackgroundColor: colorex.RGBA{R: 200, G: 200, B: 200, A: 255},
+					BackgroundColor: Color{R: 200, G: 200, B: 200, A: 255},
 				})
 				previousWarningsLength := len(c.warnings)
 				for i := 0; i < previousWarningsLength; i++ {
