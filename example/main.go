@@ -1,9 +1,6 @@
 package main
 
 import (
-	"fmt"
-	"reflect"
-
 	clay "github.com/igadmg/goclay"
 	"github.com/igadmg/goex/gx"
 	"github.com/igadmg/goex/pprofex"
@@ -51,7 +48,7 @@ func main() {
 		)
 	}, nil)
 
-	for range 1 {
+	for range 10000 {
 		// Optional: Update internal layout dimensions to support resizing
 		ctx.SetLayoutDimensions(screenSize)
 		// Optional: Update internal pointer position for handling mouseover / click / touch events - needed for scrolling & debug tools
@@ -130,7 +127,7 @@ func main() {
 		// More comprehensive rendering examples can be found in the renderers/ directory
 		for _, renderCommand := range renderCommands {
 			_ = renderCommand
-			fmt.Printf("%d: %s\t\t%s\n", renderCommand.Id, renderCommand.BoundingBox, reflect.TypeOf(renderCommand.RenderData))
+			//fmt.Printf("%d: %s\t\t%s\n", renderCommand.Id, renderCommand.BoundingBox, reflect.TypeOf(renderCommand.RenderData))
 		}
 	}
 }

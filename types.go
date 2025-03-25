@@ -1,6 +1,7 @@
 package goclay
 
 import (
+	"fmt"
 	"math"
 
 	"github.com/igadmg/goex/image/colorex"
@@ -44,34 +45,23 @@ type QueryScrollOffsetFn func(elementId uint32, userData any) Vector2
 // Represents a hashed string ID used for identifying and finding specific clay UI elements, required
 // by functions such as PointerOver() and GetElementData().
 type ElementId struct {
-	id       uint32 // The resulting hash generated from the other fields.
-	offset   uint32 // A numerical offset applied after computing the hash from stringId.
-	baseId   uint32 // A base hash value to start from, for example the parent element ID is used when calculating ID_LOCAL().
+	id uint32 // The resulting hash generated from the other fields.
+	//offset   uint32 // A numerical offset applied after computing the hash from stringId.
+	//baseId   uint32 // A base hash value to start from, for example the parent element ID is used when calculating ID_LOCAL().
 	stringId string // The string id to hash.
 }
 
 var default_ElementId ElementId
 
-// Note: If a compile error led you here, you might be trying to use ID with something other than a string literal. To construct an ID with a dynamic string, use SID instead.
-func ID(label string) ElementId { return IDI(label, 0) }
-
-func SID(label string) ElementId { return SIDI(label, 0) }
-
-// Note: If a compile error led you here, you might be trying to use IDI with something other than a string literal. To construct an ID with a dynamic string, use SIDI instead.
-func IDI(label string, index uint32) ElementId { return SIDI(label, index) }
-
-func SIDI(label string, index uint32) ElementId { return hashString(label, index, 0) }
-
-// Note: If a compile error led you here, you might be trying to use ID_LOCAL with something other than a string literal. To construct an ID with a dynamic string, use SID_LOCAL instead.
-func ID_LOCAL(label string) ElementId { return IDI_LOCAL(label, 0) }
-
-func SID_LOCAL(label string) ElementId { return SIDI_LOCAL(label, 0) }
-
-// Note: If a compile error led you here, you might be trying to use IDI_LOCAL with something other than a string literal. To construct an ID with a dynamic string, use SIDI_LOCAL instead.
-func IDI_LOCAL(label string, index uint32) ElementId { return SIDI_LOCAL(label, index) }
-
-func SIDI_LOCAL(label string, index uint32) ElementId {
-	return hashString(label, index, GetCurrentContext().getParentElementId())
+func ID(label string) ElementId { return hashString(label) }
+func IDI(label string, index uint32) ElementId {
+	return hashString(fmt.Sprintf("%s[%d]", label, index))
+}
+func (c *Context) ID_LOCAL(label string) ElementId {
+	return hashString(fmt.Sprintf("%s[:%d]", label, c.getParentElementId()))
+}
+func (c *Context) IDI_LOCAL(label string, index uint32) ElementId {
+	return hashString(fmt.Sprintf("%s[%d:%d]", label, index, c.getParentElementId()))
 }
 
 // Controls the "radius", or corner rounding of elements, including rectangles, borders and images.

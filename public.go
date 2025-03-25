@@ -28,18 +28,19 @@ func (c *Context) SetPointerState(position Vector2, pointerDown bool) {
 	c.pointerOverIds = c.pointerOverIds[:0]
 
 	var dfsBuffer []int
+	treeNodeVisited := make([]bool, len(c.layoutElements))
 	for rootIndex := len(c.layoutElementTreeRoots) - 1; rootIndex >= 0; rootIndex-- {
 		dfsBuffer = c.layoutElementChildrenBuffer[:0]
 		root := c.layoutElementTreeRoots[rootIndex]
 		dfsBuffer = append(dfsBuffer, root.layoutElementIndex)
-		c.treeNodeVisited[0] = false
+		treeNodeVisited[0] = false
 		found := false
 		for len(dfsBuffer) > 0 {
-			if c.treeNodeVisited[len(dfsBuffer)-1] {
+			if treeNodeVisited[len(dfsBuffer)-1] {
 				dfsBuffer = dfsBuffer[:len(dfsBuffer)-1]
 				continue
 			}
-			c.treeNodeVisited[len(dfsBuffer)-1] = true
+			treeNodeVisited[len(dfsBuffer)-1] = true
 			currentElement := c.layoutElements[dfsBuffer[len(dfsBuffer)-1]]
 			mapItem := c.getHashMapItem(currentElement.id) // TODO think of a way around this, maybe the fact that it's essentially a binary tree limits the cost, but the worst case is not great
 			clipElementId := uint32(0)                     //TODO: fix c.layoutElementClipElementIds[(int32)(currentElement-c.layoutElements.internalArray)]
@@ -64,7 +65,7 @@ func (c *Context) SetPointerState(position Vector2, pointerDown bool) {
 				}
 				for i := len(currentElement.children) - 1; i >= 0; i-- {
 					dfsBuffer = append(dfsBuffer, currentElement.children[i])
-					c.treeNodeVisited[len(dfsBuffer)-1] = false // TODO needs to be ranged checked
+					treeNodeVisited[len(dfsBuffer)-1] = false // TODO needs to be ranged checked
 				}
 			} else {
 				dfsBuffer = dfsBuffer[:len(dfsBuffer)-1]

@@ -280,7 +280,7 @@ func (c *Context) renderDebugLayoutElementsList(initialRootsLength int32, highli
 		}
 
 		if (context.pointerInfo.state == CLAY_POINTER_DATA_PRESSED_THIS_FRAME) {
-			Clay_ElementId collapseButtonId = hashString("Clay__DebugView_CollapseElement", 0, 0);
+			Clay_ElementId collapseButtonId = hashString("Clay__DebugView_CollapseElement");
 			for (int32 i = (int)context.pointerOverIds.length - 1; i >= 0; i--) {
 				Clay_ElementId *elementId = Clay__ElementIdArray_Get(&context.pointerOverIds, i);
 				if (elementId.baseId == collapseButtonId.baseId) {
@@ -418,7 +418,7 @@ func (c *Context) renderDebugViewCornerRadius(cornerRadius CornerRadius, textCon
 	}
 */
 func (c *Context) Clay__RenderDebugView() {
-	closeButtonId := hashString("Clay__DebugViewTopHeaderCloseButtonOuter", 0, 0)
+	closeButtonId := hashString("Clay__DebugViewTopHeaderCloseButtonOuter")
 	if c.pointerInfo.State == POINTER_DATA_PRESSED_THIS_FRAME {
 		for _, elementId := range c.pointerOverIds {
 			if elementId.id == closeButtonId.id {
@@ -440,7 +440,7 @@ func (c *Context) Clay__RenderDebugView() {
 		FontSize:  16,
 		WrapMode:  TEXT_WRAP_NONE,
 	})
-	scrollId := hashString("Clay__DebugViewOuterScrollPane", 0, 0)
+	scrollId := hashString("Clay__DebugViewOuterScrollPane")
 	scrollYOffset := float32(0)
 	pointerInDebugView := c.pointerInfo.Position.Y < c.layoutDimensions.Y-300
 	for _, scrollContainerData := range c.scrollContainerDatas {
@@ -555,7 +555,7 @@ func (c *Context) Clay__RenderDebugView() {
 				},
 				BackgroundColor: bgColor,
 			}, func() {
-				panelContentsId := hashString("Clay__DebugViewPaneOuter", 0, 0)
+				panelContentsId := hashString("Clay__DebugViewPaneOuter")
 				// Element list
 				c.CLAY(ElementDeclaration{
 					Id: panelContentsId,
@@ -657,11 +657,13 @@ func (c *Context) Clay__RenderDebugView() {
 							Sizing: Sizing{Width: SIZING_GROW(0)}}})
 					if selectedItem.elementId.stringId != "" {
 						c.TEXT(selectedItem.elementId.stringId, infoTitleConfig)
-						if selectedItem.elementId.offset != 0 {
-							c.TEXT(" (", infoTitleConfig)
-							c.TEXT(strconv.Itoa(int(selectedItem.elementId.offset)), infoTitleConfig)
-							c.TEXT(")", infoTitleConfig)
-						}
+						/*
+							if selectedItem.elementId.offset != 0 {
+								c.TEXT(" (", infoTitleConfig)
+								c.TEXT(strconv.Itoa(int(selectedItem.elementId.offset)), infoTitleConfig)
+								c.TEXT(")", infoTitleConfig)
+							}
+						*/
 					}
 				})
 				attributeConfigPadding := Padding{CLAY__DEBUGVIEW_OUTER_PADDING, CLAY__DEBUGVIEW_OUTER_PADDING, 8, 8}

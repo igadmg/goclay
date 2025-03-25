@@ -1,6 +1,9 @@
 package goclay
 
 import (
+	"encoding/binary"
+	"hash"
+	"hash/fnv"
 	"math"
 
 	"github.com/igadmg/goex/slicesex"
@@ -209,7 +212,6 @@ type Context struct {
 	openClipElementStack          []int
 	pointerOverIds                []ElementId
 	scrollContainerDatas          []ScrollContainerDataInternal
-	treeNodeVisited               []bool
 	dynamicStringData             []byte
 	debugElementData              []DebugElementData
 }
@@ -309,97 +311,50 @@ func findElementConfigWithType[T ElementConfigType](element *LayoutElement) (T, 
 	return nil, false
 }
 
-func hashNumber(offset uint32, seed uint32) ElementId {
-	hash := seed
-	hash += (offset + 48)
-	hash += (hash << 10)
-	hash ^= (hash >> 6)
+var hasher hash.Hash32 = fnv.New32a()
 
-	hash += (hash << 3)
-	hash ^= (hash >> 11)
-	hash += (hash << 15)
+func hashNumber(offset uint32, seed uint32) ElementId {
+	le := binary.LittleEndian
+	a := [4 * 2]byte{}
+	na := le.AppendUint32(a[:], offset)
+	na = le.AppendUint32(na, seed)
+
+	hasher.Reset()
+	hasher.Write(a[:])
+	hash := hasher.Sum32()
 
 	return ElementId{
 		id:       hash + 1, // Reserve the hash result of zero as "null id"
-		offset:   offset,
-		baseId:   seed,
 		stringId: STRING_DEFAULT,
 	}
 }
 
-func hashString(key string, offset uint32, seed uint32) ElementId {
-	hash := uint32(0)
-	base := uint32(seed)
-
-	for i := range key {
-		base += uint32(key[i])
-		base += (base << 10)
-		base ^= (base >> 6)
-	}
-	hash = base
-	hash += offset
-	hash += (hash << 10)
-	hash ^= (hash >> 6)
-
-	hash += (hash << 3)
-	base += (base << 3)
-	hash ^= (hash >> 11)
-	base ^= (base >> 11)
-	hash += (hash << 15)
-	base += (base << 15)
+func hashString(key string) ElementId {
+	hasher.Reset()
+	hasher.Write([]byte(key))
+	hash := hasher.Sum32()
 
 	return ElementId{
 		id:       hash + 1, // Reserve the hash result of zero as "null id"
-		offset:   offset,
-		baseId:   base + 1,
 		stringId: key,
 	}
 }
 
 func hashTextWithConfig(text string, config *TextElementConfig) uint32 {
-	hash := uint32(0)
+	hasher.Reset()
+	hasher.Write([]byte(text))
 
-	if config.HashStringContents {
-		maxLengthToHash := min(len(text), 256)
-		for i := range maxLengthToHash {
-			hash += uint32(text[i])
-			hash += (hash << 10)
-			hash ^= (hash >> 6)
-		}
-	} else {
-		//pointerAsNumber = uint32(&text[0])
-		//hash += pointerAsNumber
-		//hash += (hash << 10)
-		//hash ^= (hash >> 6)
-	}
+	le := binary.LittleEndian
+	a := [4 + 2*4 + 1]byte{}
+	na := le.AppendUint32(a[:], uint32(len(text)))
+	na = le.AppendUint16(na, config.FontId)
+	na = le.AppendUint16(na, config.FontSize)
+	na = le.AppendUint16(na, config.LineHeight)
+	na = le.AppendUint16(na, config.LetterSpacing)
+	na[0] = byte(config.WrapMode)
+	hasher.Write(a[:])
 
-	hash += uint32(len(text))
-	hash += (hash << 10)
-	hash ^= (hash >> 6)
-
-	hash += uint32(config.FontId)
-	hash += (hash << 10)
-	hash ^= (hash >> 6)
-
-	hash += uint32(config.FontSize)
-	hash += (hash << 10)
-	hash ^= (hash >> 6)
-
-	hash += uint32(config.LineHeight)
-	hash += (hash << 10)
-	hash ^= (hash >> 6)
-
-	hash += uint32(config.LetterSpacing)
-	hash += (hash << 10)
-	hash ^= (hash >> 6)
-
-	hash += uint32(config.WrapMode)
-	hash += (hash << 10)
-	hash ^= (hash >> 6)
-
-	hash += (hash << 3)
-	hash ^= (hash >> 11)
-	hash += (hash << 15)
+	hash := hasher.Sum32()
 	return hash + 1 // Reserve the hash result of zero as "null id"
 }
 
@@ -887,10 +842,10 @@ func (c *Context) configureOpenElement(declaration *ElementDeclaration) {
 					//clipElementId = c.layoutElementClipElementIds[(int32)(parentItem.layoutElement-c.layoutElements.internalArray))
 				}
 			} else if declaration.Floating.AttachTo == ATTACH_TO_ROOT {
-				floatingConfig.ParentId = hashString("Clay__RootContainer", 0, 0).id
+				floatingConfig.ParentId = hashString("Clay__RootContainer").id
 			}
 			if openLayoutElementId.id == 0 {
-				openLayoutElementId = hashString("Clay__FloatingContainer", uint32(len(c.layoutElementTreeRoots)), 0)
+				openLayoutElementId = IDI("Clay__FloatingContainer", uint32(len(c.layoutElementTreeRoots)))
 			}
 			currentElementIndex := c.openLayoutElementStack[len(c.openLayoutElementStack)-1]
 			c.layoutElementClipElementIds = slicesex.Set(c.layoutElementClipElementIds, currentElementIndex, clipElementId)
@@ -972,9 +927,6 @@ func (c *Context) initializeEphemeralMemory() {
 	c.textElementData = c.textElementData[:0]
 	c.imageElementPointers = c.imageElementPointers[:0]
 	c.renderCommands = c.renderCommands[:0]
-	for i := range c.treeNodeVisited {
-		c.treeNodeVisited[i] = false
-	}
 	c.openClipElementStack = c.openClipElementStack[:0]
 	c.reusableElementIndexBuffer = c.reusableElementIndexBuffer[:0]
 	c.layoutElementClipElementIds = c.layoutElementClipElementIds[:0]
@@ -1019,7 +971,6 @@ func (c *Context) initializePersistentMemory() {
 	c.textElementData = make([]TextElementData, 0, maxElementCount)
 	c.imageElementPointers = make([]int, 0, maxElementCount)
 	c.renderCommands = make([]RenderCommand, 0, maxElementCount)
-	c.treeNodeVisited = make([]bool, maxElementCount)
 	c.openClipElementStack = make([]int, 0, maxElementCount)
 	c.reusableElementIndexBuffer = make([]int32, 0, maxElementCount)
 	c.layoutElementClipElementIds = make([]int, 0, maxElementCount)
@@ -1318,6 +1269,8 @@ func (c *Context) elementIsOffscreen(boundingBox BoundingBox) bool {
 }
 
 func (c *Context) calculateFinalLayout() {
+	treeNodeVisited := make([]bool, len(c.layoutElements))
+
 	// Calculate sizing along the X axis
 	c.sizeContainersAlongAxis(0)
 
@@ -1399,7 +1352,7 @@ func (c *Context) calculateFinalLayout() {
 	// Propagate effect of text wrapping, image aspect scaling etc. on height of parents
 	c.layoutElementTreeNodeArray1 = c.layoutElementTreeNodeArray1[0:0]
 	for _, root := range c.layoutElementTreeRoots {
-		c.treeNodeVisited[len(c.layoutElementTreeNodeArray1)] = false
+		treeNodeVisited[len(c.layoutElementTreeNodeArray1)] = false
 		c.layoutElementTreeNodeArray1 = append(c.layoutElementTreeNodeArray1, LayoutElementTreeNode{
 			layoutElement: &c.layoutElements[root.layoutElementIndex],
 		})
@@ -1407,8 +1360,8 @@ func (c *Context) calculateFinalLayout() {
 	for len(c.layoutElementTreeNodeArray1) > 0 {
 		currentElementTreeNode := c.layoutElementTreeNodeArray1[len(c.layoutElementTreeNodeArray1)-1]
 		currentElement := currentElementTreeNode.layoutElement
-		if !c.treeNodeVisited[len(c.layoutElementTreeNodeArray1)-1] {
-			c.treeNodeVisited[len(c.layoutElementTreeNodeArray1)-1] = true
+		if !treeNodeVisited[len(c.layoutElementTreeNodeArray1)-1] {
+			treeNodeVisited[len(c.layoutElementTreeNodeArray1)-1] = true
 			// If the element has no children or is the container for a text element, don't bother inspecting it
 			if elementHasConfig[*TextElementConfig](currentElement) || len(currentElement.children) == 0 {
 				c.layoutElementTreeNodeArray1 = c.layoutElementTreeNodeArray1[:len(c.layoutElementTreeNodeArray1)-1]
@@ -1416,7 +1369,7 @@ func (c *Context) calculateFinalLayout() {
 			}
 			// Add the children to the DFS buffer (needs to be pushed in reverse so that stack traversal is in correct layout order)
 			for _, child := range currentElement.children {
-				c.treeNodeVisited[len(c.layoutElementTreeNodeArray1)] = false
+				treeNodeVisited[len(c.layoutElementTreeNodeArray1)] = false
 				c.layoutElementTreeNodeArray1 = append(c.layoutElementTreeNodeArray1, LayoutElementTreeNode{
 					layoutElement: &c.layoutElements[child],
 				})
@@ -1555,7 +1508,7 @@ func (c *Context) calculateFinalLayout() {
 			nextChildOffset: Vector2{float32(rootElement.layoutConfig.Padding.Left), float32(rootElement.layoutConfig.Padding.Top)},
 		})
 
-		c.treeNodeVisited[0] = false
+		treeNodeVisited[0] = false
 		for len(c.layoutElementTreeNodeArray1) > 0 {
 			currentElementTreeNode := &c.layoutElementTreeNodeArray1[len(c.layoutElementTreeNodeArray1)-1]
 			currentElement := currentElementTreeNode.layoutElement
@@ -1563,8 +1516,8 @@ func (c *Context) calculateFinalLayout() {
 			var scrollOffset Vector2
 
 			// This will only be run a single time for each element in downwards DFS order
-			if !c.treeNodeVisited[len(c.layoutElementTreeNodeArray1)-1] {
-				c.treeNodeVisited[len(c.layoutElementTreeNodeArray1)-1] = true
+			if !treeNodeVisited[len(c.layoutElementTreeNodeArray1)-1] {
+				treeNodeVisited[len(c.layoutElementTreeNodeArray1)-1] = true
 
 				currentElementBoundingBox := MakeBoundingBox(currentElementTreeNode.position, currentElement.dimensions)
 				if floatingElementConfig, ok := findElementConfigWithType[*FloatingElementConfig](currentElement); ok {
@@ -1948,7 +1901,7 @@ func (c *Context) calculateFinalLayout() {
 						position:        childPosition,
 						nextChildOffset: MakeVector2(float32(childElement.layoutConfig.Padding.Left), float32(childElement.layoutConfig.Padding.Top)),
 					}
-					c.treeNodeVisited[newNodeIndex] = false
+					treeNodeVisited[newNodeIndex] = false
 
 					// Update parent offsets
 					if layoutConfig.LayoutDirection == LEFT_TO_RIGHT {
