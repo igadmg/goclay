@@ -48,7 +48,7 @@ func main() {
 		)
 	}, nil)
 
-	for range 10000 {
+	for range 100000 {
 		// Optional: Update internal layout dimensions to support resizing
 		ctx.SetLayoutDimensions(screenSize)
 		// Optional: Update internal pointer position for handling mouseover / click / touch events - needed for scrolling & debug tools

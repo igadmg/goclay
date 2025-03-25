@@ -19,11 +19,11 @@ type Vector2 = vector2.Float32
 type Dimensions = vector2.Float32
 type BoundingBox = rect2.Float32
 
-func MakeDimensions[T Coordinate](x, y T) Dimensions {
+func MakeDimensions[XT, YT Coordinate](x XT, y YT) Dimensions {
 	return vector2.NewFloat32(x, y)
 }
 
-func MakeVector2[T Coordinate](x, y T) Vector2 {
+func MakeVector2[XT, YT Coordinate](x XT, y YT) Vector2 {
 	return vector2.NewFloat32(x, y)
 }
 
@@ -230,7 +230,7 @@ func SizingAxisTypeString(a AnySizingAxis) string {
 	return ""
 }
 
-func SIZING_FIT(s ...float32) AnySizingAxis {
+func SIZING_FIT(s ...float32) SizingAxisFit {
 	switch len(s) {
 	case 0:
 		return SizingAxisFit{MinMax: SizingMinMax{Min: 0, Max: math.MaxFloat32}}
@@ -241,7 +241,7 @@ func SIZING_FIT(s ...float32) AnySizingAxis {
 	}
 }
 
-func SIZING_GROW(s ...float32) AnySizingAxis {
+func SIZING_GROW(s ...float32) SizingAxisGrow {
 	switch len(s) {
 	case 0:
 		return SizingAxisGrow{MinMax: SizingMinMax{Min: 0, Max: math.MaxFloat32}}
@@ -252,11 +252,11 @@ func SIZING_GROW(s ...float32) AnySizingAxis {
 	}
 }
 
-func SIZING_FIXED(fixedSize float32) AnySizingAxis {
+func SIZING_FIXED(fixedSize float32) SizingAxisFixed {
 	return SizingAxisFixed{MinMax: SizingMinMax{Min: fixedSize, Max: fixedSize}}
 }
 
-func SIZING_PERCENT(percentOfParent float32) AnySizingAxis {
+func SIZING_PERCENT(percentOfParent float32) SizingAxisPercent {
 	return SizingAxisPercent{Percent: percentOfParent}
 }
 

@@ -312,15 +312,16 @@ func findElementConfigWithType[T ElementConfigType](element *LayoutElement) (T, 
 }
 
 var hasher hash.Hash32 = fnv.New32a()
+var hashBuffer []byte = make([]byte, 4+2*4+1)
 
 func hashNumber(offset uint32, seed uint32) ElementId {
 	le := binary.LittleEndian
-	a := [4 * 2]byte{}
-	na := le.AppendUint32(a[:], offset)
+	na := hashBuffer[0:0]
+	na = le.AppendUint32(na, offset)
 	na = le.AppendUint32(na, seed)
 
 	hasher.Reset()
-	hasher.Write(a[:])
+	hasher.Write(hashBuffer[:2*4])
 	hash := hasher.Sum32()
 
 	return ElementId{
@@ -345,14 +346,14 @@ func hashTextWithConfig(text string, config *TextElementConfig) uint32 {
 	hasher.Write([]byte(text))
 
 	le := binary.LittleEndian
-	a := [4 + 2*4 + 1]byte{}
-	na := le.AppendUint32(a[:], uint32(len(text)))
+	na := hashBuffer[0:0]
+	na = le.AppendUint32(na, uint32(len(text)))
 	na = le.AppendUint16(na, config.FontId)
 	na = le.AppendUint16(na, config.FontSize)
 	na = le.AppendUint16(na, config.LineHeight)
 	na = le.AppendUint16(na, config.LetterSpacing)
 	na[0] = byte(config.WrapMode)
-	hasher.Write(a[:])
+	hasher.Write(hashBuffer[:4+2*4+1])
 
 	hash := hasher.Sum32()
 	return hash + 1 // Reserve the hash result of zero as "null id"
@@ -682,8 +683,7 @@ func (c *Context) openElement() bool {
 		return false
 	}
 
-	layoutElement := LayoutElement{}
-	c.layoutElements = append(c.layoutElements, layoutElement)
+	c.layoutElements = append(c.layoutElements, LayoutElement{})
 	c.openLayoutElementStack = append(c.openLayoutElementStack, len(c.layoutElements)-1)
 	if len(c.openClipElementStack) > 0 {
 		c.layoutElementClipElementIds = slicesex.Set(
@@ -1505,7 +1505,7 @@ func (c *Context) calculateFinalLayout() {
 		c.layoutElementTreeNodeArray1 = append(c.layoutElementTreeNodeArray1, LayoutElementTreeNode{
 			layoutElement:   rootElement,
 			position:        rootPosition,
-			nextChildOffset: Vector2{float32(rootElement.layoutConfig.Padding.Left), float32(rootElement.layoutConfig.Padding.Top)},
+			nextChildOffset: MakeVector2(rootElement.layoutConfig.Padding.Left, rootElement.layoutConfig.Padding.Top),
 		})
 
 		treeNodeVisited[0] = false
@@ -1806,7 +1806,7 @@ func (c *Context) calculateFinalLayout() {
 						c.addRenderCommand(renderCommand)
 						if borderConfig.Width.BetweenChildren > 0 && borderConfig.Color.A > 0 {
 							halfGap := layoutConfig.ChildGap / 2
-							borderOffset := MakeVector2(float32(layoutConfig.Padding.Left-halfGap), float32(layoutConfig.Padding.Top-halfGap))
+							borderOffset := MakeVector2(layoutConfig.Padding.Left-halfGap, layoutConfig.Padding.Top-halfGap)
 							if layoutConfig.LayoutDirection == LEFT_TO_RIGHT {
 								for i, child := range currentElement.children {
 									childElement := c.layoutElements[child]
@@ -1814,7 +1814,7 @@ func (c *Context) calculateFinalLayout() {
 										c.addRenderCommand(RenderCommand{
 											BoundingBox: MakeBoundingBox(
 												currentElementBoundingBox.Position.Add(borderOffset).Add(scrollOffset),
-												MakeDimensions(float32(borderConfig.Width.BetweenChildren), currentElement.dimensions.Y),
+												MakeDimensions(borderConfig.Width.BetweenChildren, currentElement.dimensions.Y),
 											),
 											RenderData: RectangleRenderData{
 												BackgroundColor: borderConfig.Color,
@@ -1832,7 +1832,7 @@ func (c *Context) calculateFinalLayout() {
 										c.addRenderCommand(RenderCommand{
 											BoundingBox: MakeBoundingBox(
 												currentElementBoundingBox.Position.Add(scrollOffset).AddY(borderOffset.Y),
-												MakeDimensions(currentElement.dimensions.X, float32(borderConfig.Width.BetweenChildren)),
+												MakeDimensions(currentElement.dimensions.X, borderConfig.Width.BetweenChildren),
 											),
 											RenderData: RectangleRenderData{
 												BackgroundColor: borderConfig.Color,
@@ -1899,7 +1899,7 @@ func (c *Context) calculateFinalLayout() {
 					c.layoutElementTreeNodeArray1[newNodeIndex] = LayoutElementTreeNode{
 						layoutElement:   childElement,
 						position:        childPosition,
-						nextChildOffset: MakeVector2(float32(childElement.layoutConfig.Padding.Left), float32(childElement.layoutConfig.Padding.Top)),
+						nextChildOffset: MakeVector2(childElement.layoutConfig.Padding.Left, childElement.layoutConfig.Padding.Top),
 					}
 					treeNodeVisited[newNodeIndex] = false
 
