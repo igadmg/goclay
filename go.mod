@@ -2,9 +2,10 @@ module github.com/igadmg/goclay
 
 go 1.24
 
-replace github.com/igadmg/goex => ../goex
-
-replace github.com/igadmg/raylib-go/raymath => ../raylib-go/raymath
+replace (
+	github.com/igadmg/goex => ../goex
+	github.com/igadmg/raylib-go/raymath => ../raylib-go/raymath
+)
 
 require (
 	github.com/igadmg/goex v0.0.0-20250321131421-ccb743b21181
