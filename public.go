@@ -1,7 +1,7 @@
 package goclay
 
 import (
-	"github.com/igadmg/raylib-go/raymath/vector2"
+	"github.com/igadmg/gamemath/vector2"
 )
 
 /// Clay Git Reference - clay used to convert, keep it and update as you update goclay code.

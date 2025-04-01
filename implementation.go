@@ -6,8 +6,7 @@ import (
 	"hash/fnv"
 	"math"
 
-	"github.com/igadmg/goex/slicesex"
-	"github.com/igadmg/raylib-go/raymath/vector2"
+	"github.com/igadmg/gamemath/vector2"
 )
 
 var LAYOUT_DEFAULT LayoutConfig
@@ -24,6 +23,28 @@ func errorHandlerFunctionDefault(errorText ErrorData) {
 
 var SPACECHAR string = " "
 var STRING_DEFAULT string = ""
+
+func slicesex_Set[S ~[]E, E any](x S, index int, e E) S {
+	if index >= len(x) {
+		x = x[0:index]
+	}
+	x[index] = e
+	return x
+}
+
+func slicesex_RemoveSwapback[S ~[]E, E any](x S, index int) (S, E) {
+	var e E
+
+	if index >= len(x) {
+		return x, e
+	}
+
+	e = x[index]
+	x[index] = x[len(x)-1]
+	x = x[:len(x)-1]
+
+	return x, e
+}
 
 type BooleanWarnings struct {
 	maxElementsExceeded           bool
@@ -363,7 +384,7 @@ func (c *Context) addMeasuredWord(word MeasuredWord, previousWord *MeasuredWord)
 	if len(c.measuredWordsFreeList) > 0 {
 		newItemIndex := c.measuredWordsFreeList[len(c.measuredWordsFreeList)-1]
 		c.measuredWordsFreeList = c.measuredWordsFreeList[:len(c.measuredWordsFreeList)-1]
-		c.measuredWords = slicesex.Set(c.measuredWords, int(newItemIndex), word)
+		c.measuredWords = slicesex_Set(c.measuredWords, int(newItemIndex), word)
 		previousWord.next = newItemIndex
 		return &c.measuredWords[newItemIndex]
 	} else {
@@ -667,7 +688,7 @@ func (c *Context) closeElement() {
 func (c *Context) closeCurrentElement(elementIsFloating bool) {
 	// Close the currently open element
 	var closingElementIndex int
-	c.openLayoutElementStack, closingElementIndex = slicesex.RemoveSwapback(c.openLayoutElementStack, len(c.openLayoutElementStack)-1)
+	c.openLayoutElementStack, closingElementIndex = slicesex_RemoveSwapback(c.openLayoutElementStack, len(c.openLayoutElementStack)-1)
 	openLayoutElement := c.getOpenLayoutElement()
 
 	if !elementIsFloating && len(c.openLayoutElementStack) > 1 {
@@ -686,12 +707,12 @@ func (c *Context) openElement() bool {
 	c.layoutElements = append(c.layoutElements, LayoutElement{})
 	c.openLayoutElementStack = append(c.openLayoutElementStack, len(c.layoutElements)-1)
 	if len(c.openClipElementStack) > 0 {
-		c.layoutElementClipElementIds = slicesex.Set(
+		c.layoutElementClipElementIds = slicesex_Set(
 			c.layoutElementClipElementIds,
 			len(c.layoutElements)-1,
 			c.openClipElementStack[len(c.openClipElementStack)-1])
 	} else {
-		c.layoutElementClipElementIds = slicesex.Set(
+		c.layoutElementClipElementIds = slicesex_Set(
 			c.layoutElementClipElementIds,
 			len(c.layoutElements)-1,
 			0)
@@ -711,9 +732,9 @@ func (c *Context) openTextElement(text string, textConfig *TextElementConfig) {
 	c.openLayoutElementStack = append(c.openLayoutElementStack, len(c.layoutElements)-1)
 	textElement := &c.layoutElements[len(c.layoutElements)-1]
 	if len(c.openClipElementStack) > 0 {
-		c.layoutElementClipElementIds = slicesex.Set(c.layoutElementClipElementIds, len(c.layoutElements)-1, c.openClipElementStack[len(c.openClipElementStack)-1])
+		c.layoutElementClipElementIds = slicesex_Set(c.layoutElementClipElementIds, len(c.layoutElements)-1, c.openClipElementStack[len(c.openClipElementStack)-1])
 	} else {
-		c.layoutElementClipElementIds = slicesex.Set(c.layoutElementClipElementIds, len(c.layoutElements)-1, 0)
+		c.layoutElementClipElementIds = slicesex_Set(c.layoutElementClipElementIds, len(c.layoutElements)-1, 0)
 	}
 
 	c.layoutElementChildrenBuffer = append(c.layoutElementChildrenBuffer, len(c.layoutElements)-1)
@@ -848,7 +869,7 @@ func (c *Context) configureOpenElement(declaration *ElementDeclaration) {
 				openLayoutElementId = IDI("Clay__FloatingContainer", uint32(len(c.layoutElementTreeRoots)))
 			}
 			currentElementIndex := c.openLayoutElementStack[len(c.openLayoutElementStack)-1]
-			c.layoutElementClipElementIds = slicesex.Set(c.layoutElementClipElementIds, currentElementIndex, clipElementId)
+			c.layoutElementClipElementIds = slicesex_Set(c.layoutElementClipElementIds, currentElementIndex, clipElementId)
 			c.openClipElementStack = append(c.openClipElementStack, clipElementId)
 			c.layoutElementTreeRoots = append(c.layoutElementTreeRoots, LayoutElementTreeRoot{
 				layoutElementIndex: c.openLayoutElementStack[len(c.openLayoutElementStack)-1],
@@ -1145,7 +1166,7 @@ func (c *Context) sizeContainersAlongAxis(axis int) {
 								childSize += widthToAdd
 								if childSize <= minSize {
 									childSize = minSize
-									resizableContainerBuffer, _ = slicesex.RemoveSwapback(resizableContainerBuffer, childIndex)
+									resizableContainerBuffer, _ = slicesex_RemoveSwapback(resizableContainerBuffer, childIndex)
 									childIndex--
 								}
 								child.dimensions = child.dimensions.SetAxis(axis, childSize)
@@ -1161,7 +1182,7 @@ func (c *Context) sizeContainersAlongAxis(axis int) {
 						switch childSizing.(type) {
 						case SizingAxisGrow:
 						default:
-							resizableContainerBuffer, _ = slicesex.RemoveSwapback(resizableContainerBuffer, ci)
+							resizableContainerBuffer, _ = slicesex_RemoveSwapback(resizableContainerBuffer, ci)
 							ci--
 						}
 					}
@@ -1202,7 +1223,7 @@ func (c *Context) sizeContainersAlongAxis(axis int) {
 								childSize += widthToAdd
 								if childSize >= maxSize {
 									childSize = maxSize
-									resizableContainerBuffer, _ = slicesex.RemoveSwapback(resizableContainerBuffer, childIndex)
+									resizableContainerBuffer, _ = slicesex_RemoveSwapback(resizableContainerBuffer, childIndex)
 									childIndex--
 								}
 								child.dimensions = child.dimensions.SetAxis(axis, childSize)

@@ -1,9 +1,11 @@
 package main
 
 import (
+	"log"
+	"os"
+	"runtime/pprof"
+
 	clay "github.com/igadmg/goclay"
-	"github.com/igadmg/goex/gx"
-	"github.com/igadmg/goex/pprofex"
 )
 
 var COLOR_LIGHT clay.Color = clay.Color{R: 224, G: 215, B: 210, A: 255}
@@ -21,6 +23,30 @@ var sidebarItemConfig clay.ElementDeclaration = clay.ElementDeclaration{
 	BackgroundColor: COLOR_ORANGE,
 }
 
+func gx_Must[T any](v T, e error) T {
+	if e != nil {
+		panic(e)
+	}
+	return v
+}
+
+func pprofex_WriteCPUProfile(fileName string) (func(), error) {
+	f, err := os.Create(fileName + ".prof")
+	if err != nil {
+		log.Fatal("could not create CPU profile: ", err)
+		return func() {}, err
+	}
+	if err := pprof.StartCPUProfile(f); err != nil {
+		log.Fatal("could not start CPU profile: ", err)
+		return func() {}, err
+	}
+
+	return func() {
+		pprof.StopCPUProfile()
+		f.Close()
+	}, nil
+}
+
 // Re-useable components are just normal functions
 func SidebarItemComponent(ctx *clay.Context) {
 	ctx.CLAY(sidebarItemConfig, func() {
@@ -29,7 +55,7 @@ func SidebarItemComponent(ctx *clay.Context) {
 }
 
 func main() {
-	defer gx.Must(pprofex.WriteCPUProfile("goclay"))()
+	defer gx_Must(pprofex_WriteCPUProfile("goclay"))()
 
 	screenSize := clay.MakeDimensions(640, 480)
 	mousePosition := clay.MakeVector2(160, 100)

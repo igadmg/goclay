@@ -2,11 +2,11 @@ package goclay
 
 import (
 	"fmt"
+	"image/color"
 	"math"
 
-	"github.com/igadmg/goex/image/colorex"
-	"github.com/igadmg/raylib-go/raymath/rect2"
-	"github.com/igadmg/raylib-go/raymath/vector2"
+	"github.com/igadmg/gamemath/rect2"
+	"github.com/igadmg/gamemath/vector2"
 	"golang.org/x/exp/constraints"
 )
 
@@ -14,7 +14,7 @@ type Coordinate interface {
 	constraints.Integer | constraints.Float
 }
 
-type Color colorex.RGBA
+type Color color.RGBA
 type Vector2 = vector2.Float32
 type Dimensions = vector2.Float32
 type BoundingBox = rect2.Float32
