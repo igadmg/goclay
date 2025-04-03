@@ -53,8 +53,8 @@ type ElementId struct {
 
 var default_ElementId ElementId
 
-func ID(label string) ElementId { return hashString(label) }
-func IDI(label string, index uint32) ElementId {
+func (*Context) ID(label string) ElementId { return hashString(label) }
+func (*Context) IDI(label string, index uint32) ElementId {
 	return hashString(fmt.Sprintf("%s[%d]", label, index))
 }
 func (c *Context) ID_LOCAL(label string) ElementId {
@@ -230,7 +230,7 @@ func SizingAxisTypeString(a AnySizingAxis) string {
 	return ""
 }
 
-func SIZING_FIT(s ...float32) SizingAxisFit {
+func (*Context) SIZING_FIT(s ...float32) SizingAxisFit {
 	switch len(s) {
 	case 0:
 		return SizingAxisFit{MinMax: SizingMinMax{Min: 0, Max: math.MaxFloat32}}
@@ -241,7 +241,7 @@ func SIZING_FIT(s ...float32) SizingAxisFit {
 	}
 }
 
-func SIZING_GROW(s ...float32) SizingAxisGrow {
+func (*Context) SIZING_GROW(s ...float32) SizingAxisGrow {
 	switch len(s) {
 	case 0:
 		return SizingAxisGrow{MinMax: SizingMinMax{Min: 0, Max: math.MaxFloat32}}
@@ -252,11 +252,11 @@ func SIZING_GROW(s ...float32) SizingAxisGrow {
 	}
 }
 
-func SIZING_FIXED(fixedSize float32) SizingAxisFixed {
+func (*Context) SIZING_FIXED(fixedSize float32) SizingAxisFixed {
 	return SizingAxisFixed{MinMax: SizingMinMax{Min: fixedSize, Max: fixedSize}}
 }
 
-func SIZING_PERCENT(percentOfParent float32) SizingAxisPercent {
+func (*Context) SIZING_PERCENT(percentOfParent float32) SizingAxisPercent {
 	return SizingAxisPercent{Percent: percentOfParent}
 }
 
@@ -286,7 +286,7 @@ type Padding struct {
 	Bottom uint16
 }
 
-func PADDING_ALL(padding uint16) Padding {
+func (*Context) PADDING_ALL(padding uint16) Padding {
 	return Padding{padding, padding, padding, padding}
 }
 

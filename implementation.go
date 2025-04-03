@@ -26,7 +26,7 @@ var STRING_DEFAULT string = ""
 
 func slicesex_Set[S ~[]E, E any](x S, index int, e E) S {
 	if index >= len(x) {
-		x = x[0:index]
+		x = x[0 : index+1]
 	}
 	x[index] = e
 	return x
@@ -776,10 +776,10 @@ func (c *Context) attachId(elementId ElementId) ElementId {
 
 func (c *Context) configureOpenElement(declaration *ElementDeclaration) {
 	if declaration.Layout.Sizing.Width == nil {
-		declaration.Layout.Sizing.Width = SIZING_FIT()
+		declaration.Layout.Sizing.Width = c.SIZING_FIT()
 	}
 	if declaration.Layout.Sizing.Height == nil {
-		declaration.Layout.Sizing.Height = SIZING_FIT()
+		declaration.Layout.Sizing.Height = c.SIZING_FIT()
 	}
 
 	openLayoutElement := c.getOpenLayoutElement()
@@ -866,7 +866,7 @@ func (c *Context) configureOpenElement(declaration *ElementDeclaration) {
 				floatingConfig.ParentId = hashString("Clay__RootContainer").id
 			}
 			if openLayoutElementId.id == 0 {
-				openLayoutElementId = IDI("Clay__FloatingContainer", uint32(len(c.layoutElementTreeRoots)))
+				openLayoutElementId = c.IDI("Clay__FloatingContainer", uint32(len(c.layoutElementTreeRoots)))
 			}
 			currentElementIndex := c.openLayoutElementStack[len(c.openLayoutElementStack)-1]
 			c.layoutElementClipElementIds = slicesex_Set(c.layoutElementClipElementIds, currentElementIndex, clipElementId)
