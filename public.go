@@ -1,4 +1,4 @@
-package goclay
+package clay
 
 import (
 	"github.com/igadmg/gamemath/vector2"
