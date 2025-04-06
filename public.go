@@ -371,6 +371,10 @@ func (c *Context) SetQueryScrollOffsetFunction(fn QueryScrollOffsetFn, userData 
 // Enables and disables visibility culling. By default, Clay will not generate render commands for elements whose bounding box is entirely outside the screen.
 ///CLAY_DLL_EXPORT void SetCullingEnabled(bool enabled);
 
+func (c *Context) SetRenderTranclucentEnabled(v bool) {
+	c.renderTranslucent = v
+}
+
 // Returns the maximum number of UI elements supported by Clay's current configuration.
 ///CLAY_DLL_EXPORT int32_t GetMaxElementCount(void);
 

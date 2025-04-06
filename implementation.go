@@ -11,6 +11,7 @@ import (
 
 var LAYOUT_DEFAULT LayoutConfig
 var Color_DEFAULT Color
+var Color_WHITE Color = Color{0xff, 0xff, 0xff, 0xff}
 var CornerRadius_DEFAULT CornerRadius
 var BorderWidth_DEFAULT BorderWidth
 
@@ -196,6 +197,7 @@ type Context struct {
 	generation                    uint32
 	measureTextUserData           any
 	queryScrollOffsetUserData     any
+	renderTranslucent             bool
 
 	// Layout Elements / Render Commands
 	layoutElements              []LayoutElement
@@ -813,7 +815,7 @@ func (c *Context) configureOpenElement(declaration *ElementDeclaration) {
 
 	openLayoutElement.elementConfigs = c.elementConfigs[len(c.elementConfigs):len(c.elementConfigs)]
 	sharedConfig := (*SharedElementConfig)(nil)
-	if declaration.BackgroundColor.A > 0 {
+	if c.renderTranslucent || declaration.BackgroundColor.A > 0 {
 		sharedConfig = c.storeSharedElementConfig(SharedElementConfig{backgroundColor: declaration.BackgroundColor})
 		c.attachElementConfig(sharedConfig)
 	}
@@ -1614,7 +1616,7 @@ func (c *Context) calculateFinalLayout() {
 				emitRectangle := false
 				// Create the render commands for this element
 				sharedConfig, ok := findElementConfigWithType[*SharedElementConfig](currentElement)
-				if ok && sharedConfig.backgroundColor.A > 0 {
+				if ok && (c.renderTranslucent || sharedConfig.backgroundColor.A > 0) {
 					emitRectangle = true
 				} else if !ok {
 					emitRectangle = false
