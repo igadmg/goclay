@@ -353,18 +353,32 @@ func WithSizing(cfg Sizing) ElementOptionsFn {
 	}
 }
 
+func WithPads(Left uint16, Right uint16, Top uint16, Bottom uint16) ElementOptionsFn {
+	return func(ed ElementDeclaration) ElementDeclaration {
+		ed.Layout.Padding = Padding{
+			Left:   Left,
+			Right:  Right,
+			Top:    Top,
+			Bottom: Bottom,
+		}
+		return ed
+	}
+}
+
 func WithPadding(cfg Padding) ElementOptionsFn {
 	return func(ed ElementDeclaration) ElementDeclaration {
 		ed.Layout.Padding = cfg
 		return ed
 	}
 }
+
 func WithChildGap(cfg uint16) ElementOptionsFn {
 	return func(ed ElementDeclaration) ElementDeclaration {
 		ed.Layout.ChildGap = cfg
 		return ed
 	}
 }
+
 func WithChildAlignment(cfg ChildAlignment) ElementOptionsFn {
 	return func(ed ElementDeclaration) ElementDeclaration {
 		ed.Layout.ChildAlignment = cfg
@@ -761,7 +775,7 @@ type ElementDeclaration struct {
 	UserData any
 }
 
-type ElementOptionsFn func(ElementDeclaration) ElementDeclaration
+type ElementOptionsFn = func(ElementDeclaration) ElementDeclaration
 
 func Element(options ...ElementOptionsFn) (e ElementDeclaration) {
 	for _, o := range options {
