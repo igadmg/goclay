@@ -230,6 +230,18 @@ func SizingAxisTypeString(a AnySizingAxis) string {
 	return ""
 }
 
+func FIT(s ...float32) SizingAxisFit { return SIZING_FIT(s...) }
+func SIZING_FIT(s ...float32) SizingAxisFit {
+	switch len(s) {
+	case 0:
+		return SizingAxisFit{MinMax: SizingMinMax{Min: 0, Max: math.MaxFloat32}}
+	case 1:
+		return SizingAxisFit{MinMax: SizingMinMax{Min: s[0], Max: math.MaxFloat32}}
+	default:
+		return SizingAxisFit{MinMax: SizingMinMax{Min: s[0], Max: s[1]}}
+	}
+}
+
 func (*Context) SIZING_FIT(s ...float32) SizingAxisFit {
 	switch len(s) {
 	case 0:
@@ -238,6 +250,18 @@ func (*Context) SIZING_FIT(s ...float32) SizingAxisFit {
 		return SizingAxisFit{MinMax: SizingMinMax{Min: s[0], Max: math.MaxFloat32}}
 	default:
 		return SizingAxisFit{MinMax: SizingMinMax{Min: s[0], Max: s[1]}}
+	}
+}
+
+func GROW(s ...float32) SizingAxisGrow { return SIZING_GROW(s...) }
+func SIZING_GROW(s ...float32) SizingAxisGrow {
+	switch len(s) {
+	case 0:
+		return SizingAxisGrow{MinMax: SizingMinMax{Min: 0, Max: math.MaxFloat32}}
+	case 1:
+		return SizingAxisGrow{MinMax: SizingMinMax{Min: s[0], Max: math.MaxFloat32}}
+	default:
+		return SizingAxisGrow{MinMax: SizingMinMax{Min: s[0], Max: s[1]}}
 	}
 }
 
@@ -252,8 +276,24 @@ func (*Context) SIZING_GROW(s ...float32) SizingAxisGrow {
 	}
 }
 
+func FIXED(fixedSize float32) SizingAxisFixed {
+	return SizingAxisFixed{MinMax: SizingMinMax{Min: fixedSize, Max: fixedSize}}
+}
+
+func SIZING_FIXED(fixedSize float32) SizingAxisFixed {
+	return SizingAxisFixed{MinMax: SizingMinMax{Min: fixedSize, Max: fixedSize}}
+}
+
 func (*Context) SIZING_FIXED(fixedSize float32) SizingAxisFixed {
 	return SizingAxisFixed{MinMax: SizingMinMax{Min: fixedSize, Max: fixedSize}}
+}
+
+func PERCENT(percentOfParent float32) SizingAxisPercent {
+	return SizingAxisPercent{Percent: percentOfParent}
+}
+
+func SIZING_PERCENT(percentOfParent float32) SizingAxisPercent {
+	return SizingAxisPercent{Percent: percentOfParent}
 }
 
 func (*Context) SIZING_PERCENT(percentOfParent float32) SizingAxisPercent {
@@ -286,6 +326,10 @@ type Padding struct {
 	Bottom uint16
 }
 
+func PADDING_ALL(padding uint16) Padding {
+	return Padding{padding, padding, padding, padding}
+}
+
 func (*Context) PADDING_ALL(padding uint16) Padding {
 	return Padding{padding, padding, padding, padding}
 }
@@ -301,6 +345,38 @@ type LayoutConfig struct {
 }
 
 var default_LayoutConfig LayoutConfig
+
+func WithSizing(cfg Sizing) ElementOptionsFn {
+	return func(ed ElementDeclaration) ElementDeclaration {
+		ed.Layout.Sizing = cfg
+		return ed
+	}
+}
+
+func WithPadding(cfg Padding) ElementOptionsFn {
+	return func(ed ElementDeclaration) ElementDeclaration {
+		ed.Layout.Padding = cfg
+		return ed
+	}
+}
+func WithChildGap(cfg uint16) ElementOptionsFn {
+	return func(ed ElementDeclaration) ElementDeclaration {
+		ed.Layout.ChildGap = cfg
+		return ed
+	}
+}
+func WithChildAlignment(cfg ChildAlignment) ElementOptionsFn {
+	return func(ed ElementDeclaration) ElementDeclaration {
+		ed.Layout.ChildAlignment = cfg
+		return ed
+	}
+}
+func WithLayoutDirection(cfg LayoutDirection) ElementOptionsFn {
+	return func(ed ElementDeclaration) ElementDeclaration {
+		ed.Layout.LayoutDirection = cfg
+		return ed
+	}
+}
 
 // Controls how text "wraps", that is how it is broken into multiple lines when there is insufficient horizontal space.
 type TextElementConfigWrapMode uint8
@@ -683,6 +759,78 @@ type ElementDeclaration struct {
 	Border BorderElementConfig
 	// A pointer that will be transparently passed through to resulting render commands.
 	UserData any
+}
+
+type ElementOptionsFn func(ElementDeclaration) ElementDeclaration
+
+func Element(options ...ElementOptionsFn) (e ElementDeclaration) {
+	for _, o := range options {
+		e = o(e)
+	}
+	return
+}
+
+func WithLayout(cfg LayoutConfig) ElementOptionsFn {
+	return func(ed ElementDeclaration) ElementDeclaration {
+		ed.Layout = cfg
+		return ed
+	}
+}
+
+func WithBackgroundColor(cfg Color) ElementOptionsFn {
+	return func(ed ElementDeclaration) ElementDeclaration {
+		ed.BackgroundColor = cfg
+		return ed
+	}
+}
+
+func WithCornerRadius(cfg CornerRadius) ElementOptionsFn {
+	return func(ed ElementDeclaration) ElementDeclaration {
+		ed.CornerRadius = cfg
+		return ed
+	}
+}
+
+func WithImage(cfg ImageElementConfig) ElementOptionsFn {
+	return func(ed ElementDeclaration) ElementDeclaration {
+		ed.Image = cfg
+		return ed
+	}
+}
+
+func WithFloating(cfg FloatingElementConfig) ElementOptionsFn {
+	return func(ed ElementDeclaration) ElementDeclaration {
+		ed.Floating = cfg
+		return ed
+	}
+}
+
+func WithCustom(cfg CustomElementConfig) ElementOptionsFn {
+	return func(ed ElementDeclaration) ElementDeclaration {
+		ed.Custom = cfg
+		return ed
+	}
+}
+
+func WithScroll(cfg ScrollElementConfig) ElementOptionsFn {
+	return func(ed ElementDeclaration) ElementDeclaration {
+		ed.Scroll = cfg
+		return ed
+	}
+}
+
+func WithBorder(cfg BorderElementConfig) ElementOptionsFn {
+	return func(ed ElementDeclaration) ElementDeclaration {
+		ed.Border = cfg
+		return ed
+	}
+}
+
+func WithUserData(cfg any) ElementOptionsFn {
+	return func(ed ElementDeclaration) ElementDeclaration {
+		ed.UserData = cfg
+		return ed
+	}
 }
 
 // Represents the type of error clay encountered while computing layout.
