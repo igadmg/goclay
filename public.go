@@ -1,7 +1,7 @@
-package goclay
+package clay
 
 import (
-	"github.com/igadmg/raylib-go/raymath/vector2"
+	"github.com/igadmg/gamemath/vector2"
 )
 
 /// Clay Git Reference - clay used to convert, keep it and update as you update goclay code.
@@ -101,7 +101,7 @@ func (c *Context) SetPointerState(position Vector2, pointerDown bool) {
 // - arena can be created using clay.CreateArenaWithCapacityAndMemory()
 // - layoutDimensions are the initial bounding dimensions of the layout (i.e. the screen width and height for a full screen layout)
 // - errorHandler is used by Clay to inform you if something has gone wrong in configuration or layout.
-func Initialize(arena any /*Arena*/, layoutDimensions Dimensions, errorHandler ErrorHandler) *Context {
+func Initialize(layoutDimensions Dimensions, errorHandler ErrorHandler) *Context {
 	// DEFAULTS
 	if errorHandler.ErrorHandlerFunction == nil {
 		errorHandler.ErrorHandlerFunction = errorHandlerFunctionDefault
@@ -278,11 +278,11 @@ func (c *Context) BeginLayout() {
 	c.booleanWarnings = BooleanWarnings{}
 	c.openElement()
 	c.configureOpenElement(&ElementDeclaration{
-		Id: ID("Clay__RootContainer"),
+		Id: c.ID("Clay__RootContainer"),
 		Layout: LayoutConfig{
 			Sizing: Sizing{
-				SIZING_FIXED(rootDimensions.X),
-				SIZING_FIXED(rootDimensions.Y),
+				c.SIZING_FIXED(rootDimensions.X),
+				c.SIZING_FIXED(rootDimensions.Y),
 			},
 		},
 	})
@@ -370,6 +370,10 @@ func (c *Context) SetQueryScrollOffsetFunction(fn QueryScrollOffsetFn, userData 
 
 // Enables and disables visibility culling. By default, Clay will not generate render commands for elements whose bounding box is entirely outside the screen.
 ///CLAY_DLL_EXPORT void SetCullingEnabled(bool enabled);
+
+func (c *Context) SetRenderTranclucentEnabled(v bool) {
+	c.renderTranslucent = v
+}
 
 // Returns the maximum number of UI elements supported by Clay's current configuration.
 ///CLAY_DLL_EXPORT int32_t GetMaxElementCount(void);
