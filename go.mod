@@ -3,7 +3,7 @@ module github.com/igadmg/goclay
 go 1.24
 
 require (
-	github.com/igadmg/gamemath v0.0.0-20250410222204-28d83654fdf2
+	github.com/igadmg/gamemath v0.0.0-20250502152201-14a551f600ad
 	golang.org/x/exp v0.0.0-20250408133849-7e4ce0ab07d0
 )
 
