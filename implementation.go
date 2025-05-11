@@ -1744,7 +1744,7 @@ func (c *Context) calculateFinalLayout() {
 				if !elementHasConfig[*TextElementConfig](currentElementTreeNode.layoutElement) {
 					var contentSize Dimensions
 					if layoutConfig.LayoutDirection == LEFT_TO_RIGHT {
-						for child := range currentElement.children {
+						for _, child := range currentElement.children {
 							childElement := c.layoutElements[child]
 							contentSize.X += childElement.dimensions.X
 							contentSize.Y = max(contentSize.Y, childElement.dimensions.Y)
@@ -1761,7 +1761,7 @@ func (c *Context) calculateFinalLayout() {
 						}
 						currentElementTreeNode.nextChildOffset.X += extraSpace
 					} else {
-						for child := range currentElement.children {
+						for _, child := range currentElement.children {
 							childElement := c.layoutElements[child]
 							contentSize.X = max(contentSize.X, childElement.dimensions.X)
 							contentSize.Y += childElement.dimensions.Y
