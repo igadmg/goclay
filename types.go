@@ -53,7 +53,12 @@ type ElementId struct {
 
 var default_ElementId ElementId
 
+func ID(label string) ElementId            { return hashString(label) }
 func (*Context) ID(label string) ElementId { return hashString(label) }
+
+func IDI(label string, index uint32) ElementId {
+	return hashString(fmt.Sprintf("%s[%d]", label, index))
+}
 func (*Context) IDI(label string, index uint32) ElementId {
 	return hashString(fmt.Sprintf("%s[%d]", label, index))
 }
