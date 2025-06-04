@@ -298,11 +298,11 @@ func main_callback_with_separate_layout() {
 	defer gx_Must(pprofex_WriteCPUProfile("goclay"))()
 
 	screenSize := clay.MakeDimensions(640, 480)
-	mousePosition := clay.MakeVector2(160, 100)
-	mouseWheel := clay.MakeVector2(0, 0)
-	isMouseDown := false
+	//mousePosition := clay.MakeVector2(160, 100)
+	//mouseWheel := clay.MakeVector2(0, 0)
+	//isMouseDown := false
 	//var profilePicture any = &struct{ ImageData []byte }{ImageData: nil}
-	var deltaTime float32 = 0.1
+	//var deltaTime float32 = 0.1
 
 	// Note: screenWidth and screenHeight will need to come from your environment, Clay doesn't handle window related tasks
 	ui := clay.Initialize(screenSize, clay.ErrorHandler{})
