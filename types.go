@@ -593,6 +593,10 @@ type ScrollElementConfig struct {
 
 var default_ScrollElementConfig ScrollElementConfig
 
+func SCROLL_ALL() ScrollElementConfig {
+	return ScrollElementConfig{Horizontal: true, Vertical: true}
+}
+
 // Border -----------------------------
 
 // Controls the widths of individual element borders.
