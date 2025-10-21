@@ -1,6 +1,6 @@
 module github.com/igadmg/goclay
 
-go 1.24.2
+go 1.25
 
 require (
 	github.com/igadmg/gamemath v0.0.0-20251005093227-7bfaf5fc0f12
