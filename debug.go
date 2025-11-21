@@ -273,7 +273,7 @@ func (c *Context) renderDebugLayoutElementsList(initialRootsLength int32, highli
 				if (!(elementHasConfig(currentElement, CLAY__ELEMENT_CONFIG_TYPE_TEXT) || (currentElementData && currentElementData.debugData.collapsed))) {
 					for (int32 i = currentElement.childrenOrTextContent.children.length - 1; i >= 0; --i) {
 						Clay__int32_tArray_Add(&dfsBuffer, currentElement.childrenOrTextContent.children.elements[i]);
-						context.treeNodeVisited.internalArray[dfsBuffer.length - 1] = false; // TODO needs to be ranged checked
+						context.treeNodeVisited.internalArray[dfsBuffer.length - 1] = false; // TODO: needs to be ranged checked
 					}
 				}
 			}
@@ -819,7 +819,7 @@ func (c *Context) Clay__RenderDebugView() {
 								LayoutDirection: TOP_TO_BOTTOM}}, func() {
 							// .vertical
 							c.TEXT("Vertical", infoTitleConfig)
-							// TODO fix
+							// TODO: fix
 							//c.TEXT(scrollConfig.vertical ? "true" : "false" , infoTextConfig);
 							// .horizontal
 							c.TEXT("Horizontal", infoTitleConfig)
