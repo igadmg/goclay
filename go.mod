@@ -3,8 +3,8 @@ module github.com/igadmg/goclay
 go 1.25
 
 require (
-	github.com/igadmg/gamemath v0.0.0-20251005093227-7bfaf5fc0f12
-	golang.org/x/exp v0.0.0-20251002181428-27f1f14c8bb9
+	github.com/igadmg/gamemath v0.0.0-20251109122209-e8d287036732
+	golang.org/x/exp v0.0.0-20251113190631-e25ba8c21ef6
 )
 
 require github.com/chewxy/math32 v1.11.1 // indirect
