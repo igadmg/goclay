@@ -314,22 +314,22 @@ func (c *Context) renderDebugLayoutElementsList(initialRootsLength int32, highli
 }
 
 func (c *Context) renderDebugLayoutSizing(sizing AnySizingAxis, infoTextConfig *TextElementConfig) {
-	c.TEXT(SizingAxisTypeString(sizing), infoTextConfig)
+	c.CLAY_TEXT(SizingAxisTypeString(sizing), infoTextConfig)
 	switch mm := sizing.(type) {
 	case SizingAxisMinMax:
-		c.TEXT("(", infoTextConfig)
+		c.CLAY_TEXT("(", infoTextConfig)
 		if mm.GetMinMax().Min != 0 {
-			c.TEXT("min: ", infoTextConfig)
-			c.TEXT(strconv.Itoa(int(mm.GetMinMax().Min)), infoTextConfig)
+			c.CLAY_TEXT("min: ", infoTextConfig)
+			c.CLAY_TEXT(strconv.Itoa(int(mm.GetMinMax().Min)), infoTextConfig)
 			if mm.GetMinMax().Max != math.MaxFloat32 {
-				c.TEXT(", ", infoTextConfig)
+				c.CLAY_TEXT(", ", infoTextConfig)
 			}
 		}
 		if mm.GetMinMax().Max != math.MaxFloat32 {
-			c.TEXT("max: ", infoTextConfig)
-			c.TEXT(strconv.Itoa(int(mm.GetMinMax().Max)), infoTextConfig)
+			c.CLAY_TEXT("max: ", infoTextConfig)
+			c.CLAY_TEXT(strconv.Itoa(int(mm.GetMinMax().Max)), infoTextConfig)
 		}
-		c.TEXT(")", infoTextConfig)
+		c.CLAY_TEXT(")", infoTextConfig)
 	}
 }
 
@@ -493,7 +493,7 @@ func (c *Context) Clay__RenderDebugView() {
 			},
 			BackgroundColor: CLAY__DEBUGVIEW_COLOR_2,
 		}, func() {
-			c.TEXT("Clay Debug Tools", infoTextConfig)
+			c.CLAY_TEXT("Clay Debug Tools", infoTextConfig)
 			c.CLAY(ElementDeclaration{
 				Layout: LayoutConfig{
 					Sizing: Sizing{Width: c.SIZING_GROW(0)},
@@ -516,7 +516,7 @@ func (c *Context) Clay__RenderDebugView() {
 				},
 			}, func() {
 				//Clay_OnHover(HandleDebugViewCloseButtonInteraction, 0);
-				c.TEXT("x", c.TEXT_CONFIG(TextElementConfig{
+				c.CLAY_TEXT("x", c.TEXT_CONFIG(TextElementConfig{
 					TextColor: CLAY__DEBUGVIEW_COLOR_4,
 					FontSize:  16,
 				}))
@@ -660,14 +660,14 @@ func (c *Context) Clay__RenderDebugView() {
 						ChildAlignment: ChildAlignment{Y: ALIGN_Y_CENTER},
 					},
 				}, func() {
-					c.TEXT("Layout Config", infoTextConfig)
+					c.CLAY_TEXT("Layout Config", infoTextConfig)
 					c.CLAY(ElementDeclaration{
 						Layout: LayoutConfig{
 							Sizing: Sizing{Width: c.SIZING_GROW(0)},
 						},
 					})
 					if selectedItem.elementId.stringId != "" {
-						c.TEXT(selectedItem.elementId.stringId, infoTitleConfig)
+						c.CLAY_TEXT(selectedItem.elementId.stringId, infoTitleConfig)
 						/*
 							if selectedItem.elementId.offset != 0 {
 								c.TEXT(" (", infoTitleConfig)
@@ -686,61 +686,61 @@ func (c *Context) Clay__RenderDebugView() {
 						LayoutDirection: TOP_TO_BOTTOM},
 				}, func() {
 					// .boundingBox
-					c.TEXT("Bounding Box", infoTitleConfig)
+					c.CLAY_TEXT("Bounding Box", infoTitleConfig)
 					c.CLAY(ElementDeclaration{
 						Layout: LayoutConfig{LayoutDirection: LEFT_TO_RIGHT},
 					}, func() {
-						c.TEXT("{ x: ", infoTextConfig)
-						c.TEXT(strconv.Itoa(int(selectedItem.boundingBox.X())), infoTextConfig)
-						c.TEXT(", y: ", infoTextConfig)
-						c.TEXT(strconv.Itoa(int(selectedItem.boundingBox.Y())), infoTextConfig)
-						c.TEXT(", width: ", infoTextConfig)
-						c.TEXT(strconv.Itoa(int(selectedItem.boundingBox.Width())), infoTextConfig)
-						c.TEXT(", height: ", infoTextConfig)
-						c.TEXT(strconv.Itoa(int(selectedItem.boundingBox.Height())), infoTextConfig)
-						c.TEXT(" }", infoTextConfig)
+						c.CLAY_TEXT("{ x: ", infoTextConfig)
+						c.CLAY_TEXT(strconv.Itoa(int(selectedItem.boundingBox.X())), infoTextConfig)
+						c.CLAY_TEXT(", y: ", infoTextConfig)
+						c.CLAY_TEXT(strconv.Itoa(int(selectedItem.boundingBox.Y())), infoTextConfig)
+						c.CLAY_TEXT(", width: ", infoTextConfig)
+						c.CLAY_TEXT(strconv.Itoa(int(selectedItem.boundingBox.Width())), infoTextConfig)
+						c.CLAY_TEXT(", height: ", infoTextConfig)
+						c.CLAY_TEXT(strconv.Itoa(int(selectedItem.boundingBox.Height())), infoTextConfig)
+						c.CLAY_TEXT(" }", infoTextConfig)
 					})
 					// .layoutDirection
-					c.TEXT("Layout Direction", infoTitleConfig)
+					c.CLAY_TEXT("Layout Direction", infoTitleConfig)
 					layoutConfig := selectedItem.layoutElement.layoutConfig
-					c.TEXT(layoutConfig.LayoutDirection.String(), infoTextConfig)
+					c.CLAY_TEXT(layoutConfig.LayoutDirection.String(), infoTextConfig)
 					// .sizing
-					c.TEXT("Sizing", infoTitleConfig)
+					c.CLAY_TEXT("Sizing", infoTitleConfig)
 					c.CLAY(ElementDeclaration{
 						Layout: LayoutConfig{LayoutDirection: LEFT_TO_RIGHT},
 					}, func() {
-						c.TEXT("width: ", infoTextConfig)
+						c.CLAY_TEXT("width: ", infoTextConfig)
 						c.renderDebugLayoutSizing(layoutConfig.Sizing.Width, infoTextConfig)
 					})
 					c.CLAY(ElementDeclaration{
 						Layout: LayoutConfig{LayoutDirection: LEFT_TO_RIGHT},
 					}, func() {
-						c.TEXT("height: ", infoTextConfig)
+						c.CLAY_TEXT("height: ", infoTextConfig)
 						c.renderDebugLayoutSizing(layoutConfig.Sizing.Height, infoTextConfig)
 					})
 					// .padding
-					c.TEXT("Padding", infoTitleConfig)
+					c.CLAY_TEXT("Padding", infoTitleConfig)
 					c.CLAY_ID(c.ID("Clay__DebugViewElementInfoPadding"),
 						ElementDeclaration{}, func() {
-							c.TEXT("{ left: ", infoTextConfig)
-							c.TEXT(strconv.Itoa(int(layoutConfig.Padding.Left)), infoTextConfig)
-							c.TEXT(", right: ", infoTextConfig)
-							c.TEXT(strconv.Itoa(int(layoutConfig.Padding.Right)), infoTextConfig)
-							c.TEXT(", top: ", infoTextConfig)
-							c.TEXT(strconv.Itoa(int(layoutConfig.Padding.Top)), infoTextConfig)
-							c.TEXT(", bottom: ", infoTextConfig)
-							c.TEXT(strconv.Itoa(int(layoutConfig.Padding.Bottom)), infoTextConfig)
-							c.TEXT(" }", infoTextConfig)
+							c.CLAY_TEXT("{ left: ", infoTextConfig)
+							c.CLAY_TEXT(strconv.Itoa(int(layoutConfig.Padding.Left)), infoTextConfig)
+							c.CLAY_TEXT(", right: ", infoTextConfig)
+							c.CLAY_TEXT(strconv.Itoa(int(layoutConfig.Padding.Right)), infoTextConfig)
+							c.CLAY_TEXT(", top: ", infoTextConfig)
+							c.CLAY_TEXT(strconv.Itoa(int(layoutConfig.Padding.Top)), infoTextConfig)
+							c.CLAY_TEXT(", bottom: ", infoTextConfig)
+							c.CLAY_TEXT(strconv.Itoa(int(layoutConfig.Padding.Bottom)), infoTextConfig)
+							c.CLAY_TEXT(" }", infoTextConfig)
 						})
 					// .childGap
-					c.TEXT("Child Gap", infoTitleConfig)
-					c.TEXT(strconv.Itoa(int(layoutConfig.ChildGap)), infoTextConfig)
+					c.CLAY_TEXT("Child Gap", infoTitleConfig)
+					c.CLAY_TEXT(strconv.Itoa(int(layoutConfig.ChildGap)), infoTextConfig)
 					// .childAlignment
-					c.TEXT("Child Alignment", infoTitleConfig)
+					c.CLAY_TEXT("Child Alignment", infoTitleConfig)
 					c.CLAY(ElementDeclaration{
 						Layout: LayoutConfig{LayoutDirection: LEFT_TO_RIGHT},
 					}, func() {
-						c.TEXT("{ x: ", infoTextConfig)
+						c.CLAY_TEXT("{ x: ", infoTextConfig)
 						alignX := "LEFT"
 						switch layoutConfig.ChildAlignment.X {
 						case ALIGN_X_CENTER:
@@ -748,8 +748,8 @@ func (c *Context) Clay__RenderDebugView() {
 						case ALIGN_X_RIGHT:
 							alignX = "RIGHT"
 						}
-						c.TEXT(alignX, infoTextConfig)
-						c.TEXT(", y: ", infoTextConfig)
+						c.CLAY_TEXT(alignX, infoTextConfig)
+						c.CLAY_TEXT(", y: ", infoTextConfig)
 						alignY := "TOP"
 						switch layoutConfig.ChildAlignment.Y {
 						case ALIGN_Y_CENTER:
@@ -757,8 +757,8 @@ func (c *Context) Clay__RenderDebugView() {
 						case ALIGN_Y_BOTTOM:
 							alignY = "BOTTOM"
 						}
-						c.TEXT(alignY, infoTextConfig)
-						c.TEXT(" }", infoTextConfig)
+						c.CLAY_TEXT(alignY, infoTextConfig)
+						c.CLAY_TEXT(" }", infoTextConfig)
 					})
 				})
 				for _, elementConfig := range selectedItem.layoutElement.elementConfigs {
@@ -773,10 +773,10 @@ func (c *Context) Clay__RenderDebugView() {
 							},
 						}, func() {
 							// .backgroundColor
-							c.TEXT("Background Color", infoTitleConfig)
+							c.CLAY_TEXT("Background Color", infoTitleConfig)
 							c.Clay__RenderDebugViewColor(cfg.backgroundColor, infoTextConfig)
 							// .cornerRadius
-							c.TEXT("Corner Radius", infoTitleConfig)
+							c.CLAY_TEXT("Corner Radius", infoTitleConfig)
 							c.renderDebugViewCornerRadius(cfg.cornerRadius, infoTextConfig)
 						})
 					case *TextElementConfig:
@@ -788,29 +788,29 @@ func (c *Context) Clay__RenderDebugView() {
 							},
 						}, func() {
 							// .fontSize
-							c.TEXT("Font Size", infoTitleConfig)
-							c.TEXT(strconv.Itoa(int(cfg.FontSize)), infoTextConfig)
+							c.CLAY_TEXT("Font Size", infoTitleConfig)
+							c.CLAY_TEXT(strconv.Itoa(int(cfg.FontSize)), infoTextConfig)
 							// .fontId
-							c.TEXT("Font ID", infoTitleConfig)
-							c.TEXT(strconv.Itoa(int(cfg.FontId)), infoTextConfig)
+							c.CLAY_TEXT("Font ID", infoTitleConfig)
+							c.CLAY_TEXT(strconv.Itoa(int(cfg.FontId)), infoTextConfig)
 							// .lineHeight
-							c.TEXT("Line Height", infoTitleConfig)
+							c.CLAY_TEXT("Line Height", infoTitleConfig)
 							lineHeight := "auto"
 							if cfg.LineHeight != 0 {
 								lineHeight = strconv.Itoa(int(cfg.LineHeight))
 							}
-							c.TEXT(lineHeight, infoTextConfig)
+							c.CLAY_TEXT(lineHeight, infoTextConfig)
 							// .letterSpacing
-							c.TEXT("Letter Spacing", infoTitleConfig)
-							c.TEXT(strconv.Itoa(int(cfg.LetterSpacing)), infoTextConfig)
+							c.CLAY_TEXT("Letter Spacing", infoTitleConfig)
+							c.CLAY_TEXT(strconv.Itoa(int(cfg.LetterSpacing)), infoTextConfig)
 							// .wrapMode
-							c.TEXT("Wrap Mode", infoTitleConfig)
-							c.TEXT(cfg.WrapMode.String(), infoTextConfig)
+							c.CLAY_TEXT("Wrap Mode", infoTitleConfig)
+							c.CLAY_TEXT(cfg.WrapMode.String(), infoTextConfig)
 							// .textAlignment
-							c.TEXT("Text Alignment", infoTitleConfig)
-							c.TEXT(cfg.TextAlignment.String(), infoTextConfig)
+							c.CLAY_TEXT("Text Alignment", infoTitleConfig)
+							c.CLAY_TEXT(cfg.TextAlignment.String(), infoTextConfig)
 							// .textColor
-							c.TEXT("Text Color", infoTitleConfig)
+							c.CLAY_TEXT("Text Color", infoTitleConfig)
 							c.Clay__RenderDebugViewColor(cfg.TextColor, infoTextConfig)
 						})
 					case *ImageElementConfig:
@@ -823,13 +823,13 @@ func (c *Context) Clay__RenderDebugView() {
 								},
 							}, func() {
 								// .sourceDimensions
-								c.TEXT("Source Dimensions", infoTitleConfig)
+								c.CLAY_TEXT("Source Dimensions", infoTitleConfig)
 								c.CLAY_ID(c.ID("Clay__DebugViewElementInfoImageDimensions"),
 									ElementDeclaration{}, func() {
-										c.TEXT("{}", infoTextConfig)
+										c.CLAY_TEXT("{}", infoTextConfig)
 									})
 								// Image Preview
-								c.TEXT("Preview", infoTitleConfig)
+								c.CLAY_TEXT("Preview", infoTitleConfig)
 								c.CLAY(ElementDeclaration{
 									Layout: LayoutConfig{
 										Sizing: Sizing{Width: c.SIZING_GROW()},
@@ -846,11 +846,11 @@ func (c *Context) Clay__RenderDebugView() {
 							},
 						}, func() {
 							// .vertical
-							c.TEXT("Vertical", infoTitleConfig)
+							c.CLAY_TEXT("Vertical", infoTitleConfig)
 							// TODO: fix
 							//c.TEXT(scrollConfig.vertical ? "true" : "false" , infoTextConfig);
 							// .horizontal
-							c.TEXT("Horizontal", infoTitleConfig)
+							c.CLAY_TEXT("Horizontal", infoTitleConfig)
 							//c.TEXT(scrollConfig.horizontal ? "true" : "false" , infoTextConfig);
 						})
 					case *FloatingElementConfig:
@@ -862,34 +862,34 @@ func (c *Context) Clay__RenderDebugView() {
 							},
 						}, func() {
 							// .offset
-							c.TEXT("Offset", infoTitleConfig)
+							c.CLAY_TEXT("Offset", infoTitleConfig)
 							c.CLAY(ElementDeclaration{
 								Layout: LayoutConfig{LayoutDirection: LEFT_TO_RIGHT},
 							}, func() {
-								c.TEXT("{ x: ", infoTextConfig)
-								c.TEXT(strconv.Itoa(int(cfg.Offset.X)), infoTextConfig)
-								c.TEXT(", y: ", infoTextConfig)
-								c.TEXT(strconv.Itoa(int(cfg.Offset.Y)), infoTextConfig)
-								c.TEXT(" }", infoTextConfig)
+								c.CLAY_TEXT("{ x: ", infoTextConfig)
+								c.CLAY_TEXT(strconv.Itoa(int(cfg.Offset.X)), infoTextConfig)
+								c.CLAY_TEXT(", y: ", infoTextConfig)
+								c.CLAY_TEXT(strconv.Itoa(int(cfg.Offset.Y)), infoTextConfig)
+								c.CLAY_TEXT(" }", infoTextConfig)
 							})
 							// .expand
-							c.TEXT("Expand", infoTitleConfig)
+							c.CLAY_TEXT("Expand", infoTitleConfig)
 							c.CLAY(ElementDeclaration{
 								Layout: LayoutConfig{LayoutDirection: LEFT_TO_RIGHT},
 							}, func() {
-								c.TEXT("{ width: ", infoTextConfig)
-								c.TEXT(strconv.Itoa(int(cfg.Expand.X)), infoTextConfig)
-								c.TEXT(", height: ", infoTextConfig)
-								c.TEXT(strconv.Itoa(int(cfg.Expand.Y)), infoTextConfig)
-								c.TEXT(" }", infoTextConfig)
+								c.CLAY_TEXT("{ width: ", infoTextConfig)
+								c.CLAY_TEXT(strconv.Itoa(int(cfg.Expand.X)), infoTextConfig)
+								c.CLAY_TEXT(", height: ", infoTextConfig)
+								c.CLAY_TEXT(strconv.Itoa(int(cfg.Expand.Y)), infoTextConfig)
+								c.CLAY_TEXT(" }", infoTextConfig)
 							})
 							// .zIndex
-							c.TEXT("z-index", infoTitleConfig)
-							c.TEXT(strconv.Itoa(int(cfg.ZIndex)), infoTextConfig)
+							c.CLAY_TEXT("z-index", infoTitleConfig)
+							c.CLAY_TEXT(strconv.Itoa(int(cfg.ZIndex)), infoTextConfig)
 							// .parentId
-							c.TEXT("Parent", infoTitleConfig)
+							c.CLAY_TEXT("Parent", infoTitleConfig)
 							hashItem, _ := c.getHashMapItem(cfg.ParentId)
-							c.TEXT(hashItem.elementId.stringId, infoTextConfig)
+							c.CLAY_TEXT(hashItem.elementId.stringId, infoTextConfig)
 						})
 					case *BorderElementConfig:
 						c.CLAY_ID(c.ID("Clay__DebugViewElementInfoBorderBody"),
@@ -900,22 +900,22 @@ func (c *Context) Clay__RenderDebugView() {
 									LayoutDirection: TOP_TO_BOTTOM,
 								},
 							}, func() {
-								c.TEXT("Border Widths", infoTitleConfig)
+								c.CLAY_TEXT("Border Widths", infoTitleConfig)
 								c.CLAY(ElementDeclaration{
 									Layout: LayoutConfig{LayoutDirection: LEFT_TO_RIGHT},
 								}, func() {
-									c.TEXT("{ left: ", infoTextConfig)
-									c.TEXT(strconv.Itoa(int(cfg.Width.Left)), infoTextConfig)
-									c.TEXT(", right: ", infoTextConfig)
-									c.TEXT(strconv.Itoa(int(cfg.Width.Right)), infoTextConfig)
-									c.TEXT(", top: ", infoTextConfig)
-									c.TEXT(strconv.Itoa(int(cfg.Width.Top)), infoTextConfig)
-									c.TEXT(", bottom: ", infoTextConfig)
-									c.TEXT(strconv.Itoa(int(cfg.Width.Bottom)), infoTextConfig)
-									c.TEXT(" }", infoTextConfig)
+									c.CLAY_TEXT("{ left: ", infoTextConfig)
+									c.CLAY_TEXT(strconv.Itoa(int(cfg.Width.Left)), infoTextConfig)
+									c.CLAY_TEXT(", right: ", infoTextConfig)
+									c.CLAY_TEXT(strconv.Itoa(int(cfg.Width.Right)), infoTextConfig)
+									c.CLAY_TEXT(", top: ", infoTextConfig)
+									c.CLAY_TEXT(strconv.Itoa(int(cfg.Width.Top)), infoTextConfig)
+									c.CLAY_TEXT(", bottom: ", infoTextConfig)
+									c.CLAY_TEXT(strconv.Itoa(int(cfg.Width.Bottom)), infoTextConfig)
+									c.CLAY_TEXT(" }", infoTextConfig)
 								})
 								// .textColor
-								c.TEXT("Border Color", infoTitleConfig)
+								c.CLAY_TEXT("Border Color", infoTitleConfig)
 								c.Clay__RenderDebugViewColor(cfg.Color, infoTextConfig)
 							})
 						break
@@ -956,7 +956,7 @@ func (c *Context) Clay__RenderDebugView() {
 								ChildAlignment: ChildAlignment{Y: ALIGN_Y_CENTER},
 							},
 						}, func() {
-							c.TEXT("Warnings", warningConfig)
+							c.CLAY_TEXT("Warnings", warningConfig)
 						})
 					c.CLAY_ID(c.ID("Clay__DebugViewWarningsTopBorder"),
 						ElementDeclaration{
@@ -977,9 +977,9 @@ func (c *Context) Clay__RenderDebugView() {
 									ChildAlignment: ChildAlignment{Y: ALIGN_Y_CENTER},
 								},
 							}, func() {
-								c.TEXT(warning.baseMessage, warningConfig)
+								c.CLAY_TEXT(warning.baseMessage, warningConfig)
 								if warning.dynamicMessage != "" {
-									c.TEXT(warning.dynamicMessage, warningConfig)
+									c.CLAY_TEXT(warning.dynamicMessage, warningConfig)
 								}
 							})
 					}

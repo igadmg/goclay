@@ -469,10 +469,10 @@ func (c *Context) CLAY_ID(id ElementId, e ElementDeclaration, fns ...func()) {
 	c.closeElement()
 }
 
-func (c *Context) TEXT_CONFIG(config TextElementConfig) *TextElementConfig {
-	return c.storeTextElementConfig(config)
+func (c *Context) CLAY_TEXT(text string, config *TextElementConfig) {
+	c.openTextElement(text, config)
 }
 
-func (c *Context) TEXT(text string, config *TextElementConfig) {
-	c.openTextElement(text, config)
+func (c *Context) TEXT_CONFIG(config TextElementConfig) *TextElementConfig {
+	return c.storeTextElementConfig(config)
 }
