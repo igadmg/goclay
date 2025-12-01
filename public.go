@@ -5,7 +5,7 @@ import (
 )
 
 /// Clay Git Reference - clay used to convert, keep it and update as you update goclay code.
-// ad49977f1b37ccd7664333181f30f575d08d3838
+// 2749e56e7e9aaa8a5f17b859fd49dd15a77fe553
 ///
 
 // Returns the size, in bytes, of the minimum amount of memory Clay requires to operate at its current settings.
@@ -42,10 +42,10 @@ func (c *Context) SetPointerState(position Vector2, pointerDown bool) {
 			}
 			treeNodeVisited[len(dfsBuffer)-1] = true
 			currentElement := c.layoutElements[dfsBuffer[len(dfsBuffer)-1]]
-			mapItem := c.getHashMapItem(currentElement.id) // TODO think of a way around this, maybe the fact that it's essentially a binary tree limits the cost, but the worst case is not great
-			clipElementId := uint32(0)                     //TODO: fix c.layoutElementClipElementIds[(int32)(currentElement-c.layoutElements.internalArray)]
-			clipItem := c.getHashMapItem(clipElementId)
-			if mapItem != nil {
+			// TODO think of a way around this, maybe the fact that it's essentially a binary tree limits the cost, but the worst case is not great
+			if mapItem, ok := c.getHashMapItem(currentElement.id); ok {
+				clipElementId := uint32(0) //TODO: fix c.layoutElementClipElementIds[(int32)(currentElement-c.layoutElements.internalArray)]
+				clipItem, _ := c.getHashMapItem(clipElementId)
 				elementBox := mapItem.boundingBox.AddPositionXY(root.pointerOffset.X, -root.pointerOffset.Y)
 
 				if elementBox.Contains(position) && (clipElementId == 0 || clipItem.boundingBox.Contains(position)) {
@@ -141,122 +141,144 @@ func SetCurrentContext(context *Context) {
 	currentContext = context
 }
 
+// Returns the internally stored scroll offset for the currently open element.
+// Generally intended for use with clip elements to create scrolling containers.
+func (c *Context) GetScrollOffset() Vector2 {
+	/*
+		if (context->booleanWarnings.maxElementsExceeded) {
+			return CLAY__INIT(Clay_Vector2){};
+		}
+		Clay_LayoutElement *openLayoutElement = Clay__GetOpenLayoutElement();
+		// If the element has no id attached at this point, we need to generate one
+		if (openLayoutElement->id == 0) {
+			Clay__GenerateIdForAnonymousElement(openLayoutElement);
+		}
+		Clay_ClipElementConfig *clipConfig = Clay__FindElementConfigWithType(openLayoutElement, CLAY__ELEMENT_CONFIG_TYPE_CLIP).clipElementConfig;
+		for (int32_t i = 0; i < context->scrollContainerDatas.length; i++) {
+			Clay__ScrollContainerDataInternal *mapping = Clay__ScrollContainerDataInternalArray_Get(&context->scrollContainerDatas, i);
+			if (mapping->layoutElement == openLayoutElement) {
+				return mapping->scrollPosition;
+			}
+		}
+	*/
+	return Vector2{}
+}
+
 // Updates the state of Clay's internal scroll data, updating scroll content positions if scrollDelta is non zero, and progressing momentum scrolling.
 // - enableDragScrolling when set to true will enable mobile device like "touch drag" scroll of scroll containers, including momentum scrolling after the touch has ended.
 // - scrollDelta is the amount to scroll this frame on each axis in pixels.
 // - deltaTime is the time in seconds since the last "frame" (scroll update)
 func (c *Context) UpdateScrollContainers(enableDragScrolling bool, scrollDelta Vector2, deltaTime float32) {
 	/*
-	   context := GetCurrentContext();
-	       bool isPointerActive = enableDragScrolling && (context.pointerInfo.state == CLAY_POINTER_DATA_PRESSED || context.pointerInfo.state == CLAY_POINTER_DATA_PRESSED_THIS_FRAME);
-	       // Don't apply scroll events to ancestors of the inner element
-	       int32_t highestPriorityElementIndex = -1;
-	       Clay__ScrollContainerDataInternal *highestPriorityScrollData = CLAY__NULL;
-	       for (int32_t i = 0; i < context.scrollContainerDatas.length; i++) {
-	           Clay__ScrollContainerDataInternal *scrollData = Clay__ScrollContainerDataInternalArray_Get(&context.scrollContainerDatas, i);
-	           if (!scrollData.openThisFrame) {
-	               Clay__ScrollContainerDataInternalArray_RemoveSwapback(&context.scrollContainerDatas, i);
-	               continue;
-	           }
-	           scrollData.openThisFrame = false;
-	           Clay_LayoutElementHashMapItem *hashMapItem = Clay__GetHashMapItem(scrollData.elementId);
-	           // Element isn't rendered this frame but scroll offset has been retained
-	           if (!hashMapItem) {
-	               Clay__ScrollContainerDataInternalArray_RemoveSwapback(&context.scrollContainerDatas, i);
-	               continue;
-	           }
+		bool isPointerActive = enableDragScrolling && (context.pointerInfo.state == CLAY_POINTER_DATA_PRESSED || context.pointerInfo.state == CLAY_POINTER_DATA_PRESSED_THIS_FRAME);
+		// Don't apply scroll events to ancestors of the inner element
+		int32_t highestPriorityElementIndex = -1;
+		Clay__ScrollContainerDataInternal *highestPriorityScrollData = CLAY__NULL;
+		for (int32_t i = 0; i < context.scrollContainerDatas.length; i++) {
+			Clay__ScrollContainerDataInternal *scrollData = Clay__ScrollContainerDataInternalArray_Get(&context.scrollContainerDatas, i);
+			if (!scrollData.openThisFrame) {
+				Clay__ScrollContainerDataInternalArray_RemoveSwapback(&context.scrollContainerDatas, i);
+				continue;
+			}
+			scrollData.openThisFrame = false;
+			Clay_LayoutElementHashMapItem *hashMapItem = Clay__GetHashMapItem(scrollData.elementId);
+			// Element isn't rendered this frame but scroll offset has been retained
+			if (!hashMapItem) {
+				Clay__ScrollContainerDataInternalArray_RemoveSwapback(&context.scrollContainerDatas, i);
+				continue;
+			}
 
-	           // Touch / click is released
-	           if (!isPointerActive && scrollData.pointerScrollActive) {
-	               float xDiff = scrollData.scrollPosition.x - scrollData.scrollOrigin.x;
-	               if (xDiff < -10 || xDiff > 10) {
-	                   scrollData.scrollMomentum.x = (scrollData.scrollPosition.x - scrollData.scrollOrigin.x) / (scrollData.momentumTime * 25);
-	               }
-	               float yDiff = scrollData.scrollPosition.y - scrollData.scrollOrigin.y;
-	               if (yDiff < -10 || yDiff > 10) {
-	                   scrollData.scrollMomentum.y = (scrollData.scrollPosition.y - scrollData.scrollOrigin.y) / (scrollData.momentumTime * 25);
-	               }
-	               scrollData.pointerScrollActive = false;
+			// Touch / click is released
+			if (!isPointerActive && scrollData.pointerScrollActive) {
+				float xDiff = scrollData.scrollPosition.x - scrollData.scrollOrigin.x;
+				if (xDiff < -10 || xDiff > 10) {
+					scrollData.scrollMomentum.x = (scrollData.scrollPosition.x - scrollData.scrollOrigin.x) / (scrollData.momentumTime * 25);
+				}
+				float yDiff = scrollData.scrollPosition.y - scrollData.scrollOrigin.y;
+				if (yDiff < -10 || yDiff > 10) {
+					scrollData.scrollMomentum.y = (scrollData.scrollPosition.y - scrollData.scrollOrigin.y) / (scrollData.momentumTime * 25);
+				}
+				scrollData.pointerScrollActive = false;
 
-	               scrollData.pointerOrigin = CLAY__INIT(Clay_Vector2){0,0};
-	               scrollData.scrollOrigin = CLAY__INIT(Clay_Vector2){0,0};
-	               scrollData.momentumTime = 0;
-	           }
+				scrollData.pointerOrigin = CLAY__INIT(Clay_Vector2){0,0};
+				scrollData.scrollOrigin = CLAY__INIT(Clay_Vector2){0,0};
+				scrollData.momentumTime = 0;
+			}
 
-	           // Apply existing momentum
-	           scrollData.scrollPosition.x += scrollData.scrollMomentum.x;
-	           scrollData.scrollMomentum.x *= 0.95f;
-	           bool scrollOccurred = scrollDelta.x != 0 || scrollDelta.y != 0;
-	           if ((scrollData.scrollMomentum.x > -0.1f && scrollData.scrollMomentum.x < 0.1f) || scrollOccurred) {
-	               scrollData.scrollMomentum.x = 0;
-	           }
-	           scrollData.scrollPosition.x = CLAY__MIN(CLAY__MAX(scrollData.scrollPosition.x, -(CLAY__MAX(scrollData.contentSize.width - scrollData.layoutElement.dimensions.width, 0))), 0);
+			// Apply existing momentum
+			scrollData.scrollPosition.x += scrollData.scrollMomentum.x;
+			scrollData.scrollMomentum.x *= 0.95f;
+			bool scrollOccurred = scrollDelta.x != 0 || scrollDelta.y != 0;
+			if ((scrollData.scrollMomentum.x > -0.1f && scrollData.scrollMomentum.x < 0.1f) || scrollOccurred) {
+				scrollData.scrollMomentum.x = 0;
+			}
+			scrollData.scrollPosition.x = CLAY__MIN(CLAY__MAX(scrollData.scrollPosition.x, -(CLAY__MAX(scrollData.contentSize.width - scrollData.layoutElement.dimensions.width, 0))), 0);
 
-	           scrollData.scrollPosition.y += scrollData.scrollMomentum.y;
-	           scrollData.scrollMomentum.y *= 0.95f;
-	           if ((scrollData.scrollMomentum.y > -0.1f && scrollData.scrollMomentum.y < 0.1f) || scrollOccurred) {
-	               scrollData.scrollMomentum.y = 0;
-	           }
-	           scrollData.scrollPosition.y = CLAY__MIN(CLAY__MAX(scrollData.scrollPosition.y, -(CLAY__MAX(scrollData.contentSize.height - scrollData.layoutElement.dimensions.height, 0))), 0);
+			scrollData.scrollPosition.y += scrollData.scrollMomentum.y;
+			scrollData.scrollMomentum.y *= 0.95f;
+			if ((scrollData.scrollMomentum.y > -0.1f && scrollData.scrollMomentum.y < 0.1f) || scrollOccurred) {
+				scrollData.scrollMomentum.y = 0;
+			}
+			scrollData.scrollPosition.y = CLAY__MIN(CLAY__MAX(scrollData.scrollPosition.y, -(CLAY__MAX(scrollData.contentSize.height - scrollData.layoutElement.dimensions.height, 0))), 0);
 
-	           for (int32_t j = 0; j < context.pointerOverIds.length; ++j) { // TODO n & m are small here but this being n*m gives me the creeps
-	               if (scrollData.layoutElement.id == Clay__ElementIdArray_Get(&context.pointerOverIds, j).id) {
-	                   highestPriorityElementIndex = j;
-	                   highestPriorityScrollData = scrollData;
-	               }
-	           }
-	       }
+			for (int32_t j = 0; j < context.pointerOverIds.length; ++j) { // TODO n & m are small here but this being n*m gives me the creeps
+				if (scrollData.layoutElement.id == Clay__ElementIdArray_Get(&context.pointerOverIds, j).id) {
+					highestPriorityElementIndex = j;
+					highestPriorityScrollData = scrollData;
+				}
+			}
+		}
 
-	       if (highestPriorityElementIndex > -1 && highestPriorityScrollData) {
-	           Clay_LayoutElement *scrollElement = highestPriorityScrollData.layoutElement;
-	           Clay_ScrollElementConfig *scrollConfig = findElementConfigWithType(scrollElement, CLAY__ELEMENT_CONFIG_TYPE_SCROLL).scrollElementConfig;
-	           bool canScrollVertically = scrollConfig.vertical && highestPriorityScrollData.contentSize.height > scrollElement.dimensions.height;
-	           bool canScrollHorizontally = scrollConfig.horizontal && highestPriorityScrollData.contentSize.width > scrollElement.dimensions.width;
-	           // Handle wheel scroll
-	           if (canScrollVertically) {
-	               highestPriorityScrollData.scrollPosition.y = highestPriorityScrollData.scrollPosition.y + scrollDelta.y * 10;
-	           }
-	           if (canScrollHorizontally) {
-	               highestPriorityScrollData.scrollPosition.x = highestPriorityScrollData.scrollPosition.x + scrollDelta.x * 10;
-	           }
-	           // Handle click / touch scroll
-	           if (isPointerActive) {
-	               highestPriorityScrollData.scrollMomentum = CLAY__INIT(Clay_Vector2)CLAY__DEFAULT_STRUCT;
-	               if (!highestPriorityScrollData.pointerScrollActive) {
-	                   highestPriorityScrollData.pointerOrigin = context.pointerInfo.position;
-	                   highestPriorityScrollData.scrollOrigin = highestPriorityScrollData.scrollPosition;
-	                   highestPriorityScrollData.pointerScrollActive = true;
-	               } else {
-	                   float scrollDeltaX = 0, scrollDeltaY = 0;
-	                   if (canScrollHorizontally) {
-	                       float oldXScrollPosition = highestPriorityScrollData.scrollPosition.x;
-	                       highestPriorityScrollData.scrollPosition.x = highestPriorityScrollData.scrollOrigin.x + (context.pointerInfo.position.x - highestPriorityScrollData.pointerOrigin.x);
-	                       highestPriorityScrollData.scrollPosition.x = CLAY__MAX(CLAY__MIN(highestPriorityScrollData.scrollPosition.x, 0), -(highestPriorityScrollData.contentSize.width - highestPriorityScrollData.boundingBox.width));
-	                       scrollDeltaX = highestPriorityScrollData.scrollPosition.x - oldXScrollPosition;
-	                   }
-	                   if (canScrollVertically) {
-	                       float oldYScrollPosition = highestPriorityScrollData.scrollPosition.y;
-	                       highestPriorityScrollData.scrollPosition.y = highestPriorityScrollData.scrollOrigin.y + (context.pointerInfo.position.y - highestPriorityScrollData.pointerOrigin.y);
-	                       highestPriorityScrollData.scrollPosition.y = CLAY__MAX(CLAY__MIN(highestPriorityScrollData.scrollPosition.y, 0), -(highestPriorityScrollData.contentSize.height - highestPriorityScrollData.boundingBox.height));
-	                       scrollDeltaY = highestPriorityScrollData.scrollPosition.y - oldYScrollPosition;
-	                   }
-	                   if (scrollDeltaX > -0.1f && scrollDeltaX < 0.1f && scrollDeltaY > -0.1f && scrollDeltaY < 0.1f && highestPriorityScrollData.momentumTime > 0.15f) {
-	                       highestPriorityScrollData.momentumTime = 0;
-	                       highestPriorityScrollData.pointerOrigin = context.pointerInfo.position;
-	                       highestPriorityScrollData.scrollOrigin = highestPriorityScrollData.scrollPosition;
-	                   } else {
-	                        highestPriorityScrollData.momentumTime += deltaTime;
-	                   }
-	               }
-	           }
-	           // Clamp any changes to scroll position to the maximum size of the contents
-	           if (canScrollVertically) {
-	               highestPriorityScrollData.scrollPosition.y = CLAY__MAX(CLAY__MIN(highestPriorityScrollData.scrollPosition.y, 0), -(highestPriorityScrollData.contentSize.height - scrollElement.dimensions.height));
-	           }
-	           if (canScrollHorizontally) {
-	               highestPriorityScrollData.scrollPosition.x = CLAY__MAX(CLAY__MIN(highestPriorityScrollData.scrollPosition.x, 0), -(highestPriorityScrollData.contentSize.width - scrollElement.dimensions.width));
-	           }
-	       }
+		if (highestPriorityElementIndex > -1 && highestPriorityScrollData) {
+			Clay_LayoutElement *scrollElement = highestPriorityScrollData.layoutElement;
+			Clay_ClipElementConfig *clipConfig = Clay__FindElementConfigWithType(scrollElement, CLAY__ELEMENT_CONFIG_TYPE_CLIP).clipElementConfig;
+			bool canScrollVertically = clipConfig->vertical && highestPriorityScrollData->contentSize.height > scrollElement->dimensions.height;
+			bool canScrollHorizontally = clipConfig->horizontal && highestPriorityScrollData->contentSize.width > scrollElement->dimensions.width;
+			// Handle wheel scroll
+			if (canScrollVertically) {
+				highestPriorityScrollData.scrollPosition.y = highestPriorityScrollData.scrollPosition.y + scrollDelta.y * 10;
+			}
+			if (canScrollHorizontally) {
+				highestPriorityScrollData.scrollPosition.x = highestPriorityScrollData.scrollPosition.x + scrollDelta.x * 10;
+			}
+			// Handle click / touch scroll
+			if (isPointerActive) {
+				highestPriorityScrollData.scrollMomentum = CLAY__INIT(Clay_Vector2)CLAY__DEFAULT_STRUCT;
+				if (!highestPriorityScrollData.pointerScrollActive) {
+					highestPriorityScrollData.pointerOrigin = context.pointerInfo.position;
+					highestPriorityScrollData.scrollOrigin = highestPriorityScrollData.scrollPosition;
+					highestPriorityScrollData.pointerScrollActive = true;
+				} else {
+					float scrollDeltaX = 0, scrollDeltaY = 0;
+					if (canScrollHorizontally) {
+						float oldXScrollPosition = highestPriorityScrollData.scrollPosition.x;
+						highestPriorityScrollData.scrollPosition.x = highestPriorityScrollData.scrollOrigin.x + (context.pointerInfo.position.x - highestPriorityScrollData.pointerOrigin.x);
+						highestPriorityScrollData.scrollPosition.x = CLAY__MAX(CLAY__MIN(highestPriorityScrollData.scrollPosition.x, 0), -(highestPriorityScrollData.contentSize.width - highestPriorityScrollData.boundingBox.width));
+						scrollDeltaX = highestPriorityScrollData.scrollPosition.x - oldXScrollPosition;
+					}
+					if (canScrollVertically) {
+						float oldYScrollPosition = highestPriorityScrollData.scrollPosition.y;
+						highestPriorityScrollData.scrollPosition.y = highestPriorityScrollData.scrollOrigin.y + (context.pointerInfo.position.y - highestPriorityScrollData.pointerOrigin.y);
+						highestPriorityScrollData.scrollPosition.y = CLAY__MAX(CLAY__MIN(highestPriorityScrollData.scrollPosition.y, 0), -(highestPriorityScrollData.contentSize.height - highestPriorityScrollData.boundingBox.height));
+						scrollDeltaY = highestPriorityScrollData.scrollPosition.y - oldYScrollPosition;
+					}
+					if (scrollDeltaX > -0.1f && scrollDeltaX < 0.1f && scrollDeltaY > -0.1f && scrollDeltaY < 0.1f && highestPriorityScrollData.momentumTime > 0.15f) {
+						highestPriorityScrollData.momentumTime = 0;
+						highestPriorityScrollData.pointerOrigin = context.pointerInfo.position;
+						highestPriorityScrollData.scrollOrigin = highestPriorityScrollData.scrollPosition;
+					} else {
+						highestPriorityScrollData.momentumTime += deltaTime;
+					}
+				}
+			}
+			// Clamp any changes to scroll position to the maximum size of the contents
+			if (canScrollVertically) {
+				highestPriorityScrollData.scrollPosition.y = CLAY__MAX(CLAY__MIN(highestPriorityScrollData.scrollPosition.y, 0), -(highestPriorityScrollData.contentSize.height - scrollElement.dimensions.height));
+			}
+			if (canScrollHorizontally) {
+				highestPriorityScrollData.scrollPosition.x = CLAY__MAX(CLAY__MIN(highestPriorityScrollData.scrollPosition.x, 0), -(highestPriorityScrollData.contentSize.width - scrollElement.dimensions.width));
+			}
+		}
 	*/
 }
 
@@ -276,9 +298,8 @@ func (c *Context) BeginLayout() {
 		rootDimensions.X -= (float32)(debugViewWidth)
 	}
 	c.booleanWarnings = BooleanWarnings{}
-	c.openElement()
+	c.openElementWithId(c.ID("Clay__RootContainer"))
 	c.configureOpenElement(&ElementDeclaration{
-		Id: c.ID("Clay__RootContainer"),
 		Layout: LayoutConfig{
 			Sizing: Sizing{
 				c.SIZING_FIXED(rootDimensions.X),
@@ -325,7 +346,16 @@ func (c *Context) EndLayout() []RenderCommand {
 // Returns layout data such as the final calculated bounding box for an element with a given ID.
 // The returned clay.ElementData contains a `found` bool that will be true if an element with the provided ID was found.
 // This ID can be calculated either with CLAY_ID() for string literal IDs, or clay.GetElementId for dynamic strings.
-///CLAY_DLL_EXPORT clay.ElementData clay.GetElementData(clay.ElementId id);
+func (c *Context) GetElementData(id ElementId) ElementData {
+	if item, ok := c.getHashMapItem(id.id); ok {
+		return ElementData{
+			BoundingBox: item.boundingBox,
+			Found:       true,
+		}
+	}
+
+	return ElementData{}
+}
 
 // Returns true if the pointer position provided by clay.SetPointerState is within the current element's bounding box.
 // Works during element declaration, e.g. CLAY({ .backgroundColor = clay.Hovered() ? BLUE : RED });
@@ -340,11 +370,34 @@ func (c *Context) EndLayout() []RenderCommand {
 // This ID can be calculated either with CLAY_ID() for string literal IDs, or clay.GetElementId for dynamic strings.
 ///CLAY_DLL_EXPORT bool clay.PointerOver(clay.ElementId elementId);
 
+// Returns the array of element IDs that the pointer is currently over.
+///CLAY_DLL_EXPORT Clay_ElementIdArray Clay_GetPointerOverIds(void);
+
 // Returns data representing the state of the scrolling element with the provided ID.
 // The returned clay.ScrollContainerData contains a `found` bool that will be true if a scroll element was found with the provided ID.
 // An imperative function that returns true if the pointer position provided by clay.SetPointerState is within the element with the provided ID's bounding box.
 // This ID can be calculated either with CLAY_ID() for string literal IDs, or clay.GetElementId for dynamic strings.
-///CLAY_DLL_EXPORT clay.ScrollContainerData clay.GetScrollContainerData(clay.ElementId id);
+func (c *Context) GetScrollContainerData(id ElementId) ScrollContainerData {
+	/*
+		for (int32_t i = 0; i < context->scrollContainerDatas.length; ++i) {
+			Clay__ScrollContainerDataInternal *scrollContainerData = Clay__ScrollContainerDataInternalArray_Get(&context->scrollContainerDatas, i);
+			if (scrollContainerData->elementId == id.id) {
+				Clay_ClipElementConfig *clipElementConfig = Clay__FindElementConfigWithType(scrollContainerData->layoutElement, CLAY__ELEMENT_CONFIG_TYPE_CLIP).clipElementConfig;
+				if (!clipElementConfig) { // This can happen on the first frame before a scroll container is declared
+					return CLAY__INIT(Clay_ScrollContainerData) CLAY__DEFAULT_STRUCT;
+				}
+				return CLAY__INIT(Clay_ScrollContainerData) {
+					.scrollPosition = &scrollContainerData->scrollPosition,
+					.scrollContainerDimensions = { scrollContainerData->boundingBox.width, scrollContainerData->boundingBox.height },
+					.contentDimensions = scrollContainerData->contentSize,
+					.config = *clipElementConfig,
+					.found = true
+				};
+			}
+		}
+	*/
+	return ScrollContainerData{}
+}
 
 // Binds a callback function that Clay will call to determine the dimensions of a given string slice.
 // - measureTextFunction is a user provided function that adheres to the interface clay.Dimensions (clay.StringSlice text, clay.TextElementConfig *config, void *userData);
@@ -389,12 +442,23 @@ func (c *Context) SetRenderTranclucentEnabled(v bool) {
 // This may require reallocating additional memory, and re-calling clay.Initialize();
 ///CLAY_DLL_EXPORT void SetMaxMeasureTextCacheWordCount(int32_t maxMeasureTextCacheWordCount);
 
-// Resets Clay's internal text measurement cache, useful if memory to represent strings is being re-used.
-// Similar behaviour can be achieved on an individual text element level by using TextElementConfig.hashStringContents
+// Resets Clay's internal text measurement cache. Useful if font mappings have changed or fonts have been reloaded.
 ///CLAY_DLL_EXPORT void ResetMeasureTextCache(void);
 
 func (c *Context) CLAY(e ElementDeclaration, fns ...func()) {
 	if !c.openElement() {
+		return
+	}
+
+	c.configureOpenElement(&e)
+	for _, fn := range fns {
+		fn()
+	}
+	c.closeElement()
+}
+
+func (c *Context) CLAY_ID(id ElementId, e ElementDeclaration, fns ...func()) {
+	if !c.openElementWithId(id) {
 		return
 	}
 

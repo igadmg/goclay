@@ -77,7 +77,7 @@ type SharedElementConfig struct {
 //	   *SharedElementConfig
 //	}
 type ElementConfigType interface {
-	*TextElementConfig | *ImageElementConfig | *FloatingElementConfig | *CustomElementConfig | *ScrollElementConfig | *BorderElementConfig | *SharedElementConfig
+	*TextElementConfig | *AspectRatioElementConfig | *ImageElementConfig | *FloatingElementConfig | *CustomElementConfig | *ClipElementConfig | *BorderElementConfig | *SharedElementConfig
 }
 
 type AnyElementConfig any
@@ -99,11 +99,12 @@ type LayoutElement struct {
 	children        []int
 	textElementData *TextElementData
 	//}
-	dimensions     Dimensions
-	minDimensions  Dimensions
-	layoutConfig   *LayoutConfig
-	elementConfigs []AnyElementConfig
-	id             uint32
+	dimensions            Dimensions
+	minDimensions         Dimensions
+	layoutConfig          *LayoutConfig
+	elementConfigs        []AnyElementConfig
+	id                    uint32
+	floatingChildrenCount uint16
 }
 
 type ScrollContainerDataInternal struct {
@@ -206,20 +207,21 @@ type Context struct {
 	layoutElementChildren       []int
 	layoutElementChildrenBuffer []int
 	textElementData             []TextElementData
-	imageElementPointers        []int
+	aspectRatioElementIndexes   []int
 	reusableElementIndexBuffer  []int32
 	layoutElementClipElementIds []int
 
 	// Configs
-	layoutConfigs          []LayoutConfig
-	elementConfigs         []AnyElementConfig
-	textElementConfigs     []TextElementConfig
-	imageElementConfigs    []ImageElementConfig
-	floatingElementConfigs []FloatingElementConfig
-	scrollElementConfigs   []ScrollElementConfig
-	customElementConfigs   []CustomElementConfig
-	borderElementConfigs   []BorderElementConfig
-	sharedElementConfigs   []SharedElementConfig
+	layoutConfigs             []LayoutConfig
+	elementConfigs            []AnyElementConfig
+	textElementConfigs        []TextElementConfig
+	aspectRatioElementConfigs []AspectRatioElementConfig
+	imageElementConfigs       []ImageElementConfig
+	floatingElementConfigs    []FloatingElementConfig
+	clipElementConfigs        []ClipElementConfig
+	customElementConfigs      []CustomElementConfig
+	borderElementConfigs      []BorderElementConfig
+	sharedElementConfigs      []SharedElementConfig
 
 	// Misc Data Structures
 	layoutElementIdStrings        []string
@@ -266,6 +268,14 @@ func (c *Context) storeTextElementConfig(config TextElementConfig) *TextElementC
 	return &c.textElementConfigs[len(c.textElementConfigs)-1]
 }
 
+func (c *Context) storeAspectRatioElementConfig(config AspectRatioElementConfig) *AspectRatioElementConfig {
+	if c.booleanWarnings.maxElementsExceeded {
+		return &default_AspectRatioElementConfig
+	}
+	c.aspectRatioElementConfigs = append(c.aspectRatioElementConfigs, config)
+	return &c.aspectRatioElementConfigs[len(c.aspectRatioElementConfigs)-1]
+}
+
 func (c *Context) storeImageElementConfig(config ImageElementConfig) *ImageElementConfig {
 	if c.booleanWarnings.maxElementsExceeded {
 		return &default_ImageElementConfig
@@ -290,12 +300,12 @@ func (c *Context) storeCustomElementConfig(config CustomElementConfig) *CustomEl
 	return &c.customElementConfigs[len(c.customElementConfigs)-1]
 }
 
-func (c *Context) storeScrollElementConfig(config ScrollElementConfig) *ScrollElementConfig {
+func (c *Context) storeClipElementConfig(config ClipElementConfig) *ClipElementConfig {
 	if c.booleanWarnings.maxElementsExceeded {
-		return &default_ScrollElementConfig
+		return &default_ClipElementConfig
 	}
-	c.scrollElementConfigs = append(c.scrollElementConfigs, config)
-	return &c.scrollElementConfigs[len(c.scrollElementConfigs)-1]
+	c.clipElementConfigs = append(c.clipElementConfigs, config)
+	return &c.clipElementConfigs[len(c.clipElementConfigs)-1]
 }
 
 func (c *Context) storeBorderElementConfig(config BorderElementConfig) *BorderElementConfig {
@@ -457,7 +467,10 @@ func (c *Context) measureTextCached(text string, config *TextElementConfig) *Mea
 		current := text[end]
 		if current == ' ' || current == '\n' {
 			length := end - start
-			dimensions := measureText(text[start:end], config, c.measureTextUserData)
+			var dimensions Dimensions
+			if length > 0 {
+				dimensions = measureText(text[start:end], config, c.measureTextUserData)
+			}
 			measured.minWidth = max(dimensions.X, measured.minWidth)
 			measuredHeight = max(float32(measuredHeight), dimensions.Y)
 			if current == ' ' {
@@ -486,7 +499,7 @@ func (c *Context) measureTextCached(text string, config *TextElementConfig) *Mea
 					next:        -1},
 					previousWord)
 				lineWidth += dimensions.X
-				measuredWidth = max(lineWidth, measuredWidth)
+				measuredWidth = max(lineWidth, measuredWidth) - float32(config.LetterSpacing)
 				measured.containsNewlines = true
 				lineWidth = 0
 			}
@@ -516,7 +529,7 @@ func (c *Context) measureTextCached(text string, config *TextElementConfig) *Mea
 	return measured
 }
 
-func (c *Context) addHashMapItem(elementId ElementId, layoutElement *LayoutElement, idAlias uint32) *LayoutElementHashMapItem {
+func (c *Context) addHashMapItem(elementId ElementId, layoutElement *LayoutElement) *LayoutElementHashMapItem {
 	if len(c.layoutElementsHashMapInternal) == cap(c.layoutElementsHashMapInternal)-1 {
 		return nil
 	}
@@ -526,7 +539,6 @@ func (c *Context) addHashMapItem(elementId ElementId, layoutElement *LayoutEleme
 		layoutElement: layoutElement,
 		nextIndex:     -1,
 		generation:    c.generation + 1,
-		idAlias:       idAlias,
 	}
 
 	c.layoutElementsHashMapInternal = append(c.layoutElementsHashMapInternal, item)
@@ -535,20 +547,17 @@ func (c *Context) addHashMapItem(elementId ElementId, layoutElement *LayoutEleme
 	return c.layoutElementsHashMap[elementId.id]
 }
 
-func (c *Context) getHashMapItem(id uint32) *LayoutElementHashMapItem {
-	r, ok := c.layoutElementsHashMap[id]
-	if !ok {
-		return &default_LayoutElementHashMapItem
-	}
+func (c *Context) getHashMapItem(id uint32) (e *LayoutElementHashMapItem, ok bool) {
+	e, ok = c.layoutElementsHashMap[id]
 
-	return r
+	return
 }
 
 func (c *Context) generateIdForAnonymousElement(openLayoutElement *LayoutElement) ElementId {
 	parentElement := c.layoutElements[c.openLayoutElementStack[len(c.openLayoutElementStack)-2]]
 	elementId := hashNumber(uint32(len(parentElement.children)), parentElement.id)
 	openLayoutElement.id = elementId.id
-	c.addHashMapItem(elementId, openLayoutElement, 0)
+	c.addHashMapItem(elementId, openLayoutElement)
 	c.layoutElementIdStrings = append(c.layoutElementIdStrings, elementId.stringId)
 	return elementId
 }
@@ -566,15 +575,14 @@ func elementHasConfig[T ElementConfigType](layoutElement *LayoutElement) bool {
 func updateAspectRatioBox(layoutElement *LayoutElement) {
 	for _, config := range layoutElement.elementConfigs {
 		switch c := config.(type) {
-		case *ImageElementConfig:
-			if c.SourceDimensions.X == 0 || c.SourceDimensions.Y == 0 {
+		case *AspectRatioElementConfig:
+			if c.AspectRatio == 0 {
 				break
 			}
-			aspect := c.SourceDimensions.X / c.SourceDimensions.Y
 			if layoutElement.dimensions.X == 0 && layoutElement.dimensions.Y != 0 {
-				layoutElement.dimensions.X = layoutElement.dimensions.Y * aspect
+				layoutElement.dimensions.X = layoutElement.dimensions.Y * c.AspectRatio
 			} else if layoutElement.dimensions.X != 0 && layoutElement.dimensions.Y == 0 {
-				layoutElement.dimensions.Y = layoutElement.dimensions.Y * (1 / aspect)
+				layoutElement.dimensions.Y = layoutElement.dimensions.Y * (1 / c.AspectRatio)
 			}
 		}
 	}
@@ -586,17 +594,20 @@ func (c *Context) closeElement() {
 	}
 
 	openLayoutElement := c.getOpenLayoutElement()
+	if openLayoutElement.layoutConfig == nil {
+		openLayoutElement.layoutConfig = &default_LayoutConfig
+	}
+
 	layoutConfig := openLayoutElement.layoutConfig
-	elementHasScrollHorizontal := false
-	elementHasScrollVertical := false
+	elementHasClipHorizontal := false
+	elementHasClipVertical := false
 
 	for _, config := range openLayoutElement.elementConfigs {
 		switch cfg := config.(type) {
-		case *ScrollElementConfig:
-			elementHasScrollHorizontal = cfg.Horizontal
-			elementHasScrollVertical = cfg.Vertical
+		case *ClipElementConfig:
+			elementHasClipHorizontal = cfg.Horizontal
+			elementHasClipVertical = cfg.Vertical
 			c.openClipElementStack = c.openClipElementStack[:len(c.openClipElementStack)-1]
-			break
 		case *FloatingElementConfig:
 		}
 	}
@@ -607,7 +618,8 @@ func (c *Context) closeElement() {
 	// Attach children to the current open element
 	c.layoutElementChildren = c.layoutElementChildren[0 : len(c.layoutElementChildren)+len(openLayoutElement.children)]
 	openLayoutElement.children = c.layoutElementChildren[len(c.layoutElementChildren) : len(c.layoutElementChildren)+len(openLayoutElement.children)]
-	if layoutConfig.LayoutDirection == LEFT_TO_RIGHT {
+	switch layoutConfig.LayoutDirection {
+	case LEFT_TO_RIGHT:
 		openLayoutElement.dimensions.X = leftRightPadding
 		openLayoutElement.minDimensions.X = leftRightPadding
 		for i := range openLayoutElement.children {
@@ -618,11 +630,11 @@ func (c *Context) closeElement() {
 				openLayoutElement.dimensions.Y,
 				child.dimensions.Y+topBottomPadding)
 
-			// Minimum size of child elements doesn't matter to scroll containers as they can shrink and hide their contents
-			if !elementHasScrollHorizontal {
+			// Minimum size of child elements doesn't matter to clip containers as they can shrink and hide their contents
+			if !elementHasClipHorizontal {
 				openLayoutElement.minDimensions.X += child.minDimensions.X
 			}
-			if !elementHasScrollVertical {
+			if !elementHasClipVertical {
 				openLayoutElement.minDimensions.Y = max(
 					openLayoutElement.minDimensions.Y,
 					child.minDimensions.Y+topBottomPadding)
@@ -631,9 +643,11 @@ func (c *Context) closeElement() {
 		}
 
 		childGap := float32(max(len(openLayoutElement.children)-1, 0) * int(layoutConfig.ChildGap))
-		openLayoutElement.dimensions.X += childGap // TODO this is technically a bug with childgap and scroll containers
-		openLayoutElement.minDimensions.X += childGap
-	} else if layoutConfig.LayoutDirection == TOP_TO_BOTTOM {
+		openLayoutElement.dimensions.X += childGap
+		if !elementHasClipHorizontal {
+			openLayoutElement.minDimensions.X += childGap
+		}
+	case TOP_TO_BOTTOM:
 		openLayoutElement.dimensions.Y = topBottomPadding
 		openLayoutElement.minDimensions.Y = topBottomPadding
 		for i := range openLayoutElement.children {
@@ -643,11 +657,11 @@ func (c *Context) closeElement() {
 			openLayoutElement.dimensions.X = max(
 				openLayoutElement.dimensions.X,
 				child.dimensions.X+leftRightPadding)
-			// Minimum size of child elements doesn't matter to scroll containers as they can shrink and hide their contents
-			if !elementHasScrollVertical {
+			// Minimum size of child elements doesn't matter to clip containers as they can shrink and hide their contents
+			if !elementHasClipVertical {
 				openLayoutElement.minDimensions.Y += child.minDimensions.Y
 			}
-			if !elementHasScrollHorizontal {
+			if !elementHasClipHorizontal {
 				openLayoutElement.minDimensions.X = max(
 					openLayoutElement.minDimensions.X,
 					child.minDimensions.X+leftRightPadding)
@@ -655,8 +669,10 @@ func (c *Context) closeElement() {
 			c.layoutElementChildren = append(c.layoutElementChildren, childIndex)
 		}
 		childGap := float32(max(len(openLayoutElement.children)-1, 0) * int(layoutConfig.ChildGap))
-		openLayoutElement.dimensions.Y += childGap // TODO this is technically a bug with childgap and scroll containers
-		openLayoutElement.minDimensions.Y += childGap
+		openLayoutElement.dimensions.Y += childGap
+		if elementHasClipVertical {
+			openLayoutElement.minDimensions.Y += childGap
+		}
 	}
 
 	c.layoutElementChildrenBuffer = c.layoutElementChildrenBuffer[:len(c.layoutElementChildrenBuffer)-len(openLayoutElement.children)]
@@ -691,9 +707,15 @@ func (c *Context) closeCurrentElement(elementIsFloating bool) {
 	// Close the currently open element
 	var closingElementIndex int
 	c.openLayoutElementStack, closingElementIndex = slicesex_RemoveSwapback(c.openLayoutElementStack, len(c.openLayoutElementStack)-1)
+
+	// Get the currently open parent
 	openLayoutElement := c.getOpenLayoutElement()
 
-	if !elementIsFloating && len(c.openLayoutElementStack) > 1 {
+	if len(c.openLayoutElementStack) > 1 {
+		if elementIsFloating {
+			openLayoutElement.floatingChildrenCount++
+			return
+		}
 		c.layoutElementChildren = append(c.layoutElementChildren, closingElementIndex)
 		openLayoutElement.children = append(openLayoutElement.children, closingElementIndex)
 		c.layoutElementChildrenBuffer = append(c.layoutElementChildrenBuffer, closingElementIndex)
@@ -708,6 +730,34 @@ func (c *Context) openElement() bool {
 
 	c.layoutElements = append(c.layoutElements, LayoutElement{})
 	c.openLayoutElementStack = append(c.openLayoutElementStack, len(c.layoutElements)-1)
+	if len(c.openClipElementStack) > 0 {
+		c.layoutElementClipElementIds = slicesex_Set(
+			c.layoutElementClipElementIds,
+			len(c.layoutElements)-1,
+			c.openClipElementStack[len(c.openClipElementStack)-1])
+	} else {
+		c.layoutElementClipElementIds = slicesex_Set(
+			c.layoutElementClipElementIds,
+			len(c.layoutElements)-1,
+			0)
+	}
+
+	return true
+}
+
+func (c *Context) openElementWithId(id ElementId) bool {
+	if len(c.layoutElements) == cap(c.layoutElements)-1 || c.booleanWarnings.maxElementsExceeded {
+		c.booleanWarnings.maxElementsExceeded = true
+		return false
+	}
+
+	c.layoutElements = append(c.layoutElements, LayoutElement{
+		id: id.id,
+	})
+	c.openLayoutElementStack = append(c.openLayoutElementStack, len(c.layoutElements)-1)
+	openLayoutElement := &c.layoutElements[len(c.layoutElements)-1]
+	c.addHashMapItem(id, openLayoutElement)
+	c.layoutElementIdStrings = append(c.layoutElementIdStrings, id.stringId)
 	if len(c.openClipElementStack) > 0 {
 		c.layoutElementClipElementIds = slicesex_Set(
 			c.layoutElementClipElementIds,
@@ -743,7 +793,7 @@ func (c *Context) openTextElement(text string, textConfig *TextElementConfig) {
 	textMeasured := c.measureTextCached(text, textConfig)
 	elementId := hashNumber(uint32(len(parentElement.children)), parentElement.id)
 	textElement.id = elementId.id
-	c.addHashMapItem(elementId, textElement, 0)
+	c.addHashMapItem(elementId, textElement)
 	c.layoutElementIdStrings = append(c.layoutElementIdStrings, elementId.stringId)
 	textDimensions := textMeasured.unwrappedDimensions
 	if textConfig.LineHeight > 0 {
@@ -762,18 +812,6 @@ func (c *Context) openTextElement(text string, textConfig *TextElementConfig) {
 	textElement.layoutConfig = &default_LayoutConfig
 
 	c.closeCurrentElement(false)
-}
-
-func (c *Context) attachId(elementId ElementId) ElementId {
-	if c.booleanWarnings.maxElementsExceeded {
-		return default_ElementId
-	}
-	openLayoutElement := c.getOpenLayoutElement()
-	idAlias := openLayoutElement.id
-	openLayoutElement.id = elementId.id
-	c.addHashMapItem(elementId, openLayoutElement, idAlias)
-	c.layoutElementIdStrings = append(c.layoutElementIdStrings, elementId.stringId)
-	return elementId
 }
 
 func (c *Context) configureOpenElement(declaration *ElementDeclaration) {
@@ -811,8 +849,6 @@ func (c *Context) configureOpenElement(declaration *ElementDeclaration) {
 		})
 	}
 
-	openLayoutElementId := declaration.Id
-
 	openLayoutElement.elementConfigs = c.elementConfigs[len(c.elementConfigs):len(c.elementConfigs)]
 	sharedConfig := (*SharedElementConfig)(nil)
 	if c.renderTranslucent || declaration.BackgroundColor.A > 0 {
@@ -837,7 +873,10 @@ func (c *Context) configureOpenElement(declaration *ElementDeclaration) {
 	}
 	if declaration.Image.ImageData != nil {
 		c.attachElementConfig(c.storeImageElementConfig(declaration.Image))
-		c.imageElementPointers = append(c.imageElementPointers, len(c.layoutElements)-1)
+	}
+	if declaration.AspectRatio.AspectRatio > 0 {
+		c.attachElementConfig(c.storeAspectRatioElementConfig(declaration.AspectRatio))
+		c.aspectRatioElementIndexes = append(c.aspectRatioElementIndexes, len(c.layoutElements)-1)
 	}
 
 	if declaration.Floating.AttachTo != ATTACH_TO_NONE {
@@ -846,29 +885,31 @@ func (c *Context) configureOpenElement(declaration *ElementDeclaration) {
 		hierarchicalParent := c.layoutElements[c.openLayoutElementStack[len(c.openLayoutElementStack)-2]]
 		if true /*hierarchicalParent.id != 0*/ {
 			clipElementId := 0
-			if declaration.Floating.AttachTo == ATTACH_TO_PARENT {
+			switch declaration.Floating.AttachTo {
+			case ATTACH_TO_PARENT:
 				// Attach to the element's direct hierarchical parent
 				floatingConfig.ParentId = hierarchicalParent.id
 				if len(c.openClipElementStack) > 0 {
 					clipElementId = c.openClipElementStack[len(c.openClipElementStack)-1]
 				}
-			} else if declaration.Floating.AttachTo == ATTACH_TO_ELEMENT_WITH_ID {
-				parentItem := c.getHashMapItem(floatingConfig.ParentId)
-				if parentItem == nil {
+			case ATTACH_TO_ELEMENT_WITH_ID:
+				parentItem, ok := c.getHashMapItem(floatingConfig.ParentId)
+				if !ok {
 					c.errorHandler.ErrorHandlerFunction(ErrorData{
 						ErrorType: ERROR_TYPE_FLOATING_CONTAINER_PARENT_NOT_FOUND,
 						ErrorText: "A floating element was declared with a parentId, but no element with that ID was found.",
 						UserData:  c.errorHandler.UserData,
 					})
 				} else {
+					_ = parentItem
 					// TODO: fix
 					//clipElementId = c.layoutElementClipElementIds[(int32)(parentItem.layoutElement-c.layoutElements.internalArray))
 				}
-			} else if declaration.Floating.AttachTo == ATTACH_TO_ROOT {
+			case ATTACH_TO_ROOT:
 				floatingConfig.ParentId = hashString("Clay__RootContainer").id
 			}
-			if openLayoutElementId.id == 0 {
-				openLayoutElementId = c.IDI("Clay__FloatingContainer", uint32(len(c.layoutElementTreeRoots)))
+			if declaration.Floating.ClipTo == CLIP_TO_NONE {
+				clipElementId = 0
 			}
 			currentElementIndex := c.openLayoutElementStack[len(c.openLayoutElementStack)-1]
 			c.layoutElementClipElementIds = slicesex_Set(c.layoutElementClipElementIds, currentElementIndex, clipElementId)
@@ -886,14 +927,8 @@ func (c *Context) configureOpenElement(declaration *ElementDeclaration) {
 		c.attachElementConfig(c.storeCustomElementConfig(declaration.Custom))
 	}
 
-	if openLayoutElementId.id != 0 {
-		c.attachId(openLayoutElementId)
-	} else if openLayoutElement.id == 0 {
-		openLayoutElementId = c.generateIdForAnonymousElement(openLayoutElement)
-	}
-
-	if declaration.Scroll.Horizontal || declaration.Scroll.Vertical {
-		c.attachElementConfig(c.storeScrollElementConfig(declaration.Scroll))
+	if declaration.Clip.Horizontal || declaration.Clip.Vertical {
+		c.attachElementConfig(c.storeClipElementConfig(declaration.Clip))
 		c.openClipElementStack = append(c.openClipElementStack, (int)(openLayoutElement.id))
 		// Retrieve or create cached data to track scroll position across frames
 		scrollOffset := (*ScrollContainerDataInternal)(nil)
@@ -934,9 +969,10 @@ func (c *Context) initializeEphemeralMemory() {
 	c.layoutConfigs = c.layoutConfigs[:0]
 	c.elementConfigs = c.elementConfigs[:0]
 	c.textElementConfigs = c.textElementConfigs[:0]
+	c.aspectRatioElementConfigs = c.aspectRatioElementConfigs[:0]
 	c.imageElementConfigs = c.imageElementConfigs[:0]
 	c.floatingElementConfigs = c.floatingElementConfigs[:0]
-	c.scrollElementConfigs = c.scrollElementConfigs[:0]
+	c.clipElementConfigs = c.clipElementConfigs[:0]
 	c.customElementConfigs = c.customElementConfigs[:0]
 	c.borderElementConfigs = c.borderElementConfigs[:0]
 	c.sharedElementConfigs = c.sharedElementConfigs[:0]
@@ -948,7 +984,7 @@ func (c *Context) initializeEphemeralMemory() {
 	c.layoutElementChildren = c.layoutElementChildren[:0]
 	c.openLayoutElementStack = c.openLayoutElementStack[:0]
 	c.textElementData = c.textElementData[:0]
-	c.imageElementPointers = c.imageElementPointers[:0]
+	c.aspectRatioElementIndexes = c.aspectRatioElementIndexes[:0]
 	c.renderCommands = c.renderCommands[:0]
 	c.openClipElementStack = c.openClipElementStack[:0]
 	c.reusableElementIndexBuffer = c.reusableElementIndexBuffer[:0]
@@ -961,7 +997,7 @@ func (c *Context) initializePersistentMemory() {
 	maxElementCount := c.maxElementCount
 	maxMeasureTextCacheWordCount := c.maxMeasureTextCacheWordCount
 
-	c.scrollContainerDatas = make([]ScrollContainerDataInternal, 0, 10)
+	c.scrollContainerDatas = make([]ScrollContainerDataInternal, 0, 100)
 	c.layoutElementsHashMapInternal = make([]LayoutElementHashMapItem, 0, maxElementCount)
 	c.layoutElementsHashMap = map[uint32]*LayoutElementHashMapItem{}
 	c.measureTextHashMapInternal = make([]MeasureTextCacheItem, 0, maxElementCount)
@@ -980,7 +1016,7 @@ func (c *Context) initializePersistentMemory() {
 	c.textElementConfigs = make([]TextElementConfig, 0, maxElementCount)
 	c.imageElementConfigs = make([]ImageElementConfig, 0, maxElementCount)
 	c.floatingElementConfigs = make([]FloatingElementConfig, 0, maxElementCount)
-	c.scrollElementConfigs = make([]ScrollElementConfig, 0, maxElementCount)
+	c.clipElementConfigs = make([]ClipElementConfig, 0, maxElementCount)
 	c.customElementConfigs = make([]CustomElementConfig, 0, maxElementCount)
 	c.borderElementConfigs = make([]BorderElementConfig, 0, maxElementCount)
 	c.sharedElementConfigs = make([]SharedElementConfig, 0, maxElementCount)
@@ -992,7 +1028,7 @@ func (c *Context) initializePersistentMemory() {
 	c.layoutElementChildren = make([]int, 0, maxElementCount)
 	c.openLayoutElementStack = make([]int, 0, maxElementCount)
 	c.textElementData = make([]TextElementData, 0, maxElementCount)
-	c.imageElementPointers = make([]int, 0, maxElementCount)
+	c.aspectRatioElementIndexes = make([]int, 0, maxElementCount)
 	c.renderCommands = make([]RenderCommand, 0, maxElementCount)
 	c.openClipElementStack = make([]int, 0, maxElementCount)
 	c.reusableElementIndexBuffer = make([]int32, 0, maxElementCount)
@@ -1017,20 +1053,31 @@ func (c *Context) sizeContainersAlongAxis(axis int) {
 
 		// Size floating containers to their parents
 		if floatingElementConfig, ok := findElementConfigWithType[*FloatingElementConfig](rootElement); ok {
-			parentItem := c.getHashMapItem(floatingElementConfig.ParentId)
-			if parentItem != nil && !parentItem.IsEmpty() {
+			if parentItem, ok := c.getHashMapItem(floatingElementConfig.ParentId); ok {
 				parentLayoutElement := parentItem.layoutElement
 				switch rootElement.layoutConfig.Sizing.Width.(type) {
 				case SizingAxisGrow:
 					rootElement.dimensions.X = parentLayoutElement.dimensions.X
+				case SizingAxisPercent:
+					rootElement.dimensions.X = parentLayoutElement.dimensions.X * rootElement.layoutConfig.Sizing.Width.(SizingAxisPercent).Percent
 				}
 				switch rootElement.layoutConfig.Sizing.Height.(type) {
 				case SizingAxisGrow:
 					rootElement.dimensions.Y = parentLayoutElement.dimensions.Y
+				case SizingAxisPercent:
+					rootElement.dimensions.Y = parentLayoutElement.dimensions.Y * rootElement.layoutConfig.Sizing.Height.(SizingAxisPercent).Percent
 				}
 			}
 		}
 
+		/*
+			if (rootElement->layoutConfig->sizing.width.type != CLAY__SIZING_TYPE_PERCENT) {
+			    rootElement->dimensions.width = CLAY__MIN(CLAY__MAX(rootElement->dimensions.width, rootElement->layoutConfig->sizing.width.size.minMax.min), rootElement->layoutConfig->sizing.width.size.minMax.max);
+			}
+			if (rootElement->layoutConfig->sizing.height.type != CLAY__SIZING_TYPE_PERCENT) {
+			    rootElement->dimensions.height = CLAY__MIN(CLAY__MAX(rootElement->dimensions.height, rootElement->layoutConfig->sizing.height.size.minMax.min), rootElement->layoutConfig->sizing.height.size.minMax.max);
+			}
+		*/
 		if mm, ok := rootElement.layoutConfig.Sizing.Width.(SizingAxisMinMax); ok {
 			rootElement.dimensions.X = min(max(rootElement.dimensions.X, mm.GetMinMax().Min), mm.GetMinMax().Max)
 		}
@@ -1080,7 +1127,7 @@ func (c *Context) sizeContainersAlongAxis(axis int) {
 				}() {
 					if func() bool {
 						if tc, ok := findElementConfigWithType[*TextElementConfig](child); !ok || tc.WrapMode == TEXT_WRAP_WORDS {
-							if axis == 0 || !elementHasConfig[*ImageElementConfig](child) {
+							if axis == 0 || !elementHasConfig[*AspectRatioElementConfig](child) {
 								return true
 							}
 						}
@@ -1130,9 +1177,9 @@ func (c *Context) sizeContainersAlongAxis(axis int) {
 				sizeToDistribute := parentSize - parentPadding - innerContentSize
 				// The content is too large, compress the children as much as possible
 				if sizeToDistribute < 0 {
-					// If the parent can scroll in the axis direction in this direction, don't compress children, just leave them alone
-					if scrollElementConfig, ok := findElementConfigWithType[*ScrollElementConfig](parent); ok {
-						if (axis == 0 && scrollElementConfig.Horizontal) || (axis == 1 && scrollElementConfig.Vertical) {
+					// If the parent clips content in this axis direction, don't compress children, just leave them alone
+					if clipElementConfig, ok := findElementConfigWithType[*ClipElementConfig](parent); ok {
+						if (axis == 0 && clipElementConfig.Horizontal) || (axis == 1 && clipElementConfig.Vertical) {
 							continue
 						}
 					}
@@ -1243,14 +1290,10 @@ func (c *Context) sizeContainersAlongAxis(axis int) {
 					minSize := child.minDimensions.Axis(axis)
 					childSize := child.dimensions.Axis(axis)
 
-					if axis == 1 && elementHasConfig[*ImageElementConfig](child) {
-						continue // Currently we don't support resizing aspect ratio images on the Y axis because it would break the ratio
-					}
-
 					// If we're laying out the children of a scroll panel, grow containers expand to the size of the inner content, not the outer container
 					maxSize := parentSize - parentPadding
-					if scrollElementConfig, ok := findElementConfigWithType[*ScrollElementConfig](parent); ok {
-						if (axis == 0 && scrollElementConfig.Horizontal) || (axis == 1 && scrollElementConfig.Vertical) {
+					if clipElementConfig, ok := findElementConfigWithType[*ClipElementConfig](parent); ok {
+						if (axis == 0 && clipElementConfig.Horizontal) || (axis == 1 && clipElementConfig.Vertical) {
 							maxSize = max(maxSize, innerContentSize)
 						}
 					}
@@ -1352,7 +1395,7 @@ func (c *Context) calculateFinalLayout() {
 				lineLengthChars = 0
 				lineStartOffset = measuredWord.startOffset
 			} else {
-				lineWidth += measuredWord.width
+				lineWidth += measuredWord.width + float32(textConfig.LetterSpacing)
 				lineLengthChars += measuredWord.length
 				wordIndex = measuredWord.next
 			}
@@ -1360,19 +1403,20 @@ func (c *Context) calculateFinalLayout() {
 		if lineLengthChars > 0 {
 			c.wrappedTextLines = append(c.wrappedTextLines, WrappedTextLine{})
 			textElementData.wrappedLines = append(textElementData.wrappedLines, WrappedTextLine{
-				MakeDimensions(lineWidth, lineHeight), textElementData.text[lineStartOffset : lineStartOffset+lineLengthChars]})
+				MakeDimensions(lineWidth-float32(textConfig.LetterSpacing), lineHeight), textElementData.text[lineStartOffset : lineStartOffset+lineLengthChars]})
 		}
 		containerElement.dimensions.Y = lineHeight * float32(len(textElementData.wrappedLines))
 	}
 	// Scale vertical image heights according to aspect ratio
-	for _, iep := range c.imageElementPointers {
-		imageElement := &c.layoutElements[iep]
-		if config, ok := findElementConfigWithType[*ImageElementConfig](imageElement); ok {
-			imageElement.dimensions.Y = (config.SourceDimensions.Y / max(config.SourceDimensions.X, 1)) * imageElement.dimensions.X
+	for _, aei := range c.aspectRatioElementIndexes {
+		aspectElement := &c.layoutElements[aei]
+		if config, ok := findElementConfigWithType[*AspectRatioElementConfig](aspectElement); ok {
+			aspectElement.dimensions.Y = (1 / config.AspectRatio) * aspectElement.dimensions.X
+			// aspectElement.layoutConfig.Sizing.Height.size.minMax.max = aspectElement->dimensions.height; FIX: what is going here?
 		}
 	}
 
-	// Propagate effect of text wrapping, image aspect scaling etc. on height of parents
+	// Propagate effect of text wrapping, aspect scaling etc. on height of parents
 	c.layoutElementTreeNodeArray1 = c.layoutElementTreeNodeArray1[0:0]
 	for _, root := range c.layoutElementTreeRoots {
 		treeNodeVisited[len(c.layoutElementTreeNodeArray1)] = false
@@ -1431,6 +1475,13 @@ func (c *Context) calculateFinalLayout() {
 	// Calculate sizing along the Y axis
 	c.sizeContainersAlongAxis(1)
 
+	// Scale horizontal widths according to aspect ratio
+	for _, ai := range c.aspectRatioElementIndexes {
+		aspectElement := &c.layoutElements[ai]
+		config, _ := findElementConfigWithType[*AspectRatioElementConfig](aspectElement)
+		aspectElement.dimensions.X = config.AspectRatio * aspectElement.dimensions.Y
+	}
+
 	// Sort tree roots by z-index
 	sortMax := len(c.layoutElementTreeRoots) - 1
 	for sortMax > 0 { // todo dumb bubble sort
@@ -1452,7 +1503,7 @@ func (c *Context) calculateFinalLayout() {
 		c.layoutElementTreeNodeArray1 = c.layoutElementTreeNodeArray1[0:0]
 		rootElement := &c.layoutElements[root.layoutElementIndex]
 		var rootPosition Vector2
-		parentHashMapItem := c.getHashMapItem(root.parentId)
+		parentHashMapItem, _ := c.getHashMapItem(root.parentId)
 		// Position root floating containers
 		if config, ok := findElementConfigWithType[*FloatingElementConfig](rootElement); ok && parentHashMapItem != nil {
 			rootDimensions := rootElement.dimensions
@@ -1497,23 +1548,17 @@ func (c *Context) calculateFinalLayout() {
 		}
 
 		if root.clipElementId != 0 {
-			clipHashMapItem := c.getHashMapItem(root.clipElementId)
-			if clipHashMapItem != nil {
+			if clipHashMapItem, ok := c.getHashMapItem(root.clipElementId); ok {
 				// Floating elements that are attached to scrolling contents won't be correctly positioned if external scroll handling is enabled, fix here
 				if c.externalScrollHandlingEnabled {
-					if scrollConfig, ok := findElementConfigWithType[*ScrollElementConfig](clipHashMapItem.layoutElement); ok {
-						for _, mapping := range c.scrollContainerDatas {
-							if mapping.layoutElement == clipHashMapItem.layoutElement {
-								root.pointerOffset = mapping.scrollPosition
-								if scrollConfig.Horizontal {
-									rootPosition.X += mapping.scrollPosition.X
-								}
-								if scrollConfig.Vertical {
-									rootPosition.Y += mapping.scrollPosition.Y
-								}
-								break
-							}
+					if clipConfig, ok := findElementConfigWithType[*ClipElementConfig](clipHashMapItem.layoutElement); ok {
+						if clipConfig.Horizontal {
+							rootPosition.X += clipConfig.ChildOffset.X
 						}
+						if clipConfig.Vertical {
+							rootPosition.Y += clipConfig.ChildOffset.Y
+						}
+						break
 					}
 				}
 				c.addRenderCommand(RenderCommand{
@@ -1550,19 +1595,14 @@ func (c *Context) calculateFinalLayout() {
 
 				var scrollContainerData *ScrollContainerDataInternal
 				// Apply scroll offsets to container
-				if scrollConfig, ok := findElementConfigWithType[*ScrollElementConfig](currentElement); ok {
+				if clipConfig, ok := findElementConfigWithType[*ClipElementConfig](currentElement); ok {
 					// This linear scan could theoretically be slow under very strange conditions, but I can't imagine a real UI with more than a few 10's of scroll containers
 					for i := range c.scrollContainerDatas {
 						mapping := &c.scrollContainerDatas[i]
 						if mapping.layoutElement == currentElement {
 							scrollContainerData = mapping
 							mapping.boundingBox = currentElementBoundingBox
-							if scrollConfig.Horizontal {
-								scrollOffset.X = mapping.scrollPosition.X
-							}
-							if scrollConfig.Vertical {
-								scrollOffset.Y = mapping.scrollPosition.Y
-							}
+							scrollOffset = clipConfig.ChildOffset
 							if c.externalScrollHandlingEnabled {
 								scrollOffset = vector2.Zero[float32]()
 							}
@@ -1571,12 +1611,10 @@ func (c *Context) calculateFinalLayout() {
 					}
 				}
 
-				hashMapItem := c.getHashMapItem(currentElement.id)
-				if hashMapItem != nil {
+				if hashMapItem, ok := c.getHashMapItem(currentElement.id); ok {
 					hashMapItem.boundingBox = currentElementBoundingBox
 					if hashMapItem.idAlias != 0 {
-						hashMapItemAlias := c.getHashMapItem(hashMapItem.idAlias)
-						if hashMapItemAlias != nil {
+						if hashMapItemAlias, ok := c.getHashMapItem(hashMapItem.idAlias); ok {
 							hashMapItemAlias.boundingBox = currentElementBoundingBox
 						}
 					}
@@ -1591,7 +1629,7 @@ func (c *Context) calculateFinalLayout() {
 
 					sortOrder := func(ec AnyElementConfig) int {
 						switch ec.(type) {
-						case *ScrollElementConfig:
+						case *ClipElementConfig:
 							return 1
 						case *BorderElementConfig:
 							return -1
@@ -1635,25 +1673,23 @@ func (c *Context) calculateFinalLayout() {
 					// Culling - Don't bother to generate render commands for rectangles entirely outside the screen - this won't stop their children from being rendered if they overflow
 					shouldRender := !offscreen
 					switch cfg := elementConfig.(type) {
+					case *AspectRatioElementConfig:
 					case *FloatingElementConfig:
-						shouldRender = false
 					case *SharedElementConfig:
-						shouldRender = false
 					case *BorderElementConfig:
 						shouldRender = false
-					case *ScrollElementConfig:
+					case *ClipElementConfig:
 						renderCommand.RenderData = ScissorsStartData{
-							ScrollRenderData: ScrollRenderData{
+							ClipRenderData: ClipRenderData{
 								Horizontal: cfg.Horizontal,
 								Vertical:   cfg.Vertical,
 							},
 						}
 					case *ImageElementConfig:
 						renderCommand.RenderData = ImageRenderData{
-							BackgroundColor:  sharedConfig.backgroundColor,
-							CornerRadius:     sharedConfig.cornerRadius,
-							SourceDimensions: cfg.SourceDimensions,
-							ImageData:        cfg.ImageData,
+							BackgroundColor: sharedConfig.backgroundColor,
+							CornerRadius:    sharedConfig.cornerRadius,
+							ImageData:       cfg.ImageData,
 						}
 						emitRectangle = false
 
@@ -1760,6 +1796,7 @@ func (c *Context) calculateFinalLayout() {
 							break
 						}
 						currentElementTreeNode.nextChildOffset.X += extraSpace
+						extraSpace = max(0, extraSpace)
 					} else {
 						for _, child := range currentElement.children {
 							childElement := c.layoutElements[child]
@@ -1776,6 +1813,7 @@ func (c *Context) calculateFinalLayout() {
 						default:
 							break
 						}
+						extraSpace = max(0, extraSpace)
 						currentElementTreeNode.nextChildOffset.Y += extraSpace
 					}
 
@@ -1787,17 +1825,12 @@ func (c *Context) calculateFinalLayout() {
 				}
 			} else {
 				// DFS is returning upwards backwards
-				closeScrollElement := false
-				if scrollConfig, ok := findElementConfigWithType[*ScrollElementConfig](currentElement); ok {
-					closeScrollElement = true
+				closeClipElement := false
+				if clipConfig, ok := findElementConfigWithType[*ClipElementConfig](currentElement); ok {
+					closeClipElement = true
 					for _, mapping := range c.scrollContainerDatas {
 						if mapping.layoutElement == currentElement {
-							if scrollConfig.Horizontal {
-								scrollOffset.X = mapping.scrollPosition.X
-							}
-							if scrollConfig.Vertical {
-								scrollOffset.Y = mapping.scrollPosition.Y
-							}
+							scrollOffset = clipConfig.ChildOffset
 							if c.externalScrollHandlingEnabled {
 								scrollOffset = vector2.Zero[float32]()
 							}
@@ -1807,7 +1840,7 @@ func (c *Context) calculateFinalLayout() {
 				}
 
 				if borderConfig, ok := findElementConfigWithType[*BorderElementConfig](currentElement); ok {
-					currentElementData := c.getHashMapItem(currentElement.id)
+					currentElementData, _ := c.getHashMapItem(currentElement.id)
 					currentElementBoundingBox := currentElementData.boundingBox
 
 					// Culling - Don't bother to generate render commands for rectangles entirely outside the screen - this won't stop their children from being rendered if they overflow
@@ -1871,7 +1904,7 @@ func (c *Context) calculateFinalLayout() {
 					}
 				}
 				// This exists because the scissor needs to end _after_ borders between elements
-				if closeScrollElement {
+				if closeClipElement {
 					c.addRenderCommand(RenderCommand{
 						Id:         hashNumber(currentElement.id, uint32(len(rootElement.children)+11)).id,
 						RenderData: ScissorsEndData{},

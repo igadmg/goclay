@@ -472,20 +472,24 @@ type TextElementConfig struct {
 	// TEXT_ALIGN_CENTER - Horizontally aligns wrapped lines of text to the center of their bounding box.
 	// TEXT_ALIGN_RIGHT - Horizontally aligns wrapped lines of text to the right hand side of their bounding box.
 	TextAlignment TextAlignment
-	// When set to true, clay will hash the entire text contents of this string as an identifier for its internal
-	// text measurement cache, rather than just the pointer and length. This will incur significant performance cost for
-	// long bodies of text.
-	HashStringContents bool
 }
 
 var default_TextElementConfig TextElementConfig
+
+// Aspect Ratio --------------------------------
+
+// Controls various settings related to aspect ratio scaling element.
+type AspectRatioElementConfig struct {
+	AspectRatio float32 // A float representing the target "Aspect ratio" for an element, which is its final width divided by its final height.
+}
+
+var default_AspectRatioElementConfig AspectRatioElementConfig
 
 // Image --------------------------------
 
 // Controls various settings related to image elements.
 type ImageElementConfig struct {
-	ImageData        any        // A transparent pointer used to pass image data through to the renderer.
-	SourceDimensions Dimensions // The original dimensions of the source image, used to control aspect ratio.
+	ImageData any // A transparent pointer used to pass image data through to the renderer.
 }
 
 var default_ImageElementConfig ImageElementConfig
@@ -540,6 +544,15 @@ const (
 	ATTACH_TO_ROOT
 )
 
+type FloatingClipToElement uint8
+
+const (
+	// (default) - The floating element does not inherit clipping.
+	CLIP_TO_NONE FloatingClipToElement = iota
+	// The floating element is clipped to the same clipping rectangle as the element it's attached to.
+	CLIP_TO_ATTACHED_PARENT
+)
+
 // Controls various settings related to "floating" elements, which are elements that "float" above other elements, potentially overlapping their boundaries,
 // and not affecting the layout of sibling or parent elements.
 type FloatingElementConfig struct {
@@ -568,6 +581,10 @@ type FloatingElementConfig struct {
 	// ATTACH_TO_ELEMENT_WITH_ID - Attaches this floating element to an element with a specific ID, specified with the .parentId field. positioned based on the .attachPoints and .offset fields.
 	// ATTACH_TO_ROOT - Attaches this floating element to the root of the layout, which combined with the .offset field provides functionality similar to "absolute positioning".
 	AttachTo FloatingAttachToElement
+	// Controls whether or not a floating element is clipped to the same clipping rectangle as the element it's attached to.
+	// CLAY_CLIP_TO_NONE (default) - The floating element does not inherit clipping.
+	// CLAY_CLIP_TO_ATTACHED_PARENT - The floating element is clipped to the same clipping rectangle as the element it's attached to.
+	ClipTo FloatingClipToElement
 }
 
 var default_FloatingElementConfig FloatingElementConfig
@@ -586,15 +603,16 @@ var default_CustomElementConfig CustomElementConfig
 // Scroll -----------------------------
 
 // Controls the axis on which an element switches to "scrolling", which clips the contents and allows scrolling in that direction.
-type ScrollElementConfig struct {
-	Horizontal bool // Clip overflowing elements on the X axis and allow scrolling left and right.
-	Vertical   bool // Clip overflowing elements on the YU axis and allow scrolling up and down.
+type ClipElementConfig struct {
+	Horizontal  bool    // Clip overflowing elements on the X axis and allow scrolling left and right.
+	Vertical    bool    // Clip overflowing elements on the YU axis and allow scrolling up and down.
+	ChildOffset Vector2 // Offsets the x,y positions of all child elements. Used primarily for scrolling containers.
 }
 
-var default_ScrollElementConfig ScrollElementConfig
+var default_ClipElementConfig ClipElementConfig
 
-func SCROLL_ALL() ScrollElementConfig {
-	return ScrollElementConfig{Horizontal: true, Vertical: true}
+func SCROLL_ALL() ClipElementConfig {
+	return ClipElementConfig{Horizontal: true, Vertical: true}
 }
 
 // Border -----------------------------
@@ -667,8 +685,6 @@ type ImageRenderData struct {
 	// Controls the "radius", or corner rounding of this image.
 	// The rounding is determined by drawing a circle inset into the element corner by (radius, radius) pixels.
 	CornerRadius CornerRadius
-	// The original dimensions of the source image, used to control aspect ratio.
-	SourceDimensions Dimensions
 	// A pointer transparently passed through from the original element definition, typically used to represent image data.
 	ImageData any
 }
@@ -686,7 +702,7 @@ type CustomRenderData struct {
 }
 
 // Render command data when commandType == CLAY_RENDER_COMMAND_TYPE_SCISSOR_START || commandType == CLAY_RENDER_COMMAND_TYPE_SCISSOR_END
-type ScrollRenderData struct {
+type ClipRenderData struct {
 	Horizontal bool
 	Vertical   bool
 }
@@ -704,17 +720,42 @@ type BorderRenderData struct {
 }
 
 type ScissorsStartData struct {
-	ScrollRenderData
+	ClipRenderData
 }
 type ScissorsEndData struct {
-	ScrollRenderData
+	ClipRenderData
 }
 
 type RenderDataType interface {
-	RectangleRenderData | TextRenderData | ImageRenderData | CustomRenderData | BorderRenderData | ScrollRenderData | ScissorsStartData | ScissorsEndData
+	RectangleRenderData | TextRenderData | ImageRenderData | CustomRenderData | BorderRenderData | ClipRenderData | ScissorsStartData | ScissorsEndData
 }
 
 type AnyRenderData any
+
+// Miscellaneous Structs & Enums ---------------------------------
+
+// Data representing the current internal state of a scrolling element.
+type ScrollContainerData struct {
+	// Note: This is a pointer to the real internal scroll position, mutating it may cause a change in final layout.
+	// Intended for use with external functionality that modifies scroll position, such as scroll bars or auto scrolling.
+	ScrollPosition *Vector2
+	// The bounding box of the scroll element.
+	ScrollContainerDimensions Dimensions
+	// The outer dimensions of the inner scroll container content, including the padding of the parent scroll container.
+	ContentDimensions Dimensions
+	// The Config that was originally passed to the clip element.
+	Config ClipElementConfig
+	// Indicates whether an actual scroll container matched the provided ID or if the default struct was returned.
+	Found bool
+}
+
+// Bounding box and other data for a specific UI element.
+type ElementData struct {
+	// The rectangle that encloses this UI element, with the position relative to the root of the layout.
+	BoundingBox BoundingBox
+	// Indicates whether an actual Element matched the provided ID or if the default struct was returned.
+	Found bool
+}
 
 type RenderCommand struct {
 	// A rectangular box that fully encloses this UI element, with the position relative to the root of the layout.
@@ -758,9 +799,6 @@ type PointerData struct {
 }
 
 type ElementDeclaration struct {
-	// Primarily created via the ID(), IDI(), ID_LOCAL() and IDI_LOCAL() macros.
-	// Represents a hashed string ID used for identifying and finding specific clay UI elements, required by functions such as PointerOver() and GetElementData().
-	Id ElementId
 	// Controls various settings that affect the size and position of an element, as well as the sizes and positions of any child elements.
 	Layout LayoutConfig
 	// Controls the background color of the resulting element.
@@ -769,6 +807,8 @@ type ElementDeclaration struct {
 	BackgroundColor Color
 	// Controls the "radius", or corner rounding of elements, including rectangles, borders and images.
 	CornerRadius CornerRadius
+	// Controls settings related to aspect ratio scaling.
+	AspectRatio AspectRatioElementConfig
 	// Controls settings related to Image elements.
 	Image ImageElementConfig
 	// Controls whether and how an element "floats", which means it layers over the top of other elements in z order, and doesn't affect the position and size of siblings or parent elements.
@@ -777,7 +817,7 @@ type ElementDeclaration struct {
 	// Used to create CUSTOM render commands, usually to render element types not supported by Clay.
 	Custom CustomElementConfig
 	// Controls whether an element should clip its contents and allow scrolling rather than expanding to contain them.
-	Scroll ScrollElementConfig
+	Clip ClipElementConfig
 	// Controls settings related to element borders, and will generate BORDER render commands.
 	Border BorderElementConfig
 	// A pointer that will be transparently passed through to resulting render commands.
@@ -835,9 +875,9 @@ func WithCustom(cfg CustomElementConfig) ElementOptionsFn {
 	}
 }
 
-func WithScroll(cfg ScrollElementConfig) ElementOptionsFn {
+func WithScroll(cfg ClipElementConfig) ElementOptionsFn {
 	return func(ed ElementDeclaration) ElementDeclaration {
-		ed.Scroll = cfg
+		ed.Clip = cfg
 		return ed
 	}
 }
@@ -877,6 +917,8 @@ const (
 	ERROR_TYPE_PERCENTAGE_OVER_1
 	// Clay encountered an internal error. It would be wonderful if you could report this so we can fix it!
 	ERROR_TYPE_INTERNAL_ERROR
+	// Clay__OpenElement was called more times than Clay__CloseElement, so there were still remaining open elements when the layout ended.
+	ERROR_TYPE_UNBALANCED_OPEN_CLOSE
 )
 
 // Data to identify the error that clay has encountered.
