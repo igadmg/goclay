@@ -477,7 +477,10 @@ func (c *Context) Clay__RenderDebugView() {
 			},
 			AttachTo: ATTACH_TO_ROOT,
 		},
-		Border: BorderElementConfig{Color: CLAY__DEBUGVIEW_COLOR_3, Width: BorderWidth{Bottom: 1}},
+		Border: BorderElementConfig{
+			Color: CLAY__DEBUGVIEW_COLOR_3,
+			Width: BorderWidth{Bottom: 1},
+		},
 	}, func() {
 		c.CLAY(ElementDeclaration{
 			Layout: LayoutConfig{
@@ -493,7 +496,8 @@ func (c *Context) Clay__RenderDebugView() {
 			c.TEXT("Clay Debug Tools", infoTextConfig)
 			c.CLAY(ElementDeclaration{
 				Layout: LayoutConfig{
-					Sizing: Sizing{Width: c.SIZING_GROW(0)}},
+					Sizing: Sizing{Width: c.SIZING_GROW(0)},
+				},
 			})
 			// Close button
 			c.CLAY(ElementDeclaration{
@@ -506,7 +510,8 @@ func (c *Context) Clay__RenderDebugView() {
 				},
 				BackgroundColor: Color{R: 217, G: 91, B: 67, A: 80},
 				CornerRadius:    CORNER_RADIUS(4),
-				Border: BorderElementConfig{Color: Color{R: 217, G: 91, B: 67, A: 255},
+				Border: BorderElementConfig{
+					Color: Color{R: 217, G: 91, B: 67, A: 255},
 					Width: BorderWidth{1, 1, 1, 1, 0},
 				},
 			}, func() {
@@ -539,7 +544,6 @@ func (c *Context) Clay__RenderDebugView() {
 				ChildOffset: c.GetScrollOffset(),
 			},
 		}, func() {
-
 			bgColor := CLAY__DEBUGVIEW_COLOR_2
 			if ((initialElementsLength + initialRootsLength) & 1) != 0 {
 				bgColor = CLAY__DEBUGVIEW_COLOR_1
@@ -562,7 +566,9 @@ func (c *Context) Clay__RenderDebugView() {
 							Width:  c.SIZING_GROW(0),
 							Height: c.SIZING_GROW(0),
 						},
-					}, Floating: FloatingElementConfig{ZIndex: 32766,
+					},
+					Floating: FloatingElementConfig{
+						ZIndex:             32766,
 						PointerCaptureMode: POINTER_CAPTURE_MODE_PASSTHROUGH,
 						AttachTo:           ATTACH_TO_PARENT,
 					},
@@ -635,10 +641,12 @@ func (c *Context) Clay__RenderDebugView() {
 						Width:  c.SIZING_GROW(0),
 						Height: c.SIZING_FIXED(300),
 					},
-					LayoutDirection: TOP_TO_BOTTOM},
+					LayoutDirection: TOP_TO_BOTTOM,
+				},
 				BackgroundColor: CLAY__DEBUGVIEW_COLOR_2,
 				Clip:            ClipElementConfig{Vertical: true},
-				Border: BorderElementConfig{Color: CLAY__DEBUGVIEW_COLOR_3,
+				Border: BorderElementConfig{
+					Color: CLAY__DEBUGVIEW_COLOR_3,
 					Width: BorderWidth{BetweenChildren: 1},
 				},
 			}, func() {
@@ -649,11 +657,15 @@ func (c *Context) Clay__RenderDebugView() {
 							Height: c.SIZING_FIXED(CLAY__DEBUGVIEW_ROW_HEIGHT + 8),
 						},
 						Padding:        Padding{CLAY__DEBUGVIEW_OUTER_PADDING, CLAY__DEBUGVIEW_OUTER_PADDING, 0, 0},
-						ChildAlignment: ChildAlignment{Y: ALIGN_Y_CENTER}}}, func() {
+						ChildAlignment: ChildAlignment{Y: ALIGN_Y_CENTER},
+					},
+				}, func() {
 					c.TEXT("Layout Config", infoTextConfig)
 					c.CLAY(ElementDeclaration{
 						Layout: LayoutConfig{
-							Sizing: Sizing{Width: c.SIZING_GROW(0)}}})
+							Sizing: Sizing{Width: c.SIZING_GROW(0)},
+						},
+					})
 					if selectedItem.elementId.stringId != "" {
 						c.TEXT(selectedItem.elementId.stringId, infoTitleConfig)
 						/*
@@ -668,13 +680,16 @@ func (c *Context) Clay__RenderDebugView() {
 				attributeConfigPadding := Padding{CLAY__DEBUGVIEW_OUTER_PADDING, CLAY__DEBUGVIEW_OUTER_PADDING, 8, 8}
 				// Clay_LayoutConfig debug info
 				c.CLAY(ElementDeclaration{
-					Layout: LayoutConfig{Padding: attributeConfigPadding,
+					Layout: LayoutConfig{
+						Padding:         attributeConfigPadding,
 						ChildGap:        8,
-						LayoutDirection: TOP_TO_BOTTOM}}, func() {
+						LayoutDirection: TOP_TO_BOTTOM},
+				}, func() {
 					// .boundingBox
 					c.TEXT("Bounding Box", infoTitleConfig)
 					c.CLAY(ElementDeclaration{
-						Layout: LayoutConfig{LayoutDirection: LEFT_TO_RIGHT}}, func() {
+						Layout: LayoutConfig{LayoutDirection: LEFT_TO_RIGHT},
+					}, func() {
 						c.TEXT("{ x: ", infoTextConfig)
 						c.TEXT(strconv.Itoa(int(selectedItem.boundingBox.X())), infoTextConfig)
 						c.TEXT(", y: ", infoTextConfig)
@@ -692,12 +707,14 @@ func (c *Context) Clay__RenderDebugView() {
 					// .sizing
 					c.TEXT("Sizing", infoTitleConfig)
 					c.CLAY(ElementDeclaration{
-						Layout: LayoutConfig{LayoutDirection: LEFT_TO_RIGHT}}, func() {
+						Layout: LayoutConfig{LayoutDirection: LEFT_TO_RIGHT},
+					}, func() {
 						c.TEXT("width: ", infoTextConfig)
 						c.renderDebugLayoutSizing(layoutConfig.Sizing.Width, infoTextConfig)
 					})
 					c.CLAY(ElementDeclaration{
-						Layout: LayoutConfig{LayoutDirection: LEFT_TO_RIGHT}}, func() {
+						Layout: LayoutConfig{LayoutDirection: LEFT_TO_RIGHT},
+					}, func() {
 						c.TEXT("height: ", infoTextConfig)
 						c.renderDebugLayoutSizing(layoutConfig.Sizing.Height, infoTextConfig)
 					})
@@ -721,20 +738,23 @@ func (c *Context) Clay__RenderDebugView() {
 					// .childAlignment
 					c.TEXT("Child Alignment", infoTitleConfig)
 					c.CLAY(ElementDeclaration{
-						Layout: LayoutConfig{LayoutDirection: LEFT_TO_RIGHT}}, func() {
+						Layout: LayoutConfig{LayoutDirection: LEFT_TO_RIGHT},
+					}, func() {
 						c.TEXT("{ x: ", infoTextConfig)
 						alignX := "LEFT"
-						if layoutConfig.ChildAlignment.X == ALIGN_X_CENTER {
+						switch layoutConfig.ChildAlignment.X {
+						case ALIGN_X_CENTER:
 							alignX = "CENTER"
-						} else if layoutConfig.ChildAlignment.X == ALIGN_X_RIGHT {
+						case ALIGN_X_RIGHT:
 							alignX = "RIGHT"
 						}
 						c.TEXT(alignX, infoTextConfig)
 						c.TEXT(", y: ", infoTextConfig)
 						alignY := "TOP"
-						if layoutConfig.ChildAlignment.Y == ALIGN_Y_CENTER {
+						switch layoutConfig.ChildAlignment.Y {
+						case ALIGN_Y_CENTER:
 							alignY = "CENTER"
-						} else if layoutConfig.ChildAlignment.Y == ALIGN_Y_BOTTOM {
+						case ALIGN_Y_BOTTOM:
 							alignY = "BOTTOM"
 						}
 						c.TEXT(alignY, infoTextConfig)
@@ -746,9 +766,11 @@ func (c *Context) Clay__RenderDebugView() {
 					switch cfg := elementConfig.(type) {
 					case *SharedElementConfig:
 						c.CLAY(ElementDeclaration{
-							Layout: LayoutConfig{Padding: attributeConfigPadding,
+							Layout: LayoutConfig{
+								Padding:         attributeConfigPadding,
 								ChildGap:        8,
-								LayoutDirection: TOP_TO_BOTTOM},
+								LayoutDirection: TOP_TO_BOTTOM,
+							},
 						}, func() {
 							// .backgroundColor
 							c.TEXT("Background Color", infoTitleConfig)
@@ -759,9 +781,12 @@ func (c *Context) Clay__RenderDebugView() {
 						})
 					case *TextElementConfig:
 						c.CLAY(ElementDeclaration{
-							Layout: LayoutConfig{Padding: attributeConfigPadding,
+							Layout: LayoutConfig{
+								Padding:         attributeConfigPadding,
 								ChildGap:        8,
-								LayoutDirection: TOP_TO_BOTTOM}}, func() {
+								LayoutDirection: TOP_TO_BOTTOM,
+							},
+						}, func() {
 							// .fontSize
 							c.TEXT("Font Size", infoTitleConfig)
 							c.TEXT(strconv.Itoa(int(cfg.FontSize)), infoTextConfig)
@@ -791,9 +816,12 @@ func (c *Context) Clay__RenderDebugView() {
 					case *ImageElementConfig:
 						c.CLAY_ID(c.ID("Clay__DebugViewElementInfoImageBody"),
 							ElementDeclaration{
-								Layout: LayoutConfig{Padding: attributeConfigPadding,
+								Layout: LayoutConfig{
+									Padding:         attributeConfigPadding,
 									ChildGap:        8,
-									LayoutDirection: TOP_TO_BOTTOM}}, func() {
+									LayoutDirection: TOP_TO_BOTTOM,
+								},
+							}, func() {
 								// .sourceDimensions
 								c.TEXT("Source Dimensions", infoTitleConfig)
 								c.CLAY_ID(c.ID("Clay__DebugViewElementInfoImageDimensions"),
@@ -804,14 +832,19 @@ func (c *Context) Clay__RenderDebugView() {
 								c.TEXT("Preview", infoTitleConfig)
 								c.CLAY(ElementDeclaration{
 									Layout: LayoutConfig{
-										Sizing: Sizing{Width: c.SIZING_GROW(0, cfg.SourceDimensions.X)},
-									}, Image: *cfg})
+										Sizing: Sizing{Width: c.SIZING_GROW()},
+									},
+									Image: *cfg,
+								})
 							})
 					case *ClipElementConfig:
 						c.CLAY(ElementDeclaration{
-							Layout: LayoutConfig{Padding: attributeConfigPadding,
+							Layout: LayoutConfig{
+								Padding:         attributeConfigPadding,
 								ChildGap:        8,
-								LayoutDirection: TOP_TO_BOTTOM}}, func() {
+								LayoutDirection: TOP_TO_BOTTOM,
+							},
+						}, func() {
 							// .vertical
 							c.TEXT("Vertical", infoTitleConfig)
 							// TODO: fix
@@ -822,13 +855,17 @@ func (c *Context) Clay__RenderDebugView() {
 						})
 					case *FloatingElementConfig:
 						c.CLAY(ElementDeclaration{
-							Layout: LayoutConfig{Padding: attributeConfigPadding,
+							Layout: LayoutConfig{
+								Padding:         attributeConfigPadding,
 								ChildGap:        8,
-								LayoutDirection: TOP_TO_BOTTOM}}, func() {
+								LayoutDirection: TOP_TO_BOTTOM,
+							},
+						}, func() {
 							// .offset
 							c.TEXT("Offset", infoTitleConfig)
 							c.CLAY(ElementDeclaration{
-								Layout: LayoutConfig{LayoutDirection: LEFT_TO_RIGHT}}, func() {
+								Layout: LayoutConfig{LayoutDirection: LEFT_TO_RIGHT},
+							}, func() {
 								c.TEXT("{ x: ", infoTextConfig)
 								c.TEXT(strconv.Itoa(int(cfg.Offset.X)), infoTextConfig)
 								c.TEXT(", y: ", infoTextConfig)
@@ -838,7 +875,8 @@ func (c *Context) Clay__RenderDebugView() {
 							// .expand
 							c.TEXT("Expand", infoTitleConfig)
 							c.CLAY(ElementDeclaration{
-								Layout: LayoutConfig{LayoutDirection: LEFT_TO_RIGHT}}, func() {
+								Layout: LayoutConfig{LayoutDirection: LEFT_TO_RIGHT},
+							}, func() {
 								c.TEXT("{ width: ", infoTextConfig)
 								c.TEXT(strconv.Itoa(int(cfg.Expand.X)), infoTextConfig)
 								c.TEXT(", height: ", infoTextConfig)
@@ -856,12 +894,16 @@ func (c *Context) Clay__RenderDebugView() {
 					case *BorderElementConfig:
 						c.CLAY_ID(c.ID("Clay__DebugViewElementInfoBorderBody"),
 							ElementDeclaration{
-								Layout: LayoutConfig{Padding: attributeConfigPadding,
+								Layout: LayoutConfig{
+									Padding:         attributeConfigPadding,
 									ChildGap:        8,
-									LayoutDirection: TOP_TO_BOTTOM}}, func() {
+									LayoutDirection: TOP_TO_BOTTOM,
+								},
+							}, func() {
 								c.TEXT("Border Widths", infoTitleConfig)
 								c.CLAY(ElementDeclaration{
-									Layout: LayoutConfig{LayoutDirection: LEFT_TO_RIGHT}}, func() {
+									Layout: LayoutConfig{LayoutDirection: LEFT_TO_RIGHT},
+								}, func() {
 									c.TEXT("{ left: ", infoTextConfig)
 									c.TEXT(strconv.Itoa(int(cfg.Width.Left)), infoTextConfig)
 									c.TEXT(", right: ", infoTextConfig)
@@ -884,7 +926,7 @@ func (c *Context) Clay__RenderDebugView() {
 				}
 			})
 		} else {
-			c.CLAY_ID(c.ID("Clay__DebugViewWarningsScrollPane"),
+			c.CLAY_ID(c.ID("Clay__DebugViewWarning nsScrollPane"),
 				ElementDeclaration{
 					Layout: LayoutConfig{
 						Sizing: Sizing{
@@ -895,8 +937,9 @@ func (c *Context) Clay__RenderDebugView() {
 						LayoutDirection: TOP_TO_BOTTOM,
 					},
 					BackgroundColor: CLAY__DEBUGVIEW_COLOR_2,
-					Clip: ClipElementConfig{Horizontal: true,
-						Vertical: true,
+					Clip: ClipElementConfig{
+						Horizontal: true,
+						Vertical:   true,
 					},
 				}, func() {
 					warningConfig := c.TEXT_CONFIG(TextElementConfig{
@@ -910,7 +953,8 @@ func (c *Context) Clay__RenderDebugView() {
 								Sizing:         Sizing{Height: c.SIZING_FIXED(CLAY__DEBUGVIEW_ROW_HEIGHT)},
 								Padding:        Padding{CLAY__DEBUGVIEW_OUTER_PADDING, CLAY__DEBUGVIEW_OUTER_PADDING, 0, 0},
 								ChildGap:       8,
-								ChildAlignment: ChildAlignment{Y: ALIGN_Y_CENTER}},
+								ChildAlignment: ChildAlignment{Y: ALIGN_Y_CENTER},
+							},
 						}, func() {
 							c.TEXT("Warnings", warningConfig)
 						})
@@ -930,7 +974,8 @@ func (c *Context) Clay__RenderDebugView() {
 									Sizing:         Sizing{Height: c.SIZING_FIXED(CLAY__DEBUGVIEW_ROW_HEIGHT)},
 									Padding:        Padding{CLAY__DEBUGVIEW_OUTER_PADDING, CLAY__DEBUGVIEW_OUTER_PADDING, 0, 0},
 									ChildGap:       8,
-									ChildAlignment: ChildAlignment{Y: ALIGN_Y_CENTER}},
+									ChildAlignment: ChildAlignment{Y: ALIGN_Y_CENTER},
+								},
 							}, func() {
 								c.TEXT(warning.baseMessage, warningConfig)
 								if warning.dynamicMessage != "" {
