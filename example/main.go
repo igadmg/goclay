@@ -98,15 +98,17 @@ func main() {
 			}, func() {
 				ui.CLAY_ID(clay.ID("SideBar"),
 					clay.ElementDeclaration{
-						Layout: clay.LayoutConfig{LayoutDirection: clay.TOP_TO_BOTTOM,
-							Sizing:   clay.Sizing{Width: clay.SIZING_FIXED(300), Height: clay.SIZING_GROW()},
-							Padding:  clay.PADDING_ALL(16),
-							ChildGap: 16},
+						Layout: clay.LayoutConfig{
+							LayoutDirection: clay.TOP_TO_BOTTOM,
+							Sizing:          clay.Sizing{Width: clay.SIZING_FIXED(300), Height: clay.SIZING_GROW()},
+							Padding:         clay.PADDING_ALL(16),
+							ChildGap:        16},
 						BackgroundColor: COLOR_LIGHT,
 					}, func() {
 						ui.CLAY_ID(clay.ID("ProfilePictureOuter"),
 							clay.ElementDeclaration{
-								Layout: clay.LayoutConfig{Sizing: clay.Sizing{Width: clay.SIZING_GROW()},
+								Layout: clay.LayoutConfig{
+									Sizing:   clay.Sizing{Width: clay.SIZING_GROW()},
 									Padding:  clay.PADDING_ALL(16),
 									ChildGap: 16, ChildAlignment: clay.ChildAlignment{Y: clay.ALIGN_Y_CENTER}},
 								BackgroundColor: COLOR_RED,
@@ -213,17 +215,19 @@ func main_callback() {
 			}, func() {
 				ui.CLAY_ID(clay.ID("SideBar"),
 					clay.ElementDeclaration{
-						Layout: clay.LayoutConfig{LayoutDirection: clay.TOP_TO_BOTTOM,
-							Sizing:   clay.Sizing{Width: clay.SIZING_FIXED(300), Height: clay.SIZING_GROW()},
-							Padding:  clay.PADDING_ALL(16),
-							ChildGap: 16},
+						Layout: clay.LayoutConfig{
+							LayoutDirection: clay.TOP_TO_BOTTOM,
+							Sizing:          clay.Sizing{Width: clay.SIZING_FIXED(300), Height: clay.SIZING_GROW()},
+							Padding:         clay.PADDING_ALL(16),
+							ChildGap:        16},
 						UserData: func(rect clay.BoundingBox) {
 							// DrawRect(rect, COLOR_LIGHT)
 						},
 					}, func() {
 						ui.CLAY_ID(clay.ID("ProfilePictureOuter"),
 							clay.ElementDeclaration{
-								Layout: clay.LayoutConfig{Sizing: clay.Sizing{Width: clay.SIZING_GROW()},
+								Layout: clay.LayoutConfig{
+									Sizing:   clay.Sizing{Width: clay.SIZING_GROW()},
 									Padding:  clay.PADDING_ALL(16),
 									ChildGap: 16, ChildAlignment: clay.ChildAlignment{Y: clay.ALIGN_Y_CENTER}},
 								UserData: func(rect clay.BoundingBox) {
@@ -344,16 +348,18 @@ func main_callback_with_separate_layout() {
 			},
 		}, func() {
 			ui.CLAY_ID(clay.ID("SideBar"), clay.ElementDeclaration{
-				Layout: clay.LayoutConfig{LayoutDirection: clay.TOP_TO_BOTTOM,
-					Sizing:   clay.Sizing{Width: clay.SIZING_FIXED(300), Height: clay.SIZING_GROW()},
-					Padding:  clay.PADDING_ALL(16),
-					ChildGap: 16},
+				Layout: clay.LayoutConfig{
+					LayoutDirection: clay.TOP_TO_BOTTOM,
+					Sizing:          clay.Sizing{Width: clay.SIZING_FIXED(300), Height: clay.SIZING_GROW()},
+					Padding:         clay.PADDING_ALL(16),
+					ChildGap:        16},
 				UserData: func(rect clay.BoundingBox) {
 					// DrawRect(rect, COLOR_LIGHT)
 				},
 			}, func() {
 				ui.CLAY_ID(clay.ID("ProfilePictureOuter"), clay.ElementDeclaration{
-					Layout: clay.LayoutConfig{Sizing: clay.Sizing{Width: clay.SIZING_GROW()},
+					Layout: clay.LayoutConfig{
+						Sizing:   clay.Sizing{Width: clay.SIZING_GROW()},
 						Padding:  clay.PADDING_ALL(16),
 						ChildGap: 16, ChildAlignment: clay.ChildAlignment{Y: clay.ALIGN_Y_CENTER}},
 					UserData: func(rect clay.BoundingBox) {
