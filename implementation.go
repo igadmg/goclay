@@ -1675,8 +1675,11 @@ func (c *Context) calculateFinalLayout() {
 					shouldRender := !offscreen
 					switch cfg := elementConfig.(type) {
 					case *AspectRatioElementConfig:
+						shouldRender = false
 					case *FloatingElementConfig:
+						shouldRender = false
 					case *SharedElementConfig:
+						shouldRender = false
 					case *BorderElementConfig:
 						shouldRender = false
 					case *ClipElementConfig:
