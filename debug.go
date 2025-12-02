@@ -918,7 +918,6 @@ func (c *Context) Clay__RenderDebugView() {
 								c.CLAY_TEXT("Border Color", infoTitleConfig)
 								c.Clay__RenderDebugViewColor(cfg.Color, infoTextConfig)
 							})
-						break
 					case *CustomElementConfig:
 					default:
 						break
