@@ -2,41 +2,10 @@ package clay
 
 import (
 	"fmt"
-	"image/color"
 	"math"
 
 	"github.com/igadmg/gamemath/rect2"
-	"github.com/igadmg/gamemath/vector2"
-	"golang.org/x/exp/constraints"
 )
-
-type Coordinate interface {
-	constraints.Integer | constraints.Float
-}
-
-type Color color.RGBA
-type Vector2 = vector2.Float32
-type Dimensions = vector2.Float32
-type BoundingBox = rect2.Float32
-
-func MakeDimensions[XT, YT Coordinate](x XT, y YT) Dimensions {
-	return vector2.NewFloat32(x, y)
-}
-
-func MakeVector2[XT, YT Coordinate](x XT, y YT) Vector2 {
-	return vector2.NewFloat32(x, y)
-}
-
-func MakeBoundingBox(position Vector2, size Dimensions) BoundingBox {
-	return rect2.NewFloat32(position, size)
-}
-
-func (c Color) IsZero() bool {
-	return c.R == 0 &&
-		c.G == 0 &&
-		c.B == 0 &&
-		c.A == 0
-}
 
 type MeasureTextFn func(text string, config *TextElementConfig, userData any) Dimensions
 type QueryScrollOffsetFn func(elementId uint32, userData any) Vector2
@@ -50,8 +19,6 @@ type ElementId struct {
 	//baseId   uint32 // A base hash value to start from, for example the parent element ID is used when calculating ID_LOCAL().
 	stringId string // The string id to hash.
 }
-
-var default_ElementId ElementId
 
 func ID(label string) ElementId            { return hashString(label) }
 func (*Context) ID(label string) ElementId { return hashString(label) }
