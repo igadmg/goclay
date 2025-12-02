@@ -1447,7 +1447,8 @@ func (c *Context) calculateFinalLayout() {
 
 		// DFS node has been visited, this is on the way back up to the root
 		layoutConfig := currentElement.layoutConfig
-		if layoutConfig.LayoutDirection == LEFT_TO_RIGHT {
+		switch layoutConfig.LayoutDirection {
+		case LEFT_TO_RIGHT:
 			// Resize any parent containers that have grown in height along their non layout axis
 			for _, child := range currentElement.children {
 				childElement := c.layoutElements[child]
@@ -1457,7 +1458,7 @@ func (c *Context) calculateFinalLayout() {
 					currentElement.dimensions.Y = min(max(childHeightWithPadding, mm.GetMinMax().Min), mm.GetMinMax().Max)
 				}
 			}
-		} else if layoutConfig.LayoutDirection == TOP_TO_BOTTOM {
+		case TOP_TO_BOTTOM:
 			// Resizing along the layout axis
 			contentHeight := float32(layoutConfig.Padding.Top + layoutConfig.Padding.Bottom)
 			for _, child := range currentElement.children {
@@ -1795,8 +1796,8 @@ func (c *Context) calculateFinalLayout() {
 						default:
 							break
 						}
-						currentElementTreeNode.nextChildOffset.X += extraSpace
 						extraSpace = max(0, extraSpace)
+						currentElementTreeNode.nextChildOffset.X += extraSpace
 					} else {
 						for _, child := range currentElement.children {
 							childElement := c.layoutElements[child]
