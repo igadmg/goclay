@@ -260,3 +260,44 @@ func TestErrorHandling_MeasureTextNotSet(t *testing.T) {
 
 	assert.Greater(t, errorCount, 0)
 }
+
+func TestSimpleLayout_RenderCommandsCount(t *testing.T) {
+	ctx := Initialize(MakeDimensions(800, 600), ErrorHandler{})
+	ctx.SetMeasureTextFunction(mockMeasureText, nil)
+
+	ctx.BeginLayout()
+	// Create a simple layout: a container with background and text
+	ctx.CLAY(ElementDeclaration{
+		Layout: LayoutConfig{
+			Sizing: Sizing{
+				Width:  FIXED(200),
+				Height: FIXED(100),
+			},
+		},
+		BackgroundColor: Color{255, 0, 0, 255}, // Red background
+	}, func() {
+		/*
+			ctx.CLAY_TEXT("Hello World", ctx.TEXT_CONFIG(TextElementConfig{
+				TextColor: Color{255, 255, 255, 255},
+				FontSize:  16,
+			}))
+		*/
+	})
+	commands := ctx.EndLayout()
+
+	// Should generate at least 2 commands: rectangle for background and text
+	assert.Equal(t, 1, len(commands))
+	// Check that we have a rectangle command and a text command
+	hasRectangle := false
+	hasText := false
+	for _, cmd := range commands {
+		switch cmd.RenderData.(type) {
+		case RectangleRenderData:
+			hasRectangle = true
+		case TextRenderData:
+			hasText = true
+		}
+	}
+	assert.True(t, hasRectangle, "Should have rectangle render command")
+	assert.True(t, hasText, "Should have text render command")
+}
