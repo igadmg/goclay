@@ -289,13 +289,13 @@ func TestSimpleLayout_RenderCommandsCount(t *testing.T) {
 	assert.Equal(t, 1, len(commands))
 	// Check that we have a rectangle command and a text command
 	hasRectangle := false
-	hasText := false
+	//hasText := false
 	for _, cmd := range commands {
 		switch cmd.RenderData.(type) {
 		case RectangleRenderData:
 			hasRectangle = true
 		case TextRenderData:
-			hasText = true
+			//hasText = true
 		}
 	}
 	assert.True(t, hasRectangle, "Should have rectangle render command")
