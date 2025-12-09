@@ -325,16 +325,45 @@ func WithSizing(cfg Sizing) ElementOptionsFn {
 	}
 }
 
-func WithPads(Left uint16, Right uint16, Top uint16, Bottom uint16) ElementOptionsFn {
-	return func(ed ElementDeclaration) ElementDeclaration {
-		ed.Layout.Padding = Padding{
-			Left:   Left,
-			Right:  Right,
-			Top:    Top,
-			Bottom: Bottom,
-		}
-		return ed
+func WithPads(ps ...uint16) ElementOptionsFn {
+	if len(ps) == 0 {
+		return func(ed ElementDeclaration) ElementDeclaration { return ed }
 	}
+	if len(ps) == 1 {
+		return func(ed ElementDeclaration) ElementDeclaration {
+			ed.Layout.Padding = Padding{
+				Left:   ps[0],
+				Right:  ps[0],
+				Top:    ps[0],
+				Bottom: ps[0],
+			}
+			return ed
+		}
+	}
+	if len(ps) == 2 {
+		return func(ed ElementDeclaration) ElementDeclaration {
+			ed.Layout.Padding = Padding{
+				Left:   ps[0],
+				Right:  ps[0],
+				Top:    ps[1],
+				Bottom: ps[1],
+			}
+			return ed
+		}
+	}
+	if len(ps) == 4 {
+		return func(ed ElementDeclaration) ElementDeclaration {
+			ed.Layout.Padding = Padding{
+				Left:   ps[0],
+				Right:  ps[1],
+				Top:    ps[2],
+				Bottom: ps[3],
+			}
+			return ed
+		}
+	}
+
+	return func(ed ElementDeclaration) ElementDeclaration { return ed }
 }
 
 func WithPadding(cfg Padding) ElementOptionsFn {
