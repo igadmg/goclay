@@ -79,11 +79,11 @@ func (d LayoutDirection) String() string {
 	return ""
 }
 
-func (d LayoutDirection) IsAlongAxis(axis int) bool {
+func (d LayoutDirection) IsAlongAxis(axis Axis) bool {
 	switch axis {
-	case 0:
+	case AxisX:
 		return d == LEFT_TO_RIGHT
-	case 1:
+	case AxisY:
 		return d == TOP_TO_BOTTOM
 	}
 
@@ -278,11 +278,11 @@ type Sizing struct {
 	Height AnySizingAxis // Controls the height sizing of the element, along the y axis.
 }
 
-func (s Sizing) GetAxis(axis int) AnySizingAxis {
+func (s Sizing) GetAxis(axis Axis) AnySizingAxis {
 	switch axis {
-	case 0:
+	case AxisX:
 		return s.Width
-	case 1:
+	case AxisY:
 		return s.Height
 	}
 

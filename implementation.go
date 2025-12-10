@@ -730,6 +730,7 @@ func (c *Context) openElement() bool {
 
 	c.layoutElements = append(c.layoutElements, LayoutElement{})
 	c.openLayoutElementStack = append(c.openLayoutElementStack, len(c.layoutElements)-1)
+	c.generateIdForAnonymousElement(&c.layoutElements[len(c.layoutElements)-1])
 	if len(c.openClipElementStack) > 0 {
 		c.layoutElementClipElementIds = slicesex_Set(
 			c.layoutElementClipElementIds,
@@ -1043,7 +1044,7 @@ func floatEqual(left float32, right float32) bool {
 	return subtracted < CLAY__EPSILON && subtracted > -CLAY__EPSILON
 }
 
-func (c *Context) sizeContainersAlongAxis(axis int) {
+func (c *Context) sizeContainersAlongAxis(axis Axis) {
 	bfsBuffer := c.layoutElementChildrenBuffer
 	resizableContainerBuffer := c.openLayoutElementStack[:]
 	for _, root := range c.layoutElementTreeRoots {
@@ -1338,7 +1339,7 @@ func (c *Context) calculateFinalLayout() {
 	treeNodeVisited := make([]bool, len(c.layoutElements))
 
 	// Calculate sizing along the X axis
-	c.sizeContainersAlongAxis(0)
+	c.sizeContainersAlongAxis(AxisX)
 
 	// Wrap text
 	for i := range c.textElementData {
@@ -1474,7 +1475,7 @@ func (c *Context) calculateFinalLayout() {
 	}
 
 	// Calculate sizing along the Y axis
-	c.sizeContainersAlongAxis(1)
+	c.sizeContainersAlongAxis(AxisY)
 
 	// Scale horizontal widths according to aspect ratio
 	for _, ai := range c.aspectRatioElementIndexes {

@@ -1,6 +1,7 @@
 package clay
 
 import (
+	gm "github.com/igadmg/gamemath"
 	"github.com/igadmg/gamemath/rect2"
 	"github.com/igadmg/gamemath/vector2"
 	"github.com/igadmg/goex/image/colorex"
@@ -10,6 +11,13 @@ import (
 type Coordinate interface {
 	constraints.Integer | constraints.Float
 }
+
+type Axis = gm.Axis
+
+const (
+	AxisX = gm.AxisX
+	AxisY = gm.AxisY
+)
 
 type Color colorex.RGBA
 type Vector2 = vector2.Float32
