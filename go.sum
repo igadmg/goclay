@@ -3,12 +3,8 @@ github.com/chewxy/math32 v1.11.1/go.mod h1:dOB2rcuFrCn6UHrze36WSLVPKtzPMRAQvBvUw
 github.com/creack/pty v1.1.9/go.mod h1:oKZEueFk5CKHvIhNR5MUki03XCEU+Q6VDXinZuGJ33E=
 github.com/davecgh/go-spew v1.1.1 h1:vj9j/u1bqnvCEfJOwUhtlOARqs3+rkHYY13jYWTU97c=
 github.com/davecgh/go-spew v1.1.1/go.mod h1:J7Y8YcW2NihsgmVo/mv3lAwl/skON4iLHjSsI+c5H38=
-github.com/igadmg/gamemath v0.0.0-20251201230241-2fdc1b5887ec h1:UJU9HCvIHhvCTSoV813N0gEVg/x8SRJWT0i9pScefb4=
-github.com/igadmg/gamemath v0.0.0-20251201230241-2fdc1b5887ec/go.mod h1:HScVsoISpewuMWaukwTcKjFejzPSOm6K3uV/AMQ1cm8=
 github.com/igadmg/gamemath v0.0.0-20251220071528-e1fe8a4c77ff h1:HaAn6V54tW782F9JBsiAANaSpahVgXKwKA+jAFe1D0E=
 github.com/igadmg/gamemath v0.0.0-20251220071528-e1fe8a4c77ff/go.mod h1:HsvwdoRnPzZ29q9376V/uBg5TslVFYH7fBKWn8qZR5A=
-github.com/igadmg/goex v0.0.0-20251125025801-73d767d9b001 h1:B6wEAZ9t0xibX2Yn/d+Ie6aDOtAO7lvBJyQ5TjcKwdE=
-github.com/igadmg/goex v0.0.0-20251125025801-73d767d9b001/go.mod h1:ro3D+XL0D2Pdk4ntpehEaGn9fp/oHtx4xGTi03eiqyw=
 github.com/igadmg/goex v0.0.0-20251220072321-b144920274b3 h1:TmbwOJLLsEni/G4WV2F1d2HDTM1u+6HbKawRA+Cdows=
 github.com/igadmg/goex v0.0.0-20251220072321-b144920274b3/go.mod h1:YEhlkgnXa7QejfgoKAaFo6DsaQJCUfDZt+gwGKmlD68=
 github.com/kr/pretty v0.3.1 h1:flRD4NNwYAUpkphVc1HcthR4KEIFJ65n8Mw5qdRn3LE=
@@ -21,8 +17,6 @@ github.com/rogpeppe/go-internal v1.12.0 h1:exVL4IDcn6na9z1rAb56Vxr+CgyK3nn3O+epU
 github.com/rogpeppe/go-internal v1.12.0/go.mod h1:E+RYuTGaKKdloAfM02xzb0FW3Paa99yedzYV+kq4uf4=
 github.com/stretchr/testify v1.11.1 h1:7s2iGBzp5EwR7/aIZr8ao5+dra3wiQyKjjFuvgVKu7U=
 github.com/stretchr/testify v1.11.1/go.mod h1:wZwfW3scLgRK+23gO65QZefKpKQRnfz6sD981Nm4B6U=
-golang.org/x/exp v0.0.0-20251125195548-87e1e737ad39 h1:DHNhtq3sNNzrvduZZIiFyXWOL9IWaDPHqTnLJp+rCBY=
-golang.org/x/exp v0.0.0-20251125195548-87e1e737ad39/go.mod h1:46edojNIoXTNOhySWIWdix628clX9ODXwPsQuG6hsK0=
 golang.org/x/exp v0.0.0-20251219203646-944ab1f22d93 h1:fQsdNF2N+/YewlRZiricy4P1iimyPKZ/xwniHj8Q2a0=
 golang.org/x/exp v0.0.0-20251219203646-944ab1f22d93/go.mod h1:EPRbTFwzwjXj9NpYyyrvenVh9Y+GFeEvMNh7Xuz7xgU=
 gopkg.in/check.v1 v0.0.0-20161208181325-20d25e280405/go.mod h1:Co6ibVJAznAaIkqp8huTwlJQCZ016jof/cbN4VW5Yz0=
