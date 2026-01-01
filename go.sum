@@ -5,8 +5,12 @@ github.com/davecgh/go-spew v1.1.1 h1:vj9j/u1bqnvCEfJOwUhtlOARqs3+rkHYY13jYWTU97c
 github.com/davecgh/go-spew v1.1.1/go.mod h1:J7Y8YcW2NihsgmVo/mv3lAwl/skON4iLHjSsI+c5H38=
 github.com/igadmg/gamemath v0.0.0-20251220071528-e1fe8a4c77ff h1:HaAn6V54tW782F9JBsiAANaSpahVgXKwKA+jAFe1D0E=
 github.com/igadmg/gamemath v0.0.0-20251220071528-e1fe8a4c77ff/go.mod h1:HsvwdoRnPzZ29q9376V/uBg5TslVFYH7fBKWn8qZR5A=
+github.com/igadmg/gamemath v0.0.0-20260101124751-168041cf6efc h1:kq+qCO1SX3zhH99YaWyITrG+vUPrs7UYbCf14P9UzIc=
+github.com/igadmg/gamemath v0.0.0-20260101124751-168041cf6efc/go.mod h1:zdDd+ZmkcYvJtuzu0/O8X6g1yueacYmtL9kAjnRA9oU=
 github.com/igadmg/goex v0.0.0-20251220072321-b144920274b3 h1:TmbwOJLLsEni/G4WV2F1d2HDTM1u+6HbKawRA+Cdows=
 github.com/igadmg/goex v0.0.0-20251220072321-b144920274b3/go.mod h1:YEhlkgnXa7QejfgoKAaFo6DsaQJCUfDZt+gwGKmlD68=
+github.com/igadmg/goex v0.0.0-20260101132820-0d670092b5e1 h1:YoEJiIVlVF+AMR87aHQy5IKrPkamed1Zln5B1OOTL/g=
+github.com/igadmg/goex v0.0.0-20260101132820-0d670092b5e1/go.mod h1:Y/B3oeRdRu2ZhVegk7TVDG62/Ox8hQuYHozjxI0w9UE=
 github.com/kr/pretty v0.3.1 h1:flRD4NNwYAUpkphVc1HcthR4KEIFJ65n8Mw5qdRn3LE=
 github.com/kr/pretty v0.3.1/go.mod h1:hoEshYVHaxMs3cyo3Yncou5ZscifuDolrwPKZanG3xk=
 github.com/kr/text v0.2.0 h1:5Nx0Ya0ZqY2ygV366QzturHI13Jq95ApcVaJBhpS+AY=
