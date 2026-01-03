@@ -3,7 +3,7 @@ module github.com/igadmg/goclay
 go 1.25
 
 require (
-	github.com/igadmg/gamemath v0.0.0-20260101133112-c4fa6ddd0497
+	github.com/igadmg/gamemath v0.0.0-20260102145644-a6870add6615
 	github.com/igadmg/goex v0.0.0-20260101133116-420923949a14
 	github.com/stretchr/testify v1.11.1
 	golang.org/x/exp v0.0.0-20251219203646-944ab1f22d93
