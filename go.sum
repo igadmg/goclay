@@ -1,10 +1,7 @@
 github.com/chewxy/math32 v1.11.1 h1:b7PGHlp8KjylDoU8RrcEsRuGZhJuz8haxnKfuMMRqy8=
 github.com/chewxy/math32 v1.11.1/go.mod h1:dOB2rcuFrCn6UHrze36WSLVPKtzPMRAQvBvUwkSsLqs=
-github.com/creack/pty v1.1.9/go.mod h1:oKZEueFk5CKHvIhNR5MUki03XCEU+Q6VDXinZuGJ33E=
 github.com/davecgh/go-spew v1.1.1 h1:vj9j/u1bqnvCEfJOwUhtlOARqs3+rkHYY13jYWTU97c=
 github.com/davecgh/go-spew v1.1.1/go.mod h1:J7Y8YcW2NihsgmVo/mv3lAwl/skON4iLHjSsI+c5H38=
-github.com/igadmg/gamemath v0.0.0-20260101133112-c4fa6ddd0497 h1:C6a0p9RPpXdwAOsd9D8sQVGG4xWv6KDx4I+7TeRjXQw=
-github.com/igadmg/gamemath v0.0.0-20260101133112-c4fa6ddd0497/go.mod h1:RKhQh0aR8SBtCJ1/7uz/+5hHTgaefcZjvc65dDvXf8k=
 github.com/igadmg/gamemath v0.0.0-20260102145644-a6870add6615 h1:afis/wvJDxu2iqWUH3RiX+byhn33TC0M6OcQDhTGL3M=
 github.com/igadmg/gamemath v0.0.0-20260102145644-a6870add6615/go.mod h1:KHY0AbvZQbE2bmQlY3cAW5ibhQssENVdm+mgalVqpyQ=
 github.com/igadmg/goex v0.0.0-20260101133116-420923949a14 h1:kecw51Pk+ID1ZSenabb9g0o9sQAhHTAwt3juBAo6M28=
