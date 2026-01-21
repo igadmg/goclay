@@ -314,6 +314,7 @@ func (c *Context) BeginLayout() {
 // Called when all layout declarations are finished.
 // Computes the layout and generates and returns the array of render commands to draw.
 func (c *Context) EndLayout() []RenderCommand {
+	clear(c.renderCommands[0:cap(c.renderCommands)])
 	c.closeElement()
 	elementsExceededBeforeDebugView := c.booleanWarnings.maxElementsExceeded
 	if c.debugModeEnabled && !elementsExceededBeforeDebugView {
@@ -349,6 +350,13 @@ func (c *Context) EndLayout() []RenderCommand {
 	c.calculateFinalLayout()
 
 	return c.renderCommands
+}
+
+// Called when all layout declarations are finished.
+// Computes the layout and generates and returns the array of render commands to draw.
+func (c *Context) FinalizeLayout() []RenderCommand {
+	c.EndLayout()
+	return c.Finalize()
 }
 
 // Returns layout data such as the final calculated bounding box for an element with a given ID.

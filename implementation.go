@@ -1,9 +1,6 @@
 package clay
 
 import (
-	"encoding/binary"
-	"hash"
-	"hash/fnv"
 	"math"
 
 	"github.com/igadmg/gamemath/vector2"
@@ -179,160 +176,8 @@ type LayoutElementTreeRoot struct {
 	pointerOffset      Vector2 // Only used when scroll containers are managed externally
 }
 
-type Context struct {
-	maxElementCount              int32
-	maxMeasureTextCacheWordCount int32
-	warningsEnabled              bool
-	errorHandler                 ErrorHandler
-	booleanWarnings              BooleanWarnings
-	warnings                     []Warning
-
-	pointerInfo                   PointerData
-	layoutDimensions              Dimensions
-	dynamicElementIndexBaseHash   ElementId
-	dynamicElementIndex           uint32
-	debugModeEnabled              bool
-	disableCulling                bool
-	externalScrollHandlingEnabled bool
-	debugSelectedElementId        uint32
-	generation                    uint32
-	measureTextUserData           any
-	queryScrollOffsetUserData     any
-	renderTranslucent             bool
-
-	// Layout Elements / Render Commands
-	layoutElements              []LayoutElement
-	renderCommands              []RenderCommand
-	openLayoutElementStack      []int
-	layoutElementChildren       []int
-	layoutElementChildrenBuffer []int
-	textElementData             []TextElementData
-	aspectRatioElementIndexes   []int
-	reusableElementIndexBuffer  []int32
-	layoutElementClipElementIds []int
-
-	// Configs
-	layoutConfigs             []LayoutConfig
-	elementConfigs            []AnyElementConfig
-	textElementConfigs        []TextElementConfig
-	aspectRatioElementConfigs []AspectRatioElementConfig
-	imageElementConfigs       []ImageElementConfig
-	floatingElementConfigs    []FloatingElementConfig
-	clipElementConfigs        []ClipElementConfig
-	customElementConfigs      []CustomElementConfig
-	borderElementConfigs      []BorderElementConfig
-	sharedElementConfigs      []SharedElementConfig
-
-	// Misc Data Structures
-	layoutElementIdStrings        []string
-	wrappedTextLines              []WrappedTextLine
-	layoutElementTreeNodeArray1   []LayoutElementTreeNode
-	layoutElementTreeRoots        []LayoutElementTreeRoot
-	layoutElementsHashMapInternal []LayoutElementHashMapItem
-	layoutElementsHashMap         map[uint32]*LayoutElementHashMapItem
-	measureTextHashMapInternal    []MeasureTextCacheItem
-	measureTextHashMap            map[string]*MeasureTextCacheItem
-	measuredWords                 []MeasuredWord
-	measuredWordsFreeList         []int32
-	openClipElementStack          []int
-	pointerOverIds                []ElementId
-	scrollContainerDatas          []ScrollContainerDataInternal
-	dynamicStringData             []byte
-	debugElementData              []DebugElementData
-}
-
 var measureText MeasureTextFn
 var queryScrollOffset QueryScrollOffsetFn
-
-func (c *Context) getOpenLayoutElement() *LayoutElement {
-	return &c.layoutElements[c.openLayoutElementStack[len(c.openLayoutElementStack)-1]]
-}
-
-func (c *Context) getParentElementId() uint32 {
-	return c.layoutElements[c.openLayoutElementStack[len(c.openLayoutElementStack)-2]].id
-}
-
-func (c *Context) storeLayoutConfig(config LayoutConfig) *LayoutConfig {
-	if c.booleanWarnings.maxElementsExceeded {
-		return &default_LayoutConfig
-	}
-	c.layoutConfigs = append(c.layoutConfigs, config)
-	return &c.layoutConfigs[len(c.layoutConfigs)-1]
-}
-
-func (c *Context) storeTextElementConfig(config TextElementConfig) *TextElementConfig {
-	if c.booleanWarnings.maxElementsExceeded {
-		return &default_TextElementConfig
-	}
-	c.textElementConfigs = append(c.textElementConfigs, config)
-	return &c.textElementConfigs[len(c.textElementConfigs)-1]
-}
-
-func (c *Context) storeAspectRatioElementConfig(config AspectRatioElementConfig) *AspectRatioElementConfig {
-	if c.booleanWarnings.maxElementsExceeded {
-		return &default_AspectRatioElementConfig
-	}
-	c.aspectRatioElementConfigs = append(c.aspectRatioElementConfigs, config)
-	return &c.aspectRatioElementConfigs[len(c.aspectRatioElementConfigs)-1]
-}
-
-func (c *Context) storeImageElementConfig(config ImageElementConfig) *ImageElementConfig {
-	if c.booleanWarnings.maxElementsExceeded {
-		return &default_ImageElementConfig
-	}
-	c.imageElementConfigs = append(c.imageElementConfigs, config)
-	return &c.imageElementConfigs[len(c.imageElementConfigs)-1]
-}
-
-func (c *Context) storeFloatingElementConfig(config FloatingElementConfig) *FloatingElementConfig {
-	if c.booleanWarnings.maxElementsExceeded {
-		return &default_FloatingElementConfig
-	}
-	c.floatingElementConfigs = append(c.floatingElementConfigs, config)
-	return &c.floatingElementConfigs[len(c.floatingElementConfigs)-1]
-}
-
-func (c *Context) storeCustomElementConfig(config CustomElementConfig) *CustomElementConfig {
-	if c.booleanWarnings.maxElementsExceeded {
-		return &default_CustomElementConfig
-	}
-	c.customElementConfigs = append(c.customElementConfigs, config)
-	return &c.customElementConfigs[len(c.customElementConfigs)-1]
-}
-
-func (c *Context) storeClipElementConfig(config ClipElementConfig) *ClipElementConfig {
-	if c.booleanWarnings.maxElementsExceeded {
-		return &default_ClipElementConfig
-	}
-	c.clipElementConfigs = append(c.clipElementConfigs, config)
-	return &c.clipElementConfigs[len(c.clipElementConfigs)-1]
-}
-
-func (c *Context) storeBorderElementConfig(config BorderElementConfig) *BorderElementConfig {
-	if c.booleanWarnings.maxElementsExceeded {
-		return &default_BorderElementConfig
-	}
-	c.borderElementConfigs = append(c.borderElementConfigs, config)
-	return &c.borderElementConfigs[len(c.borderElementConfigs)-1]
-}
-
-func (c *Context) storeSharedElementConfig(config SharedElementConfig) *SharedElementConfig {
-	if c.booleanWarnings.maxElementsExceeded {
-		return &default_SharedElementConfig
-	}
-	c.sharedElementConfigs = append(c.sharedElementConfigs, config)
-	return &c.sharedElementConfigs[len(c.sharedElementConfigs)-1]
-}
-
-func (c *Context) attachElementConfig(config AnyElementConfig) AnyElementConfig {
-	if c.booleanWarnings.maxElementsExceeded {
-		return config
-	}
-	openLayoutElement := c.getOpenLayoutElement()
-	c.elementConfigs = append(c.elementConfigs, config)
-	openLayoutElement.elementConfigs = append(openLayoutElement.elementConfigs, config)
-	return config
-}
 
 func findElementConfigWithType[T ElementConfigType](element *LayoutElement) (T, bool) {
 	for _, config := range element.elementConfigs {
@@ -342,68 +187,6 @@ func findElementConfigWithType[T ElementConfigType](element *LayoutElement) (T, 
 		}
 	}
 	return nil, false
-}
-
-var hasher hash.Hash32 = fnv.New32a()
-var hashBuffer []byte = make([]byte, 4+2*4+1)
-
-func hashNumber(offset uint32, seed uint32) ElementId {
-	le := binary.LittleEndian
-	na := hashBuffer[0:0]
-	na = le.AppendUint32(na, offset)
-	na = le.AppendUint32(na, seed)
-
-	hasher.Reset()
-	hasher.Write(hashBuffer[:2*4])
-	hash := hasher.Sum32()
-
-	return ElementId{
-		id:       hash + 1, // Reserve the hash result of zero as "null id"
-		stringId: STRING_DEFAULT,
-	}
-}
-
-func hashString(key string) ElementId {
-	hasher.Reset()
-	hasher.Write([]byte(key))
-	hash := hasher.Sum32()
-
-	return ElementId{
-		id:       hash + 1, // Reserve the hash result of zero as "null id"
-		stringId: key,
-	}
-}
-
-func hashTextWithConfig(text string, config *TextElementConfig) uint32 {
-	hasher.Reset()
-	hasher.Write([]byte(text))
-
-	le := binary.LittleEndian
-	na := hashBuffer[0:0]
-	na = le.AppendUint32(na, uint32(len(text)))
-	na = le.AppendUint16(na, config.FontId)
-	na = le.AppendUint16(na, config.FontSize)
-	na = le.AppendUint16(na, config.LineHeight)
-	na = le.AppendUint16(na, config.LetterSpacing)
-	na[0] = byte(config.WrapMode)
-	hasher.Write(hashBuffer[:4+2*4+1])
-
-	hash := hasher.Sum32()
-	return hash + 1 // Reserve the hash result of zero as "null id"
-}
-
-func (c *Context) addMeasuredWord(word MeasuredWord, previousWord *MeasuredWord) *MeasuredWord {
-	if len(c.measuredWordsFreeList) > 0 {
-		newItemIndex := c.measuredWordsFreeList[len(c.measuredWordsFreeList)-1]
-		c.measuredWordsFreeList = c.measuredWordsFreeList[:len(c.measuredWordsFreeList)-1]
-		c.measuredWords = slicesex_Set(c.measuredWords, int(newItemIndex), word)
-		previousWord.next = newItemIndex
-		return &c.measuredWords[newItemIndex]
-	} else {
-		previousWord.next = int32(len(c.measuredWords))
-		c.measuredWords = append(c.measuredWords, word)
-		return &c.measuredWords[len(c.measuredWords)-1]
-	}
 }
 
 func (c *Context) measureTextCached(text string, config *TextElementConfig) *MeasureTextCacheItem {
@@ -449,7 +232,7 @@ func (c *Context) measureTextCached(text string, config *TextElementConfig) *Mea
 	lineWidth := float32(0)
 	measuredWidth := float32(0)
 	measuredHeight := float32(0)
-	spaceWidth := measureText(SPACECHAR, config, c.measureTextUserData).X
+	//spaceWidth := measureText(SPACECHAR, config, c.measureTextUserData).X
 	tempWord := MeasuredWord{next: -1}
 	previousWord := &tempWord
 	for end < len(text) {
@@ -474,7 +257,7 @@ func (c *Context) measureTextCached(text string, config *TextElementConfig) *Mea
 			measured.minWidth = max(dimensions.X, measured.minWidth)
 			measuredHeight = max(float32(measuredHeight), dimensions.Y)
 			if current == ' ' {
-				dimensions.X += spaceWidth
+				//dimensions.X += spaceWidth
 				previousWord = c.addMeasuredWord(MeasuredWord{
 					startOffset: int32(start),
 					length:      int32(length + 1),
@@ -527,39 +310,6 @@ func (c *Context) measureTextCached(text string, config *TextElementConfig) *Mea
 	measured.unwrappedDimensions.Y = measuredHeight
 
 	return measured
-}
-
-func (c *Context) addHashMapItem(elementId ElementId, layoutElement *LayoutElement) *LayoutElementHashMapItem {
-	if len(c.layoutElementsHashMapInternal) == cap(c.layoutElementsHashMapInternal)-1 {
-		return nil
-	}
-
-	item := LayoutElementHashMapItem{
-		elementId:     elementId,
-		layoutElement: layoutElement,
-		nextIndex:     -1,
-		generation:    c.generation + 1,
-	}
-
-	c.layoutElementsHashMapInternal = append(c.layoutElementsHashMapInternal, item)
-	c.layoutElementsHashMap[elementId.id] = &c.layoutElementsHashMapInternal[len(c.layoutElementsHashMapInternal)-1]
-
-	return c.layoutElementsHashMap[elementId.id]
-}
-
-func (c *Context) getHashMapItem(id uint32) (e *LayoutElementHashMapItem, ok bool) {
-	e, ok = c.layoutElementsHashMap[id]
-
-	return
-}
-
-func (c *Context) generateIdForAnonymousElement(openLayoutElement *LayoutElement) ElementId {
-	parentElement := c.layoutElements[c.openLayoutElementStack[len(c.openLayoutElementStack)-2]]
-	elementId := hashNumber(uint32(len(parentElement.children)), parentElement.id)
-	openLayoutElement.id = elementId.id
-	c.addHashMapItem(elementId, openLayoutElement)
-	c.layoutElementIdStrings = append(c.layoutElementIdStrings, elementId.stringId)
-	return elementId
 }
 
 func elementHasConfig[T ElementConfigType](layoutElement *LayoutElement) bool {
@@ -959,89 +709,6 @@ func (c *Context) configureOpenElement(declaration *ElementDeclaration) {
 	}
 }
 
-// Ephemeral Memory - reset every frame
-func (c *Context) initializeEphemeralMemory() {
-	c.layoutElementChildrenBuffer = c.layoutElementChildrenBuffer[:0]
-	c.layoutElements = c.layoutElements[:0]
-	c.warnings = c.warnings[:0]
-
-	c.layoutConfigs = c.layoutConfigs[:0]
-	c.elementConfigs = c.elementConfigs[:0]
-	c.textElementConfigs = c.textElementConfigs[:0]
-	c.aspectRatioElementConfigs = c.aspectRatioElementConfigs[:0]
-	c.imageElementConfigs = c.imageElementConfigs[:0]
-	c.floatingElementConfigs = c.floatingElementConfigs[:0]
-	c.clipElementConfigs = c.clipElementConfigs[:0]
-	c.customElementConfigs = c.customElementConfigs[:0]
-	c.borderElementConfigs = c.borderElementConfigs[:0]
-	c.sharedElementConfigs = c.sharedElementConfigs[:0]
-
-	c.layoutElementIdStrings = c.layoutElementIdStrings[:0]
-	c.wrappedTextLines = c.wrappedTextLines[:0]
-	c.layoutElementTreeNodeArray1 = c.layoutElementTreeNodeArray1[:0]
-	c.layoutElementTreeRoots = c.layoutElementTreeRoots[:0]
-	c.layoutElementChildren = c.layoutElementChildren[:0]
-	c.openLayoutElementStack = c.openLayoutElementStack[:0]
-	c.textElementData = c.textElementData[:0]
-	c.aspectRatioElementIndexes = c.aspectRatioElementIndexes[:0]
-	c.renderCommands = c.renderCommands[:0]
-	c.openClipElementStack = c.openClipElementStack[:0]
-	c.reusableElementIndexBuffer = c.reusableElementIndexBuffer[:0]
-	c.layoutElementClipElementIds = c.layoutElementClipElementIds[:0]
-	c.dynamicStringData = c.dynamicStringData[:0]
-}
-
-// Persistent memory - initialized once and not reset
-func (c *Context) initializePersistentMemory() {
-	maxElementCount := c.maxElementCount
-	maxMeasureTextCacheWordCount := c.maxMeasureTextCacheWordCount
-
-	c.scrollContainerDatas = make([]ScrollContainerDataInternal, 0, 100)
-	c.layoutElementsHashMapInternal = make([]LayoutElementHashMapItem, 0, maxElementCount)
-	c.layoutElementsHashMap = map[uint32]*LayoutElementHashMapItem{}
-	c.measureTextHashMapInternal = make([]MeasureTextCacheItem, 0, maxElementCount)
-	c.measuredWordsFreeList = make([]int32, 0, maxMeasureTextCacheWordCount)
-	c.measureTextHashMap = map[string]*MeasureTextCacheItem{}
-	c.measuredWords = make([]MeasuredWord, 0, maxMeasureTextCacheWordCount)
-	c.pointerOverIds = make([]ElementId, 0, maxElementCount)
-	c.debugElementData = make([]DebugElementData, 0, maxElementCount)
-
-	c.layoutElementChildrenBuffer = make([]int, 0, maxElementCount)
-	c.layoutElements = make([]LayoutElement, 0, maxElementCount)
-	c.warnings = make([]Warning, 0, 100)
-
-	c.layoutConfigs = make([]LayoutConfig, 0, maxElementCount)
-	c.elementConfigs = make([]AnyElementConfig, 0, maxElementCount)
-	c.textElementConfigs = make([]TextElementConfig, 0, maxElementCount)
-	c.imageElementConfigs = make([]ImageElementConfig, 0, maxElementCount)
-	c.floatingElementConfigs = make([]FloatingElementConfig, 0, maxElementCount)
-	c.clipElementConfigs = make([]ClipElementConfig, 0, maxElementCount)
-	c.customElementConfigs = make([]CustomElementConfig, 0, maxElementCount)
-	c.borderElementConfigs = make([]BorderElementConfig, 0, maxElementCount)
-	c.sharedElementConfigs = make([]SharedElementConfig, 0, maxElementCount)
-
-	c.layoutElementIdStrings = make([]string, 0, maxElementCount)
-	c.wrappedTextLines = make([]WrappedTextLine, 0, maxElementCount)
-	c.layoutElementTreeNodeArray1 = make([]LayoutElementTreeNode, 0, maxElementCount)
-	c.layoutElementTreeRoots = make([]LayoutElementTreeRoot, 0, maxElementCount)
-	c.layoutElementChildren = make([]int, 0, maxElementCount)
-	c.openLayoutElementStack = make([]int, 0, maxElementCount)
-	c.textElementData = make([]TextElementData, 0, maxElementCount)
-	c.aspectRatioElementIndexes = make([]int, 0, maxElementCount)
-	c.renderCommands = make([]RenderCommand, 0, maxElementCount)
-	c.openClipElementStack = make([]int, 0, maxElementCount)
-	c.reusableElementIndexBuffer = make([]int32, 0, maxElementCount)
-	c.layoutElementClipElementIds = make([]int, 0, maxElementCount)
-	c.dynamicStringData = make([]byte, 0, maxElementCount)
-}
-
-var CLAY__EPSILON float32 = 0.01
-
-func floatEqual(left float32, right float32) bool {
-	subtracted := left - right
-	return subtracted < CLAY__EPSILON && subtracted > -CLAY__EPSILON
-}
-
 func (c *Context) sizeContainersAlongAxis(axis Axis) {
 	bfsBuffer := c.layoutElementChildrenBuffer
 	resizableContainerBuffer := c.openLayoutElementStack[:]
@@ -1307,21 +974,6 @@ func (c *Context) sizeContainersAlongAxis(axis Axis) {
 	}
 }
 
-func (c *Context) addRenderCommand(renderCommand RenderCommand) {
-	if len(c.renderCommands) < cap(c.renderCommands)-1 {
-		c.renderCommands = append(c.renderCommands, renderCommand)
-	} else {
-		if !c.booleanWarnings.maxRenderCommandsExceeded {
-			c.booleanWarnings.maxRenderCommandsExceeded = true
-			c.errorHandler.ErrorHandlerFunction(ErrorData{
-				ErrorType: ERROR_TYPE_ELEMENTS_CAPACITY_EXCEEDED,
-				ErrorText: "Clay ran out of capacity while attempting to create render commands. This is usually caused by a large amount of wrapping text elements while close to the max element capacity. Try using Clay_SetMaxElementCount() with a higher value.",
-				UserData:  c.errorHandler.UserData,
-			})
-		}
-	}
-}
-
 func (c *Context) elementIsOffscreen(boundingBox BoundingBox) bool {
 	if c.disableCulling {
 		return false
@@ -1379,7 +1031,7 @@ func (c *Context) calculateFinalLayout() {
 				// Wrapped text lines list has overflowed, just render out the line
 				var addSpace float32
 				if textElementData.text[lineStartOffset+lineLengthChars-1] == ' ' {
-					addSpace = -spaceWidth
+					//addSpace = -spaceWidth
 					lineLengthChars--
 				}
 				c.wrappedTextLines = append(c.wrappedTextLines, WrappedTextLine{})
@@ -1394,7 +1046,7 @@ func (c *Context) calculateFinalLayout() {
 				lineLengthChars = 0
 				lineStartOffset = measuredWord.startOffset
 			} else {
-				lineWidth += measuredWord.width + float32(textConfig.LetterSpacing)
+				lineWidth += measuredWord.width + float32(textConfig.LetterSpacing) + spaceWidth
 				lineLengthChars += measuredWord.length
 				wordIndex = measuredWord.next
 			}

@@ -638,6 +638,38 @@ func (b BorderWidth) IsEmpty() bool {
 		b.BetweenChildren == 0
 }
 
+func MakeBorderWidthArgs(ps ...uint16) BorderWidth {
+	if len(ps) == 0 {
+		return BorderWidth{}
+	}
+	if len(ps) == 1 {
+		return BorderWidth{
+			Left:   ps[0],
+			Right:  ps[0],
+			Top:    ps[0],
+			Bottom: ps[0],
+		}
+	}
+	if len(ps) == 2 {
+		return BorderWidth{
+			Left:   ps[0],
+			Right:  ps[0],
+			Top:    ps[1],
+			Bottom: ps[1],
+		}
+	}
+	if len(ps) == 4 {
+		return BorderWidth{
+			Left:   ps[0],
+			Right:  ps[1],
+			Top:    ps[2],
+			Bottom: ps[3],
+		}
+	}
+
+	return BorderWidth{}
+}
+
 // Controls settings related to element borders.
 type BorderElementConfig struct {
 	Color Color       // Controls the color of all borders with width > 0. Conventionally represented as 0-255, but interpretation is up to the renderer.

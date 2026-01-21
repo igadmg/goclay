@@ -132,10 +132,10 @@ func main() {
 										BackgroundColor: COLOR_LIGHT,
 									})
 
-								ui.CLAY_TEXT("Clay - UI Library", &clay.TextElementConfig{
+								ui.CLAY_TEXT("Clay - UI Library", ui.TEXT_CONFIG(clay.TextElementConfig{
 									FontSize:  24,
 									TextColor: clay.Color{R: 255, G: 255, B: 255, A: 255},
-								})
+								}))
 							})
 
 						// Standard C code like loops etc work inside components
@@ -248,10 +248,10 @@ func main_callback() {
 									},
 								})
 
-								ui.CLAY_TEXT("Clay - UI Library", &clay.TextElementConfig{
+								ui.CLAY_TEXT("Clay - UI Library", ui.TEXT_CONFIG(clay.TextElementConfig{
 									FontSize:  24,
 									TextColor: clay.Color{R: 255, G: 255, B: 255, A: 255},
-								})
+								}))
 							})
 
 						// Standard C code like loops etc work inside components
@@ -375,10 +375,10 @@ func main_callback_with_separate_layout() {
 						},
 					})
 
-					ui.CLAY_TEXT("Clay - UI Library", &clay.TextElementConfig{
+					ui.CLAY_TEXT("Clay - UI Library", ui.TEXT_CONFIG(clay.TextElementConfig{
 						FontSize:  24,
 						TextColor: clay.Color{R: 255, G: 255, B: 255, A: 255},
-					})
+					}))
 				})
 
 				// Standard C code like loops etc work inside components

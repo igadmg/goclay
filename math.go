@@ -19,7 +19,7 @@ const (
 	AxisY = gm.AxisY
 )
 
-type Color colorex.RGBA
+type Color = colorex.RGBA
 type Vector2 = vector2.Float32
 type Dimensions = vector2.Float32
 type BoundingBox = rect2.Float32
@@ -36,9 +36,9 @@ func MakeBoundingBox(position Vector2, size Dimensions) BoundingBox {
 	return rect2.NewFloat32(position, size)
 }
 
-func (c Color) IsZero() bool {
-	return c.R == 0 &&
-		c.G == 0 &&
-		c.B == 0 &&
-		c.A == 0
+var CLAY__EPSILON float32 = 0.01
+
+func floatEqual(left float32, right float32) bool {
+	subtracted := left - right
+	return subtracted < CLAY__EPSILON && subtracted > -CLAY__EPSILON
 }

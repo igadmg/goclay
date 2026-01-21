@@ -175,6 +175,11 @@ func main() {
 }
 ```
 
+## Using custom Math types
+
+All dependent math types are declared in math.go, one can change them to their own implementations.
+
+
 ## Project is still WIP
 
 Some parts where not ported yet, Error reporting, mouse processing and scroll areas. But will be soon.

@@ -315,10 +315,11 @@ func TestSimpleLayout_TextMultilineOutput(t *testing.T) {
 		},
 		BackgroundColor: Color{255, 0, 0, 255}, // Red background
 	}, func() {
-		ctx.CLAY_TEXT("Hello World. Here we start rendering a very long text. Horay!", ctx.TEXT_CONFIG(TextElementConfig{
-			TextColor: Color{255, 255, 255, 255},
-			FontSize:  16,
-		}))
+		ctx.CLAY_TEXT("Hello World. Here we start rendering a very long text. Horay!",
+			ctx.TEXT_CONFIG(TextElementConfig{
+				TextColor: Color{255, 255, 255, 255},
+				FontSize:  16,
+			}))
 	})
 	commands := ctx.EndLayout()
 
