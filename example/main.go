@@ -13,7 +13,15 @@ var COLOR_RED clay.Color = clay.Color{R: 168, G: 66, B: 28, A: 255}
 var COLOR_ORANGE clay.Color = clay.Color{R: 225, G: 138, B: 50, A: 255}
 
 // Layout config is just a struct that can be declared statically, or inline
-var sidebarItemConfig clay.ElementDeclaration
+var sidebarItemConfig clay.ElementDeclaration = clay.ElementDeclaration{
+	Layout: clay.LayoutConfig{
+		Sizing: clay.Sizing{
+			Width:  clay.GROW(),
+			Height: clay.FIXED(50),
+		},
+	},
+	BackgroundColor: COLOR_ORANGE,
+}
 
 func gx_Must[T any](v T, e error) T {
 	if e != nil {
@@ -66,16 +74,6 @@ func main() {
 		)
 	}, nil)
 
-	sidebarItemConfig = clay.ElementDeclaration{
-		Layout: clay.LayoutConfig{
-			Sizing: clay.Sizing{
-				Width:  clay.SIZING_GROW(),
-				Height: clay.SIZING_FIXED(50),
-			},
-		},
-		BackgroundColor: COLOR_ORANGE,
-	}
-
 	for range 100000 {
 		// Optional: Update internal layout dimensions to support resizing
 		ui.SetLayoutDimensions(screenSize)
@@ -91,7 +89,7 @@ func main() {
 		ui.CLAY_ID(clay.ID("OuterContainer"),
 			clay.ElementDeclaration{
 				Layout: clay.LayoutConfig{
-					Sizing:   clay.Sizing{Width: clay.SIZING_GROW(), Height: clay.SIZING_GROW()},
+					Sizing:   clay.Sizing{Width: clay.GROW(), Height: clay.GROW()},
 					Padding:  clay.PADDING_ALL(16),
 					ChildGap: 16,
 				},
@@ -101,7 +99,7 @@ func main() {
 					clay.ElementDeclaration{
 						Layout: clay.LayoutConfig{
 							LayoutDirection: clay.TOP_TO_BOTTOM,
-							Sizing:          clay.Sizing{Width: clay.SIZING_FIXED(300), Height: clay.SIZING_GROW()},
+							Sizing:          clay.Sizing{Width: clay.FIXED(300), Height: clay.GROW()},
 							Padding:         clay.PADDING_ALL(16),
 							ChildGap:        16,
 						},
@@ -110,7 +108,7 @@ func main() {
 						ui.CLAY_ID(clay.ID("ProfilePictureOuter"),
 							clay.ElementDeclaration{
 								Layout: clay.LayoutConfig{
-									Sizing:         clay.Sizing{Width: clay.SIZING_GROW()},
+									Sizing:         clay.Sizing{Width: clay.GROW()},
 									Padding:        clay.PADDING_ALL(16),
 									ChildGap:       16,
 									ChildAlignment: clay.ChildAlignment{Y: clay.ALIGN_Y_CENTER},
@@ -120,7 +118,7 @@ func main() {
 								ui.CLAY_ID(clay.ID("ProfilePicture"),
 									clay.ElementDeclaration{
 										Layout: clay.LayoutConfig{
-											Sizing: clay.Sizing{Width: clay.SIZING_FIXED(60), Height: clay.SIZING_FIXED(60)},
+											Sizing: clay.Sizing{Width: clay.FIXED(60), Height: clay.FIXED(60)},
 										},
 										Image: clay.ImageElementConfig{
 											ImageData: profilePicture,
@@ -129,16 +127,15 @@ func main() {
 								ui.CLAY_ID(clay.ID("TextContent"),
 									clay.ElementDeclaration{
 										Layout: clay.LayoutConfig{
-											Sizing: clay.Sizing{Width: clay.SIZING_GROW(), Height: clay.SIZING_GROW()},
+											Sizing: clay.Sizing{Width: clay.GROW(), Height: clay.GROW()},
 										},
 										BackgroundColor: COLOR_LIGHT,
 									})
-								/*/
-								ctx.TEXT("Clay - UI Library", ctx.TEXT_CONFIG(clay.TextElementConfig{
+
+								ui.CLAY_TEXT("Clay - UI Library", &clay.TextElementConfig{
 									FontSize:  24,
 									TextColor: clay.Color{R: 255, G: 255, B: 255, A: 255},
-								}))
-								*/
+								})
 							})
 
 						// Standard C code like loops etc work inside components
@@ -149,7 +146,7 @@ func main() {
 						ui.CLAY_ID(clay.ID("MainContent"),
 							clay.ElementDeclaration{
 								Layout: clay.LayoutConfig{
-									Sizing: clay.Sizing{Width: clay.SIZING_GROW(), Height: clay.SIZING_GROW()},
+									Sizing: clay.Sizing{Width: clay.GROW(), Height: clay.GROW()},
 								},
 								BackgroundColor: COLOR_LIGHT,
 							})
@@ -187,16 +184,6 @@ func main_callback() {
 		)
 	}, nil)
 
-	sidebarItemConfig = clay.ElementDeclaration{
-		Layout: clay.LayoutConfig{
-			Sizing: clay.Sizing{
-				Width:  clay.SIZING_GROW(),
-				Height: clay.SIZING_FIXED(50),
-			},
-		},
-		BackgroundColor: COLOR_ORANGE,
-	}
-
 	for range 100000 {
 		// Optional: Update internal layout dimensions to support resizing
 		ui.SetLayoutDimensions(screenSize)
@@ -212,7 +199,7 @@ func main_callback() {
 		ui.CLAY_ID(clay.ID("OuterContainer"),
 			clay.ElementDeclaration{
 				Layout: clay.LayoutConfig{
-					Sizing:   clay.Sizing{Width: clay.SIZING_GROW(), Height: clay.SIZING_GROW()},
+					Sizing:   clay.Sizing{Width: clay.GROW(), Height: clay.GROW()},
 					Padding:  clay.PADDING_ALL(16),
 					ChildGap: 16,
 				},
@@ -224,7 +211,7 @@ func main_callback() {
 					clay.ElementDeclaration{
 						Layout: clay.LayoutConfig{
 							LayoutDirection: clay.TOP_TO_BOTTOM,
-							Sizing:          clay.Sizing{Width: clay.SIZING_FIXED(300), Height: clay.SIZING_GROW()},
+							Sizing:          clay.Sizing{Width: clay.FIXED(300), Height: clay.GROW()},
 							Padding:         clay.PADDING_ALL(16),
 							ChildGap:        16,
 						},
@@ -235,7 +222,7 @@ func main_callback() {
 						ui.CLAY_ID(clay.ID("ProfilePictureOuter"),
 							clay.ElementDeclaration{
 								Layout: clay.LayoutConfig{
-									Sizing:         clay.Sizing{Width: clay.SIZING_GROW()},
+									Sizing:         clay.Sizing{Width: clay.GROW()},
 									Padding:        clay.PADDING_ALL(16),
 									ChildGap:       16,
 									ChildAlignment: clay.ChildAlignment{Y: clay.ALIGN_Y_CENTER},
@@ -246,7 +233,7 @@ func main_callback() {
 							}, func() {
 								ui.CLAY_ID(clay.ID("ProfilePicture"), clay.ElementDeclaration{
 									Layout: clay.LayoutConfig{
-										Sizing: clay.Sizing{Width: clay.SIZING_FIXED(60), Height: clay.SIZING_FIXED(60)},
+										Sizing: clay.Sizing{Width: clay.FIXED(60), Height: clay.FIXED(60)},
 									},
 									UserData: func(rect clay.BoundingBox) {
 										// DrawImage(rect, profilePicture)
@@ -254,18 +241,17 @@ func main_callback() {
 								})
 								ui.CLAY_ID(clay.ID("TextContent"), clay.ElementDeclaration{
 									Layout: clay.LayoutConfig{
-										Sizing: clay.Sizing{Width: clay.SIZING_GROW(), Height: clay.SIZING_GROW()},
+										Sizing: clay.Sizing{Width: clay.GROW(), Height: clay.GROW()},
 									},
 									UserData: func(rect clay.BoundingBox) {
 										// DrawRect(rect, COLOR_LIGHT)
 									},
 								})
-								/*/
-								ctx.TEXT("Clay - UI Library", ctx.TEXT_CONFIG(clay.TextElementConfig{
+
+								ui.CLAY_TEXT("Clay - UI Library", &clay.TextElementConfig{
 									FontSize:  24,
 									TextColor: clay.Color{R: 255, G: 255, B: 255, A: 255},
-								}))
-								*/
+								})
 							})
 
 						// Standard C code like loops etc work inside components
@@ -275,7 +261,7 @@ func main_callback() {
 
 						ui.CLAY_ID(clay.ID("MainContent"), clay.ElementDeclaration{
 							Layout: clay.LayoutConfig{
-								Sizing: clay.Sizing{Width: clay.SIZING_GROW(), Height: clay.SIZING_GROW()},
+								Sizing: clay.Sizing{Width: clay.GROW(), Height: clay.GROW()},
 							},
 							UserData: func(rect clay.BoundingBox) {
 								// DrawRect(rect, COLOR_LIGHT)
@@ -324,16 +310,6 @@ func main_callback_with_separate_layout() {
 		)
 	}, nil)
 
-	sidebarItemConfig = clay.ElementDeclaration{
-		Layout: clay.LayoutConfig{
-			Sizing: clay.Sizing{
-				Width:  clay.SIZING_GROW(),
-				Height: clay.SIZING_FIXED(50),
-			},
-		},
-		BackgroundColor: COLOR_ORANGE,
-	}
-
 	doLayout := func(size clay.Dimensions) []clay.RenderCommand {
 		// Optional: Update internal layout dimensions to support resizing
 		ui.SetLayoutDimensions(size)
@@ -350,7 +326,7 @@ func main_callback_with_separate_layout() {
 		// An example of laying out a UI with a fixed width sidebar and flexible width main content
 		ui.CLAY_ID(clay.ID("OuterContainer"), clay.ElementDeclaration{
 			Layout: clay.LayoutConfig{
-				Sizing:   clay.Sizing{Width: clay.SIZING_GROW(), Height: clay.SIZING_GROW()},
+				Sizing:   clay.Sizing{Width: clay.GROW(), Height: clay.GROW()},
 				Padding:  clay.PADDING_ALL(16),
 				ChildGap: 16,
 			},
@@ -361,7 +337,7 @@ func main_callback_with_separate_layout() {
 			ui.CLAY_ID(clay.ID("SideBar"), clay.ElementDeclaration{
 				Layout: clay.LayoutConfig{
 					LayoutDirection: clay.TOP_TO_BOTTOM,
-					Sizing:          clay.Sizing{Width: clay.SIZING_FIXED(300), Height: clay.SIZING_GROW()},
+					Sizing:          clay.Sizing{Width: clay.FIXED(300), Height: clay.GROW()},
 					Padding:         clay.PADDING_ALL(16),
 					ChildGap:        16,
 				},
@@ -371,7 +347,7 @@ func main_callback_with_separate_layout() {
 			}, func() {
 				ui.CLAY_ID(clay.ID("ProfilePictureOuter"), clay.ElementDeclaration{
 					Layout: clay.LayoutConfig{
-						Sizing:         clay.Sizing{Width: clay.SIZING_GROW()},
+						Sizing:         clay.Sizing{Width: clay.GROW()},
 						Padding:        clay.PADDING_ALL(16),
 						ChildGap:       16,
 						ChildAlignment: clay.ChildAlignment{Y: clay.ALIGN_Y_CENTER},
@@ -382,7 +358,7 @@ func main_callback_with_separate_layout() {
 				}, func() {
 					ui.CLAY_ID(clay.ID("ProfilePicture"), clay.ElementDeclaration{
 						Layout: clay.LayoutConfig{
-							Sizing: clay.Sizing{Width: clay.SIZING_FIXED(60), Height: clay.SIZING_FIXED(60)},
+							Sizing: clay.Sizing{Width: clay.FIXED(60), Height: clay.FIXED(60)},
 						},
 						UserData: func(rect clay.BoundingBox) {
 							// DrawImage(rect, profilePicture)
@@ -390,7 +366,7 @@ func main_callback_with_separate_layout() {
 					})
 					ui.CLAY_ID(clay.ID("TextContent"), clay.ElementDeclaration{
 						Layout: clay.LayoutConfig{
-							Sizing: clay.Sizing{Width: clay.SIZING_GROW(), Height: clay.SIZING_GROW()},
+							Sizing: clay.Sizing{Width: clay.GROW(), Height: clay.GROW()},
 						},
 						UserData: func(rect clay.BoundingBox) {
 							// DrawRect(rect, COLOR_LIGHT)
@@ -398,12 +374,11 @@ func main_callback_with_separate_layout() {
 							// yourui.DrawTextArea(rect, COLOR_LIGHT)
 						},
 					})
-					/*/
-					ctx.TEXT("Clay - UI Library", ctx.TEXT_CONFIG(clay.TextElementConfig{
+
+					ui.CLAY_TEXT("Clay - UI Library", &clay.TextElementConfig{
 						FontSize:  24,
 						TextColor: clay.Color{R: 255, G: 255, B: 255, A: 255},
-					}))
-					*/
+					})
 				})
 
 				// Standard C code like loops etc work inside components
@@ -413,7 +388,7 @@ func main_callback_with_separate_layout() {
 
 				ui.CLAY_ID(clay.ID("MainContent"), clay.ElementDeclaration{
 					Layout: clay.LayoutConfig{
-						Sizing: clay.Sizing{Width: clay.SIZING_GROW(), Height: clay.SIZING_GROW()},
+						Sizing: clay.Sizing{Width: clay.GROW(), Height: clay.GROW()},
 					},
 					UserData: func(rect clay.BoundingBox) {
 						// DrawRect(rect, COLOR_LIGHT)

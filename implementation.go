@@ -616,8 +616,9 @@ func (c *Context) closeElement() {
 	topBottomPadding := float32(layoutConfig.Padding.Top + layoutConfig.Padding.Bottom)
 
 	// Attach children to the current open element
-	c.layoutElementChildren = c.layoutElementChildren[0 : len(c.layoutElementChildren)+len(openLayoutElement.children)]
-	openLayoutElement.children = c.layoutElementChildren[len(c.layoutElementChildren) : len(c.layoutElementChildren)+len(openLayoutElement.children)]
+	lenlayoutElementChildren := len(c.layoutElementChildren)
+	c.layoutElementChildren = c.layoutElementChildren[0 : lenlayoutElementChildren+len(openLayoutElement.children)]
+	openLayoutElement.children = c.layoutElementChildren[lenlayoutElementChildren : lenlayoutElementChildren+len(openLayoutElement.children)]
 	switch layoutConfig.LayoutDirection {
 	case LEFT_TO_RIGHT:
 		openLayoutElement.dimensions.X = leftRightPadding
@@ -639,7 +640,7 @@ func (c *Context) closeElement() {
 					openLayoutElement.minDimensions.Y,
 					child.minDimensions.Y+topBottomPadding)
 			}
-			c.layoutElementChildren = append(c.layoutElementChildren, childIndex)
+			openLayoutElement.children[i] = childIndex
 		}
 
 		childGap := float32(max(len(openLayoutElement.children)-1, 0) * int(layoutConfig.ChildGap))
@@ -666,7 +667,7 @@ func (c *Context) closeElement() {
 					openLayoutElement.minDimensions.X,
 					child.minDimensions.X+leftRightPadding)
 			}
-			c.layoutElementChildren = append(c.layoutElementChildren, childIndex)
+			openLayoutElement.children[i] = childIndex
 		}
 		childGap := float32(max(len(openLayoutElement.children)-1, 0) * int(layoutConfig.ChildGap))
 		openLayoutElement.dimensions.Y += childGap
@@ -700,16 +701,13 @@ func (c *Context) closeElement() {
 	updateAspectRatioBox(openLayoutElement)
 
 	elementIsFloating := elementHasConfig[*FloatingElementConfig](openLayoutElement)
-	c.closeCurrentElement(elementIsFloating)
-}
 
-func (c *Context) closeCurrentElement(elementIsFloating bool) {
 	// Close the currently open element
 	var closingElementIndex int
 	c.openLayoutElementStack, closingElementIndex = slicesex_RemoveSwapback(c.openLayoutElementStack, len(c.openLayoutElementStack)-1)
 
 	// Get the currently open parent
-	openLayoutElement := c.getOpenLayoutElement()
+	openLayoutElement = c.getOpenLayoutElement()
 
 	if len(c.openLayoutElementStack) > 1 {
 		if elementIsFloating {
@@ -782,7 +780,7 @@ func (c *Context) openTextElement(text string, textConfig *TextElementConfig) {
 	parentElement := c.getOpenLayoutElement()
 
 	c.layoutElements = append(c.layoutElements, LayoutElement{})
-	c.openLayoutElementStack = append(c.openLayoutElementStack, len(c.layoutElements)-1)
+	//c.openLayoutElementStack = append(c.openLayoutElementStack, len(c.layoutElements)-1)
 	textElement := &c.layoutElements[len(c.layoutElements)-1]
 	if len(c.openClipElementStack) > 0 {
 		c.layoutElementClipElementIds = slicesex_Set(c.layoutElementClipElementIds, len(c.layoutElements)-1, c.openClipElementStack[len(c.openClipElementStack)-1])
@@ -812,7 +810,7 @@ func (c *Context) openTextElement(text string, textConfig *TextElementConfig) {
 	textElement.elementConfigs = c.elementConfigs[len(c.elementConfigs)-1 : len(c.elementConfigs)]
 	textElement.layoutConfig = &default_LayoutConfig
 
-	c.closeCurrentElement(false)
+	parentElement.children = append(parentElement.children, 0)
 }
 
 func (c *Context) configureOpenElement(declaration *ElementDeclaration) {
@@ -1345,8 +1343,8 @@ func (c *Context) calculateFinalLayout() {
 	for i := range c.textElementData {
 		textElementData := &c.textElementData[i]
 		textElementData.wrappedLines = c.wrappedTextLines[len(c.wrappedTextLines):]
-		containerElement := c.layoutElements[textElementData.elementIndex]
-		textConfig, _ := findElementConfigWithType[*TextElementConfig](&containerElement)
+		containerElement := &c.layoutElements[textElementData.elementIndex]
+		textConfig, _ := findElementConfigWithType[*TextElementConfig](containerElement)
 		measureTextCacheItem := c.measureTextCached(textElementData.text, textConfig)
 		var lineWidth float32
 		lineHeight := textElementData.preferredDimensions.Y
@@ -1615,11 +1613,6 @@ func (c *Context) calculateFinalLayout() {
 
 				if hashMapItem, ok := c.getHashMapItem(currentElement.id); ok {
 					hashMapItem.boundingBox = currentElementBoundingBox
-					if hashMapItem.idAlias != 0 {
-						if hashMapItemAlias, ok := c.getHashMapItem(hashMapItem.idAlias); ok {
-							hashMapItemAlias.boundingBox = currentElementBoundingBox
-						}
-					}
 				}
 
 				var sortedConfigIndexes [20]int

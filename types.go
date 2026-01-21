@@ -316,7 +316,12 @@ type LayoutConfig struct {
 	LayoutDirection LayoutDirection // Controls the direction in which child elements will be automatically laid out.
 }
 
-var default_LayoutConfig LayoutConfig
+var default_LayoutConfig LayoutConfig = LayoutConfig{
+	Sizing: Sizing{
+		Width:  FIT(),
+		Height: FIT(),
+	},
+}
 
 func WithSizing(cfg Sizing) ElementOptionsFn {
 	return func(ed ElementDeclaration) ElementDeclaration {

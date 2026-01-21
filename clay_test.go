@@ -276,28 +276,68 @@ func TestSimpleLayout_RenderCommandsCount(t *testing.T) {
 		},
 		BackgroundColor: Color{255, 0, 0, 255}, // Red background
 	}, func() {
-		/*
-			ctx.CLAY_TEXT("Hello World", ctx.TEXT_CONFIG(TextElementConfig{
-				TextColor: Color{255, 255, 255, 255},
-				FontSize:  16,
-			}))
-		*/
+		ctx.CLAY_TEXT("Hello World", ctx.TEXT_CONFIG(TextElementConfig{
+			TextColor: Color{255, 255, 255, 255},
+			FontSize:  16,
+		}))
 	})
 	commands := ctx.EndLayout()
 
 	// Should generate at least 2 commands: rectangle for background and text
-	assert.Equal(t, 1, len(commands))
+	assert.Equal(t, 2, len(commands))
 	// Check that we have a rectangle command and a text command
 	hasRectangle := false
-	//hasText := false
+	hasText := false
 	for _, cmd := range commands {
 		switch cmd.RenderData.(type) {
 		case RectangleRenderData:
 			hasRectangle = true
 		case TextRenderData:
-			//hasText = true
+			hasText = true
 		}
 	}
 	assert.True(t, hasRectangle, "Should have rectangle render command")
-	//assert.True(t, hasText, "Should have text render command")
+	assert.True(t, hasText, "Should have text render command")
+}
+
+func TestSimpleLayout_TextMultilineOutput(t *testing.T) {
+	ctx := Initialize(MakeDimensions(800, 600), ErrorHandler{})
+	ctx.SetMeasureTextFunction(mockMeasureText, nil)
+
+	ctx.BeginLayout()
+	// Create a simple layout: a container with background and text
+	ctx.CLAY(ElementDeclaration{
+		Layout: LayoutConfig{
+			Sizing: Sizing{
+				Width:  FIXED(200),
+				Height: GROW(),
+			},
+		},
+		BackgroundColor: Color{255, 0, 0, 255}, // Red background
+	}, func() {
+		ctx.CLAY_TEXT("Hello World. Here we start rendering a very long text. Horay!", ctx.TEXT_CONFIG(TextElementConfig{
+			TextColor: Color{255, 255, 255, 255},
+			FontSize:  16,
+		}))
+	})
+	commands := ctx.EndLayout()
+
+	// Should generate at least 2 commands: rectangle for background and text
+	assert.Equal(t, 5, len(commands))
+	// Check that we have a rectangle command and a text command
+	hasRectangle := false
+	hasText := false
+	textLines := 0
+	for _, cmd := range commands {
+		switch cmd.RenderData.(type) {
+		case RectangleRenderData:
+			hasRectangle = true
+		case TextRenderData:
+			hasText = true
+			textLines++
+		}
+	}
+	assert.True(t, hasRectangle, "Should have rectangle render command")
+	assert.True(t, hasText, "Should have text render command")
+	assert.Equal(t, 4, textLines)
 }

@@ -2,43 +2,6 @@ diff --git a/clay.h b/clay.h
 index 2f69878..c6e331c 100644
 --- a/clay.h
 +++ b/clay.h
-@@ -120,23 +121,30 @@ static inline void Clay__SuppressUnusedLatchDefinitionVariableWarning(void) { (v
-+#define CLAY_AUTO_ID(...)                                                                                                                                   \
-     for (                                                                                                                                                   \
-         CLAY__ELEMENT_DEFINITION_LATCH = (Clay__OpenElement(), Clay__ConfigureOpenElement(CLAY__CONFIG_WRAPPER(Clay_ElementDeclaration, __VA_ARGS__)), 0);  \
-         CLAY__ELEMENT_DEFINITION_LATCH < 1;                                                                                                                 \
--        ++CLAY__ELEMENT_DEFINITION_LATCH, Clay__CloseElement()                                                                                              \
-+        CLAY__ELEMENT_DEFINITION_LATCH=1, Clay__CloseElement()                                                                                              \
-+    )
-+
-+#define CLAY(id, ...)                                                                                                                                               \
-+    for (                                                                                                                                                           \
-+        CLAY__ELEMENT_DEFINITION_LATCH = (Clay__OpenElementWithId(id), Clay__ConfigureOpenElement(CLAY__CONFIG_WRAPPER(Clay_ElementDeclaration, __VA_ARGS__)), 0);  \
-+        CLAY__ELEMENT_DEFINITION_LATCH < 1;                                                                                                                         \
-+        CLAY__ELEMENT_DEFINITION_LATCH=1, Clay__CloseElement()                                                                                                      \
-     )
-
- // These macros exist to allow the CLAY() macro to be called both with an inline struct definition, such as
-
-@@ -1247,15 +1292,12 @@ struct Clay_Context {
-
- Clay_Context* Clay__Context_Allocate_Arena(Clay_Arena *arena) {
-     size_t totalSizeBytes = sizeof(Clay_Context);
--    uintptr_t memoryAddress = (uintptr_t)arena->memory;
--    // Make sure the memory address passed in for clay to use is cache line aligned
--    uintptr_t nextAllocOffset = (memoryAddress % 64);
--    if (nextAllocOffset + totalSizeBytes > arena->capacity)
-+    if (totalSizeBytes > arena->capacity)
-     {
-         return NULL;
-     }
--    arena->nextAllocation = nextAllocOffset + totalSizeBytes;
--    return (Clay_Context*)(memoryAddress + nextAllocOffset);
-+    arena->nextAllocation += totalSizeBytes;
-+    return (Clay_Context*)(arena->memory);
- }
-
- Clay_String Clay__WriteStringToCharBuffer(Clay__charArray *buffer, Clay_String string) {
 @@ -1325,7 +1368,22 @@ Clay_ElementId Clay__HashNumber(const uint32_t offset, const uint32_t seed) {
      return CLAY__INIT(Clay_ElementId) { .id = hash + 1, .offset = offset, .baseId = seed, .stringId = CLAY__STRING_DEFAULT }; // Reserve the hash result of zero as "null id"
  }
@@ -289,19 +252,7 @@ index 2f69878..c6e331c 100644
                  Clay__WrappedTextLineArray_Add(&context->wrappedTextLines, CLAY__INIT(Clay__WrappedTextLine) { { lineWidth + (finalCharIsSpace ? -spaceWidth : 0), lineHeight }, { .length = lineLengthChars + (finalCharIsSpace ? -1 : 0), .chars = &textElementData->text.chars[lineStartOffset] } });
                  textElementData->wrappedLines.length++;
                  if (lineLengthChars == 0 || measuredWord->length == 0) {
-@@ -2604,12 +2800,6 @@ void Clay__CalculateFinalLayout(void) {
-                 Clay_LayoutElementHashMapItem *hashMapItem = Clay__GetHashMapItem(currentElement->id);
-                 if (hashMapItem) {
-                     hashMapItem->boundingBox = currentElementBoundingBox;
--                    if (hashMapItem->idAlias) {
--                        Clay_LayoutElementHashMapItem *hashMapItemAlias = Clay__GetHashMapItem(hashMapItem->idAlias);
--                        if (hashMapItemAlias) {
--                            hashMapItemAlias->boundingBox = currentElementBoundingBox;
--                        }
--                    }
-                 }
 
-                 int32_t sortedConfigIndexes[20];
 @@ -2949,6 +3140,11 @@ void Clay__CalculateFinalLayout(void) {
      }
  }
@@ -891,17 +842,7 @@ index 2f69878..c6e331c 100644
                  }
                  if (Clay__ElementHasConfig(currentElement, CLAY__ELEMENT_CONFIG_TYPE_TEXT)) {
                      dfsBuffer.length--;
-@@ -3758,6 +4039,10 @@ void Clay_SetPointerState(Clay_Vector2 position, bool isPointerDown) {
 
- CLAY_WASM_EXPORT("Clay_Initialize")
- Clay_Context* Clay_Initialize(Clay_Arena arena, Clay_Dimensions layoutDimensions, Clay_ErrorHandler errorHandler) {
-+    // Cacheline align memory passed in
-+    uintptr_t baseOffset = 64 - ((uintptr_t)arena.memory % 64);
-+    baseOffset = baseOffset == 64 ? 0 : baseOffset;
-+    arena.memory += baseOffset;
-     Clay_Context *context = Clay__Context_Allocate_Arena(&arena);
-     if (context == NULL) return NULL;
-     // DEFAULTS
 @@ -3793,6 +4078,26 @@ void Clay_SetCurrentContext(Clay_Context* context) {
      Clay__currentContext = context;
  }
@@ -952,21 +893,6 @@ index 2f69878..c6e331c 100644
          if (canScrollVertically) {
              highestPriorityScrollData->scrollPosition.y = highestPriorityScrollData->scrollPosition.y + scrollDelta.y * 10;
 @@ -3950,20 +4254,25 @@ Clay_RenderCommandArray Clay_EndLayout(void) {
-             .renderData = { .text = { .stringContents = CLAY__INIT(Clay_StringSlice) { .length = message.length, .chars = message.chars, .baseChars = message.chars }, .textColor = {255, 0, 0, 255}, .fontSize = 16 } },
-             .commandType = CLAY_RENDER_COMMAND_TYPE_TEXT
-         });
--    } else {
--        Clay__CalculateFinalLayout();
-     }
-+    if (context->openLayoutElementStack.length > 1) {
-+        context->errorHandler.errorHandlerFunction(CLAY__INIT(Clay_ErrorData) {
-+                .errorType = CLAY_ERROR_TYPE_UNBALANCED_OPEN_CLOSE,
-+                .errorText = CLAY_STRING("There were still open layout elements when EndLayout was called. This results from an unequal number of calls to Clay__OpenElement and Clay__CloseElement."),
-+                .userData = context->errorHandler.userData });
-+    }
-+    Clay__CalculateFinalLayout();
-     return context->renderCommands;
- }
 
  CLAY_WASM_EXPORT("Clay_GetElementId")
  Clay_ElementId Clay_GetElementId(Clay_String idString) {

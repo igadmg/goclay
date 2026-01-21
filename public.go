@@ -336,9 +336,17 @@ func (c *Context) EndLayout() []RenderCommand {
 				FontSize:       16,
 			},
 		})
-	} else {
-		c.calculateFinalLayout()
 	}
+
+	if len(c.openLayoutElementStack) > 1 {
+		// TODO: Fix error reporting
+		//	c.errorHandler.errorHandlerFunction(CLAY__INIT(Clay_ErrorData) {
+		//			.errorType = CLAY_ERROR_TYPE_UNBALANCED_OPEN_CLOSE,
+		//			.errorText = CLAY_STRING("There were still open layout elements when EndLayout was called. This results from an unequal number of calls to Clay__OpenElement and Clay__CloseElement."),
+		//			.userData = context->errorHandler.userData });
+	}
+
+	c.calculateFinalLayout()
 
 	return c.renderCommands
 }
