@@ -391,6 +391,7 @@ func WithChildAlignment(cfg ChildAlignment) ElementOptionsFn {
 		return ed
 	}
 }
+
 func WithLayoutDirection(cfg LayoutDirection) ElementOptionsFn {
 	return func(ed ElementDeclaration) ElementDeclaration {
 		ed.Layout.LayoutDirection = cfg
@@ -600,6 +601,15 @@ type CustomElementConfig struct {
 }
 
 var default_CustomElementConfig CustomElementConfig
+
+func WithCustomData(data any) ElementOptionsFn {
+	return func(ed ElementDeclaration) ElementDeclaration {
+		ed.Custom = CustomElementConfig{
+			CustomData: data,
+		}
+		return ed
+	}
+}
 
 // Scroll -----------------------------
 
@@ -922,9 +932,9 @@ func WithBorder(cfg BorderElementConfig) ElementOptionsFn {
 	}
 }
 
-func WithUserData(cfg any) ElementOptionsFn {
+func WithUserData(data any) ElementOptionsFn {
 	return func(ed ElementDeclaration) ElementDeclaration {
-		ed.UserData = cfg
+		ed.UserData = data
 		return ed
 	}
 }

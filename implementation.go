@@ -1616,6 +1616,8 @@ func (c *Context) calculateFinalLayout() {
 						currentElementTreeNode.nextChildOffset.Y += childElement.dimensions.Y + float32(layoutConfig.ChildGap)
 					}
 				}
+
+				// TODO: sort added LayoutElementTreeNode's here according to some Z offset -1 - put on top, etc
 			}
 		}
 
