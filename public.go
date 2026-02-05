@@ -42,10 +42,10 @@ func (c *Context) SetPointerState(position Vector2, pointerDown bool) {
 			}
 			treeNodeVisited[len(dfsBuffer)-1] = true
 			currentElement := c.layoutElements[dfsBuffer[len(dfsBuffer)-1]]
-			// TODO think of a way around this, maybe the fact that it's essentially a binary tree limits the cost, but the worst case is not great
-			if mapItem, ok := c.getHashMapItem(currentElement.id); ok {
-				clipElementId := uint32(0) //TODO: fix c.layoutElementClipElementIds[(int32)(currentElement-c.layoutElements.internalArray)]
-				clipItem, _ := c.getHashMapItem(clipElementId)
+			// TODO(clay): think of a way around this, maybe the fact that it's essentially a binary tree limits the cost, but the worst case is not great
+			if mapItem, ok := c.layoutElementsHashMap[currentElement.id]; ok {
+				clipElementId := uint32(0) //TODO(iga) FIX: c.layoutElementClipElementIds[(int32)(currentElement-c.layoutElements.internalArray)]
+				clipItem, _ := c.layoutElementsHashMap[clipElementId]
 				elementBox := mapItem.boundingBox.AddPositionXY(root.pointerOffset.X, -root.pointerOffset.Y)
 
 				if elementBox.Contains(position) && (clipElementId == 0 || clipItem.boundingBox.Contains(position)) {
@@ -54,10 +54,6 @@ func (c *Context) SetPointerState(position Vector2, pointerDown bool) {
 					}
 					c.pointerOverIds = append(c.pointerOverIds, mapItem.elementId)
 					found = true
-
-					if mapItem.idAlias != 0 {
-						c.pointerOverIds = append(c.pointerOverIds, ElementId{id: mapItem.idAlias})
-					}
 				}
 				if elementHasConfig[*TextElementConfig](&currentElement) {
 					dfsBuffer = dfsBuffer[:len(dfsBuffer)-1]
@@ -65,7 +61,7 @@ func (c *Context) SetPointerState(position Vector2, pointerDown bool) {
 				}
 				for i := len(currentElement.children) - 1; i >= 0; i-- {
 					dfsBuffer = append(dfsBuffer, currentElement.children[i])
-					treeNodeVisited[len(dfsBuffer)-1] = false // TODO needs to be ranged checked
+					treeNodeVisited[len(dfsBuffer)-1] = false // TODO(clay): needs to be ranged checked
 				}
 			} else {
 				dfsBuffer = dfsBuffer[:len(dfsBuffer)-1]
@@ -101,7 +97,7 @@ func (c *Context) SetPointerState(position Vector2, pointerDown bool) {
 // - arena can be created using clay.CreateArenaWithCapacityAndMemory()
 // - layoutDimensions are the initial bounding dimensions of the layout (i.e. the screen width and height for a full screen layout)
 // - errorHandler is used by Clay to inform you if something has gone wrong in configuration or layout.
-func Initialize(layoutDimensions Dimensions, errorHandler ErrorHandler) *Context {
+func Initialize(layoutDimensions BoundingBox, errorHandler ErrorHandler) *Context {
 	// DEFAULTS
 	if errorHandler.ErrorHandlerFunction == nil {
 		errorHandler.ErrorHandlerFunction = errorHandlerFunctionDefault
@@ -111,7 +107,7 @@ func Initialize(layoutDimensions Dimensions, errorHandler ErrorHandler) *Context
 		maxElementCount:              defaultMaxElementCount,
 		maxMeasureTextCacheWordCount: defaultMaxMeasureTextWordCacheCount,
 		errorHandler:                 errorHandler,
-		layoutDimensions:             layoutDimensions,
+		layoutBoundingBox:            layoutDimensions,
 		//internalArena:                arena,
 	}
 
@@ -124,8 +120,7 @@ func Initialize(layoutDimensions Dimensions, errorHandler ErrorHandler) *Context
 	context.initializePersistentMemory()
 	context.initializeEphemeralMemory()
 
-	context.measureTextHashMapInternal = append(context.measureTextHashMapInternal, MeasureTextCacheItem{}) // Reserve the 0 value to mean "no next element"
-	context.layoutDimensions = layoutDimensions
+	context.layoutBoundingBox = layoutDimensions
 
 	return context
 }
@@ -221,7 +216,7 @@ func (c *Context) UpdateScrollContainers(enableDragScrolling bool, scrollDelta V
 			}
 			scrollData.scrollPosition.y = CLAY__MIN(CLAY__MAX(scrollData.scrollPosition.y, -(CLAY__MAX(scrollData.contentSize.height - scrollData.layoutElement.dimensions.height, 0))), 0);
 
-			for (int32_t j = 0; j < context.pointerOverIds.length; ++j) { // TODO n & m are small here but this being n*m gives me the creeps
+			for (int32_t j = 0; j < context.pointerOverIds.length; ++j) { // TODO(clay): n & m are small here but this being n*m gives me the creeps
 				if (scrollData.layoutElement.id == Clay__ElementIdArray_Get(&context.pointerOverIds, j).id) {
 					highestPriorityElementIndex = j;
 					highestPriorityScrollData = scrollData;
@@ -283,8 +278,8 @@ func (c *Context) UpdateScrollContainers(enableDragScrolling bool, scrollDelta V
 }
 
 // Updates the layout dimensions in response to the window or outer container being resized.
-func (c *Context) SetLayoutDimensions(dimensions Dimensions) {
-	c.layoutDimensions = dimensions
+func (c *Context) SetLayoutDimensions(dimensions BoundingBox) {
+	c.layoutBoundingBox = dimensions
 }
 
 // Called before starting any layout declarations.
@@ -293,17 +288,17 @@ func (c *Context) BeginLayout() {
 	c.generation++
 	c.dynamicElementIndex = 0
 	// Set up the root container that covers the entire window
-	rootDimensions := c.layoutDimensions
+	rootDimensions := c.layoutBoundingBox
 	if c.debugModeEnabled {
-		rootDimensions.X -= (float32)(debugViewWidth)
+		rootDimensions.Size.X -= (float32)(debugViewWidth)
 	}
 	c.booleanWarnings = BooleanWarnings{}
 	c.openElementWithId(c.ID("Clay__RootContainer"))
 	c.configureOpenElement(&ElementDeclaration{
 		Layout: LayoutConfig{
 			Sizing: Sizing{
-				c.SIZING_FIXED(rootDimensions.X),
-				c.SIZING_FIXED(rootDimensions.Y),
+				FIXED(rootDimensions.Size.X),
+				FIXED(rootDimensions.Size.Y),
 			},
 		},
 	})
@@ -330,7 +325,7 @@ func (c *Context) EndLayout() []RenderCommand {
 			message = "Clay Error: Layout elements exceeded Clay__maxElementCount"
 		}
 		c.addRenderCommand(RenderCommand{
-			BoundingBox: MakeBoundingBox(c.layoutDimensions.ScaleF(0.5).AddX(-59*4), vector2.Zero[float32]()),
+			BoundingBox: MakeBoundingBox(c.layoutBoundingBox.ScaleF(0.5).AddX(-59*4).Size, vector2.Zero[float32]()),
 			RenderData: TextRenderData{
 				StringContents: message,
 				TextColor:      Color{R: 255, G: 0, B: 0, A: 255},
@@ -340,7 +335,7 @@ func (c *Context) EndLayout() []RenderCommand {
 	}
 
 	if len(c.openLayoutElementStack) > 1 {
-		// TODO: Fix error reporting
+		// TODO(iga) FIX: error reporting
 		//	c.errorHandler.errorHandlerFunction(CLAY__INIT(Clay_ErrorData) {
 		//			.errorType = CLAY_ERROR_TYPE_UNBALANCED_OPEN_CLOSE,
 		//			.errorText = CLAY_STRING("There were still open layout elements when EndLayout was called. This results from an unequal number of calls to Clay__OpenElement and Clay__CloseElement."),
@@ -363,7 +358,7 @@ func (c *Context) FinalizeLayout() []RenderCommand {
 // The returned clay.ElementData contains a `found` bool that will be true if an element with the provided ID was found.
 // This ID can be calculated either with CLAY_ID() for string literal IDs, or clay.GetElementId for dynamic strings.
 func (c *Context) GetElementData(id ElementId) ElementData {
-	if item, ok := c.getHashMapItem(id.id); ok {
+	if item, ok := c.layoutElementsHashMap[id.id]; ok {
 		return ElementData{
 			BoundingBox: item.boundingBox,
 			Found:       true,
@@ -459,7 +454,11 @@ func (c *Context) SetRenderTranclucentEnabled(v bool) {
 ///CLAY_DLL_EXPORT void SetMaxMeasureTextCacheWordCount(int32_t maxMeasureTextCacheWordCount);
 
 // Resets Clay's internal text measurement cache. Useful if font mappings have changed or fonts have been reloaded.
-///CLAY_DLL_EXPORT void ResetMeasureTextCache(void);
+func (c *Context) ResetMeasureTextCache() {
+	c.measuredWords = c.measuredWords[0:0]
+	c.measuredWordsFreeList = c.measuredWordsFreeList[0:0]
+	clear(c.measureTextHashMap)
+}
 
 func (c *Context) CLAY(e ElementDeclaration, fns ...func()) {
 	if !c.openElement() {

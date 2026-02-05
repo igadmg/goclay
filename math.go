@@ -42,3 +42,26 @@ func floatEqual(left float32, right float32) bool {
 	subtracted := left - right
 	return subtracted < CLAY__EPSILON && subtracted > -CLAY__EPSILON
 }
+
+func unpackMargins[R Coordinate, T Coordinate](ps ...T) []R {
+	r := make([]R, 4)
+	switch len(ps) {
+	case 1:
+		r[0] = R(ps[0])
+		r[1] = R(ps[0])
+		r[2] = R(ps[0])
+		r[3] = R(ps[0])
+	case 2:
+		r[0] = R(ps[0])
+		r[1] = R(ps[0])
+		r[2] = R(ps[1])
+		r[3] = R(ps[1])
+	case 4:
+		r[0] = R(ps[0])
+		r[1] = R(ps[1])
+		r[2] = R(ps[2])
+		r[3] = R(ps[3])
+	}
+
+	return r
+}

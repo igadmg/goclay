@@ -6,10 +6,14 @@ github.com/igadmg/gamemath v0.0.0-20260102145644-a6870add6615 h1:afis/wvJDxu2iqW
 github.com/igadmg/gamemath v0.0.0-20260102145644-a6870add6615/go.mod h1:KHY0AbvZQbE2bmQlY3cAW5ibhQssENVdm+mgalVqpyQ=
 github.com/igadmg/gamemath v0.0.0-20260105113115-b402d3ddaa66 h1:wupWvKmPDttvHcw0mr9helYTfU4FRnQgjkber+ean+w=
 github.com/igadmg/gamemath v0.0.0-20260105113115-b402d3ddaa66/go.mod h1:KHY0AbvZQbE2bmQlY3cAW5ibhQssENVdm+mgalVqpyQ=
+github.com/igadmg/gamemath v0.0.0-20260201211411-ef8e47ea1638 h1:X5eUz8olkPrPDd/43OCO2qrMUvvpxuMHQqcd9D/0qCY=
+github.com/igadmg/gamemath v0.0.0-20260201211411-ef8e47ea1638/go.mod h1:fx3a7992YJpLvtkjygX6azDfGn+nTaWtB5Gv7q2J4js=
 github.com/igadmg/goex v0.0.0-20260101133116-420923949a14 h1:kecw51Pk+ID1ZSenabb9g0o9sQAhHTAwt3juBAo6M28=
 github.com/igadmg/goex v0.0.0-20260101133116-420923949a14/go.mod h1:Q/aP8qYRu38bW3+bZlQ8URUqMztRHCTvAfCKQ68FC5I=
 github.com/igadmg/goex v0.0.0-20260114180415-67a1b121076e h1:hl2zZWefPqTDOBlrlldblYAPGARNebcCHIb+BFZu9eg=
 github.com/igadmg/goex v0.0.0-20260114180415-67a1b121076e/go.mod h1:Q/aP8qYRu38bW3+bZlQ8URUqMztRHCTvAfCKQ68FC5I=
+github.com/igadmg/goex v0.0.0-20260201172011-1108af2793e7 h1:VxjhZwrFc5ima6eKN90amKwHmb5EcWRQnEztl6b0mEo=
+github.com/igadmg/goex v0.0.0-20260201172011-1108af2793e7/go.mod h1:mUm68QJdmQboEFcwLgEpLcrA6D0EPSLfTWuByuaWxs8=
 github.com/kr/pretty v0.3.1 h1:flRD4NNwYAUpkphVc1HcthR4KEIFJ65n8Mw5qdRn3LE=
 github.com/kr/pretty v0.3.1/go.mod h1:hoEshYVHaxMs3cyo3Yncou5ZscifuDolrwPKZanG3xk=
 github.com/kr/text v0.2.0 h1:5Nx0Ya0ZqY2ygV366QzturHI13Jq95ApcVaJBhpS+AY=
@@ -20,6 +24,8 @@ github.com/rogpeppe/go-internal v1.12.0 h1:exVL4IDcn6na9z1rAb56Vxr+CgyK3nn3O+epU
 github.com/rogpeppe/go-internal v1.12.0/go.mod h1:E+RYuTGaKKdloAfM02xzb0FW3Paa99yedzYV+kq4uf4=
 github.com/stretchr/testify v1.11.1 h1:7s2iGBzp5EwR7/aIZr8ao5+dra3wiQyKjjFuvgVKu7U=
 github.com/stretchr/testify v1.11.1/go.mod h1:wZwfW3scLgRK+23gO65QZefKpKQRnfz6sD981Nm4B6U=
+go.yaml.in/yaml/v4 v4.0.0-rc.4 h1:UP4+v6fFrBIb1l934bDl//mmnoIZEDK0idg1+AIvX5U=
+go.yaml.in/yaml/v4 v4.0.0-rc.4/go.mod h1:aZqd9kCMsGL7AuUv/m/PvWLdg5sjJsZ4oHDEnfPPfY0=
 golang.org/x/exp v0.0.0-20251219203646-944ab1f22d93 h1:fQsdNF2N+/YewlRZiricy4P1iimyPKZ/xwniHj8Q2a0=
 golang.org/x/exp v0.0.0-20251219203646-944ab1f22d93/go.mod h1:EPRbTFwzwjXj9NpYyyrvenVh9Y+GFeEvMNh7Xuz7xgU=
 golang.org/x/exp v0.0.0-20260112195511-716be5621a96 h1:Z/6YuSHTLOHfNFdb8zVZomZr7cqNgTJvA8+Qz75D8gU=

@@ -79,13 +79,13 @@ func (c *Context) renderDebugLayoutElementsList(initialRootsLength int32, highli
 			if (rootIndex > 0) {
 				CLAY({ .id = c.IDI("Clay__DebugView_EmptyRowOuter", rootIndex),
 				Layout: LayoutConfig{
-				Sizing: Sizing{Width: c.SIZING_GROW(0),
+				Sizing: Sizing{Width: SIZING_GROW(0),
 				},
 					Padding: Padding{CLAY__DEBUGVIEW_INDENT_WIDTH / 2, 0, 0, 0,
 					} } }) {
 					CLAY({ .id = c.IDI("Clay__DebugView_EmptyRow", rootIndex),
 					Layout: LayoutConfig{
-					Sizing: Sizing{ Width: c.SIZING_GROW(0), Height: c.SIZING_FIXED((float32)CLAY__DEBUGVIEW_ROW_HEIGHT) },
+					Sizing: Sizing{ Width: SIZING_GROW(0), Height: c.SIZING_FIXED((float32)CLAY__DEBUGVIEW_ROW_HEIGHT) },
 					}, Border: BorderElementConfig { color: CLAY__DEBUGVIEW_COLOR_3,
 					width: BorderWidth { .top = 1 } } }) {}
 				}
@@ -295,16 +295,16 @@ func (c *Context) renderDebugLayoutElementsList(initialRootsLength int32, highli
 			CLAY({ .id = c.ID("Clay__DebugView_ElementHighlight"),
 			Layout: LayoutConfig{
 			Sizing: Sizing{
-			Width: c.SIZING_GROW(0),
-			Height: c.SIZING_GROW(0),
+			Width: SIZING_GROW(0),
+			Height: SIZING_GROW(0),
 			} }, Floating: FloatingElementConfig{ .parentId = highlightedElementId, .zIndex = 32767,
 				pointerCaptureMode: POINTER_CAPTURE_MODE_PASSTHROUGH,
 			attachTo: CLAY_ATTACH_TO_ELEMENT_WITH_ID } }) {
 				CLAY({ .id = c.ID("Clay__DebugView_ElementHighlightRectangle"),
 				Layout: LayoutConfig{
 				Sizing: Sizing{
-				Width: c.SIZING_GROW(0),
-				Height: c.SIZING_GROW(0),
+				Width: SIZING_GROW(0),
+				Height: SIZING_GROW(0),
 				} },
 				BackgroundColor: debugViewHighlightColor }) {}
 			}
@@ -340,7 +340,7 @@ func (c *Context) Clay__RenderDebugViewElementConfigHeader(elementId string, con
 			    backgroundColor.a = 90;
 			    CLAY({
 				Layout: LayoutConfig{
-				Sizing: Sizing{ Width: c.SIZING_GROW(0) },
+				Sizing: Sizing{ Width: SIZING_GROW(0) },
 				 Padding: PaddingCLAY_PADDING_ALL(CLAY__DEBUGVIEW_OUTER_PADDING),
 				 ChildAlignment: ChildAlignment { Y: ALIGN_Y_CENTER } } }) {
 			        CLAY({
@@ -353,7 +353,7 @@ func (c *Context) Clay__RenderDebugViewElementConfigHeader(elementId string, con
 			        }
 			        CLAY({
 					Layout: LayoutConfig{
-					Sizing: Sizing{ Width: c.SIZING_GROW(0) } } }) {}
+					Sizing: Sizing{ Width: SIZING_GROW(0) } } }) {}
 			        c.TEXT(elementId, c.TEXT_CONFIG(TextElementConfig {
 					textColor: CLAY__DEBUGVIEW_COLOR_3,
 					fontSize: 16,
@@ -442,13 +442,13 @@ func (c *Context) Clay__RenderDebugView() {
 	})
 	scrollId := hashString("Clay__DebugViewOuterScrollPane")
 	scrollYOffset := float32(0)
-	pointerInDebugView := c.pointerInfo.Position.Y < c.layoutDimensions.Y-300
+	pointerInDebugView := c.pointerInfo.Position.Y < c.layoutBoundingBox.Size.Y-300
 	for _, scrollContainerData := range c.scrollContainerDatas {
 		if scrollContainerData.elementId == scrollId.id {
 			if !c.externalScrollHandlingEnabled {
 				scrollYOffset = scrollContainerData.scrollPosition.Y
 			} else {
-				pointerInDebugView = c.pointerInfo.Position.Y+scrollContainerData.scrollPosition.Y < c.layoutDimensions.Y-300
+				pointerInDebugView = c.pointerInfo.Position.Y+scrollContainerData.scrollPosition.Y < c.layoutBoundingBox.Size.Y-300
 			}
 			break
 		}
@@ -457,15 +457,15 @@ func (c *Context) Clay__RenderDebugView() {
 	if pointerInDebugView {
 		highlightedRow = (int32)((c.pointerInfo.Position.Y-scrollYOffset)/float32(CLAY__DEBUGVIEW_ROW_HEIGHT)) - 1
 	}
-	if c.pointerInfo.Position.X < c.layoutDimensions.X-float32(debugViewWidth) {
+	if c.pointerInfo.Position.X < c.layoutBoundingBox.Size.X-float32(debugViewWidth) {
 		highlightedRow = -1
 	}
 	var layoutData RenderDebugLayoutData
 	c.CLAY_ID(c.ID("Clay__DebugView"), ElementDeclaration{
 		Layout: LayoutConfig{
 			Sizing: Sizing{
-				Width:  c.SIZING_FIXED(float32(debugViewWidth)),
-				Height: c.SIZING_FIXED(c.layoutDimensions.Y),
+				Width:  FIXED(debugViewWidth),
+				Height: FIXED(c.layoutBoundingBox.Size.Y),
 			},
 			LayoutDirection: TOP_TO_BOTTOM,
 		},
@@ -485,8 +485,8 @@ func (c *Context) Clay__RenderDebugView() {
 		c.CLAY(ElementDeclaration{
 			Layout: LayoutConfig{
 				Sizing: Sizing{
-					Width:  c.SIZING_GROW(0),
-					Height: c.SIZING_FIXED(CLAY__DEBUGVIEW_ROW_HEIGHT),
+					Width:  GROW(0),
+					Height: FIXED(CLAY__DEBUGVIEW_ROW_HEIGHT),
 				},
 				Padding:        Padding{CLAY__DEBUGVIEW_OUTER_PADDING, CLAY__DEBUGVIEW_OUTER_PADDING, 0, 0},
 				ChildAlignment: ChildAlignment{Y: ALIGN_Y_CENTER},
@@ -496,15 +496,15 @@ func (c *Context) Clay__RenderDebugView() {
 			c.CLAY_TEXT("Clay Debug Tools", infoTextConfig)
 			c.CLAY(ElementDeclaration{
 				Layout: LayoutConfig{
-					Sizing: Sizing{Width: c.SIZING_GROW(0)},
+					Sizing: Sizing{Width: GROW(0)},
 				},
 			})
 			// Close button
 			c.CLAY(ElementDeclaration{
 				Layout: LayoutConfig{
 					Sizing: Sizing{
-						Width:  c.SIZING_FIXED(CLAY__DEBUGVIEW_ROW_HEIGHT - 10),
-						Height: c.SIZING_FIXED(CLAY__DEBUGVIEW_ROW_HEIGHT - 10),
+						Width:  FIXED(CLAY__DEBUGVIEW_ROW_HEIGHT - 10),
+						Height: FIXED(CLAY__DEBUGVIEW_ROW_HEIGHT - 10),
 					},
 					ChildAlignment: ChildAlignment{ALIGN_X_CENTER, ALIGN_Y_CENTER},
 				},
@@ -525,8 +525,8 @@ func (c *Context) Clay__RenderDebugView() {
 		c.CLAY(ElementDeclaration{
 			Layout: LayoutConfig{
 				Sizing: Sizing{
-					Width:  c.SIZING_GROW(0),
-					Height: c.SIZING_FIXED(1),
+					Width:  GROW(0),
+					Height: FIXED(1),
 				},
 			},
 			BackgroundColor: CLAY__DEBUGVIEW_COLOR_3,
@@ -534,15 +534,11 @@ func (c *Context) Clay__RenderDebugView() {
 		c.CLAY_ID(scrollId, ElementDeclaration{
 			Layout: LayoutConfig{
 				Sizing: Sizing{
-					Width:  c.SIZING_GROW(0),
-					Height: c.SIZING_GROW(0),
+					Width:  GROW(0),
+					Height: GROW(0),
 				},
 			},
-			Clip: ClipElementConfig{
-				Horizontal:  true,
-				Vertical:    true,
-				ChildOffset: c.GetScrollOffset(),
-			},
+			Clip: SCROLL_ALL_OFFSET(c.GetScrollOffset()),
 		}, func() {
 			bgColor := CLAY__DEBUGVIEW_COLOR_2
 			if ((initialElementsLength + initialRootsLength) & 1) != 0 {
@@ -551,8 +547,8 @@ func (c *Context) Clay__RenderDebugView() {
 			c.CLAY(ElementDeclaration{
 				Layout: LayoutConfig{
 					Sizing: Sizing{
-						Width:  c.SIZING_GROW(0),
-						Height: c.SIZING_GROW(0),
+						Width:  GROW(0),
+						Height: GROW(0),
 					},
 					LayoutDirection: TOP_TO_BOTTOM,
 				},
@@ -563,8 +559,8 @@ func (c *Context) Clay__RenderDebugView() {
 				c.CLAY_ID(panelContentsId, ElementDeclaration{
 					Layout: LayoutConfig{
 						Sizing: Sizing{
-							Width:  c.SIZING_GROW(0),
-							Height: c.SIZING_GROW(0),
+							Width:  GROW(0),
+							Height: GROW(0),
 						},
 					},
 					Floating: FloatingElementConfig{
@@ -576,8 +572,8 @@ func (c *Context) Clay__RenderDebugView() {
 					c.CLAY(ElementDeclaration{
 						Layout: LayoutConfig{
 							Sizing: Sizing{
-								Width:  c.SIZING_GROW(0),
-								Height: c.SIZING_GROW(0),
+								Width:  GROW(0),
+								Height: GROW(0),
 							},
 							Padding:         Padding{CLAY__DEBUGVIEW_OUTER_PADDING, CLAY__DEBUGVIEW_OUTER_PADDING, 0, 0},
 							LayoutDirection: TOP_TO_BOTTOM,
@@ -586,11 +582,11 @@ func (c *Context) Clay__RenderDebugView() {
 						layoutData = c.renderDebugLayoutElementsList(initialRootsLength, highlightedRow)
 					})
 				})
-				panelContents, _ := c.getHashMapItem(panelContentsId.id)
+				panelContents, _ := c.layoutElementsHashMap[panelContentsId.id]
 				contentWidth := panelContents.layoutElement.dimensions.X
 				c.CLAY(ElementDeclaration{
 					Layout: LayoutConfig{
-						Sizing:          Sizing{Width: c.SIZING_FIXED(contentWidth)},
+						Sizing:          Sizing{Width: FIXED(contentWidth)},
 						LayoutDirection: TOP_TO_BOTTOM,
 					},
 				})
@@ -613,8 +609,8 @@ func (c *Context) Clay__RenderDebugView() {
 					c.CLAY(ElementDeclaration{
 						Layout: LayoutConfig{
 							Sizing: Sizing{
-								Width:  c.SIZING_GROW(0),
-								Height: c.SIZING_FIXED(CLAY__DEBUGVIEW_ROW_HEIGHT),
+								Width:  GROW(0),
+								Height: FIXED(CLAY__DEBUGVIEW_ROW_HEIGHT),
 							},
 							LayoutDirection: TOP_TO_BOTTOM,
 						},
@@ -627,24 +623,24 @@ func (c *Context) Clay__RenderDebugView() {
 		c.CLAY(ElementDeclaration{
 			Layout: LayoutConfig{
 				Sizing: Sizing{
-					Width:  c.SIZING_GROW(0),
-					Height: c.SIZING_FIXED(1),
+					Width:  GROW(0),
+					Height: FIXED(1),
 				},
 			},
 			BackgroundColor: CLAY__DEBUGVIEW_COLOR_3,
 		})
 		if c.debugSelectedElementId != 0 {
-			selectedItem, _ := c.getHashMapItem(c.debugSelectedElementId)
+			selectedItem, _ := c.layoutElementsHashMap[c.debugSelectedElementId]
 			c.CLAY(ElementDeclaration{
 				Layout: LayoutConfig{
 					Sizing: Sizing{
-						Width:  c.SIZING_GROW(0),
-						Height: c.SIZING_FIXED(300),
+						Width:  GROW(0),
+						Height: FIXED(300),
 					},
 					LayoutDirection: TOP_TO_BOTTOM,
 				},
 				BackgroundColor: CLAY__DEBUGVIEW_COLOR_2,
-				Clip:            ClipElementConfig{Vertical: true},
+				Clip:            SCROLL_VERTICAL(),
 				Border: BorderElementConfig{
 					Color: CLAY__DEBUGVIEW_COLOR_3,
 					Width: BorderWidth{BetweenChildren: 1},
@@ -653,8 +649,8 @@ func (c *Context) Clay__RenderDebugView() {
 				c.CLAY(ElementDeclaration{
 					Layout: LayoutConfig{
 						Sizing: Sizing{
-							Width:  c.SIZING_GROW(0),
-							Height: c.SIZING_FIXED(CLAY__DEBUGVIEW_ROW_HEIGHT + 8),
+							Width:  GROW(0),
+							Height: FIXED(CLAY__DEBUGVIEW_ROW_HEIGHT + 8),
 						},
 						Padding:        Padding{CLAY__DEBUGVIEW_OUTER_PADDING, CLAY__DEBUGVIEW_OUTER_PADDING, 0, 0},
 						ChildAlignment: ChildAlignment{Y: ALIGN_Y_CENTER},
@@ -663,7 +659,7 @@ func (c *Context) Clay__RenderDebugView() {
 					c.CLAY_TEXT("Layout Config", infoTextConfig)
 					c.CLAY(ElementDeclaration{
 						Layout: LayoutConfig{
-							Sizing: Sizing{Width: c.SIZING_GROW(0)},
+							Sizing: Sizing{Width: GROW(0)},
 						},
 					})
 					if selectedItem.elementId.stringId != "" {
@@ -832,7 +828,7 @@ func (c *Context) Clay__RenderDebugView() {
 								c.CLAY_TEXT("Preview", infoTitleConfig)
 								c.CLAY(ElementDeclaration{
 									Layout: LayoutConfig{
-										Sizing: Sizing{Width: c.SIZING_GROW()},
+										Sizing: Sizing{Width: GROW(0)},
 									},
 									Image: *cfg,
 								})
@@ -847,7 +843,7 @@ func (c *Context) Clay__RenderDebugView() {
 						}, func() {
 							// .vertical
 							c.CLAY_TEXT("Vertical", infoTitleConfig)
-							// TODO: fix
+							// TODO(iga) fix:
 							//c.TEXT(scrollConfig.vertical ? "true" : "false" , infoTextConfig);
 							// .horizontal
 							c.CLAY_TEXT("Horizontal", infoTitleConfig)
@@ -888,7 +884,7 @@ func (c *Context) Clay__RenderDebugView() {
 							c.CLAY_TEXT(strconv.Itoa(int(cfg.ZIndex)), infoTextConfig)
 							// .parentId
 							c.CLAY_TEXT("Parent", infoTitleConfig)
-							hashItem, _ := c.getHashMapItem(cfg.ParentId)
+							hashItem, _ := c.layoutElementsHashMap[cfg.ParentId]
 							c.CLAY_TEXT(hashItem.elementId.stringId, infoTextConfig)
 						})
 					case *BorderElementConfig:
@@ -929,17 +925,14 @@ func (c *Context) Clay__RenderDebugView() {
 				ElementDeclaration{
 					Layout: LayoutConfig{
 						Sizing: Sizing{
-							Width:  c.SIZING_GROW(0),
-							Height: c.SIZING_FIXED(300),
+							Width:  GROW(0),
+							Height: FIXED(300),
 						},
 						ChildGap:        6,
 						LayoutDirection: TOP_TO_BOTTOM,
 					},
 					BackgroundColor: CLAY__DEBUGVIEW_COLOR_2,
-					Clip: ClipElementConfig{
-						Horizontal: true,
-						Vertical:   true,
-					},
+					Clip:            SCROLL_ALL(),
 				}, func() {
 					warningConfig := c.TEXT_CONFIG(TextElementConfig{
 						TextColor: CLAY__DEBUGVIEW_COLOR_4,
@@ -949,7 +942,7 @@ func (c *Context) Clay__RenderDebugView() {
 					c.CLAY_ID(c.ID("Clay__DebugViewWarningItemHeader"),
 						ElementDeclaration{
 							Layout: LayoutConfig{
-								Sizing:         Sizing{Height: c.SIZING_FIXED(CLAY__DEBUGVIEW_ROW_HEIGHT)},
+								Sizing:         Sizing{Height: FIXED(CLAY__DEBUGVIEW_ROW_HEIGHT)},
 								Padding:        Padding{CLAY__DEBUGVIEW_OUTER_PADDING, CLAY__DEBUGVIEW_OUTER_PADDING, 0, 0},
 								ChildGap:       8,
 								ChildAlignment: ChildAlignment{Y: ALIGN_Y_CENTER},
@@ -960,7 +953,7 @@ func (c *Context) Clay__RenderDebugView() {
 					c.CLAY_ID(c.ID("Clay__DebugViewWarningsTopBorder"),
 						ElementDeclaration{
 							Layout: LayoutConfig{
-								Sizing: Sizing{Width: c.SIZING_GROW(0), Height: c.SIZING_FIXED(1)},
+								Sizing: Sizing{Width: GROW(0), Height: FIXED(1)},
 							},
 							BackgroundColor: Color{R: 200, G: 200, B: 200, A: 255},
 						})
@@ -970,7 +963,7 @@ func (c *Context) Clay__RenderDebugView() {
 						c.CLAY_ID(c.IDI("Clay__DebugViewWarningItem", uint32(i)),
 							ElementDeclaration{
 								Layout: LayoutConfig{
-									Sizing:         Sizing{Height: c.SIZING_FIXED(CLAY__DEBUGVIEW_ROW_HEIGHT)},
+									Sizing:         Sizing{Height: FIXED(CLAY__DEBUGVIEW_ROW_HEIGHT)},
 									Padding:        Padding{CLAY__DEBUGVIEW_OUTER_PADDING, CLAY__DEBUGVIEW_OUTER_PADDING, 0, 0},
 									ChildGap:       8,
 									ChildAlignment: ChildAlignment{Y: ALIGN_Y_CENTER},

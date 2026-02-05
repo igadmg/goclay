@@ -46,7 +46,7 @@ func TestSizingAxisTypeString(t *testing.T) {
 }
 
 func TestFIT(t *testing.T) {
-	s := FIT()
+	s := FIT(0)
 	assert.Equal(t, float32(0), s.MinMax.Min)
 	assert.Equal(t, float32(math.MaxFloat32), s.MinMax.Max)
 	s = FIT(10)
@@ -58,7 +58,7 @@ func TestFIT(t *testing.T) {
 }
 
 func TestGROW(t *testing.T) {
-	s := GROW()
+	s := GROW(0)
 	assert.Equal(t, float32(0), s.MinMax.Min)
 	assert.Equal(t, float32(math.MaxFloat32), s.MinMax.Max)
 }
@@ -83,7 +83,7 @@ func TestSizing_GetAxis(t *testing.T) {
 }
 
 func TestPADDING_ALL(t *testing.T) {
-	p := PADDING_ALL(10)
+	p := PADDING(10)
 	expected := Padding{10, 10, 10, 10}
 	assert.Equal(t, expected, p)
 }
@@ -157,14 +157,14 @@ func TestColor_IsZero(t *testing.T) {
 
 // Public API tests
 func TestInitialize(t *testing.T) {
-	ctx := Initialize(MakeDimensions(800, 600), ErrorHandler{})
+	ctx := Initialize(MakeBoundingBox(MakeVector2(0, 0), MakeDimensions(800, 600)), ErrorHandler{})
 	assert.NotNil(t, ctx)
 	assert.Equal(t, ctx, GetCurrentContext())
 }
 
 func TestSetCurrentContext(t *testing.T) {
-	ctx1 := Initialize(MakeDimensions(800, 600), ErrorHandler{})
-	ctx2 := Initialize(MakeDimensions(800, 600), ErrorHandler{})
+	ctx1 := Initialize(MakeBoundingBox(MakeVector2(0, 0), MakeDimensions(800, 600)), ErrorHandler{})
+	ctx2 := Initialize(MakeBoundingBox(MakeVector2(0, 0), MakeDimensions(800, 600)), ErrorHandler{})
 	SetCurrentContext(ctx1)
 	assert.Equal(t, ctx1, GetCurrentContext())
 	SetCurrentContext(ctx2)
@@ -177,7 +177,7 @@ func mockMeasureText(text string, config *TextElementConfig, userData any) Dimen
 }
 
 func TestBeginLayout_EndLayout(t *testing.T) {
-	ctx := Initialize(MakeDimensions(800, 600), ErrorHandler{})
+	ctx := Initialize(MakeBoundingBox(MakeVector2(0, 0), MakeDimensions(800, 600)), ErrorHandler{})
 	ctx.SetMeasureTextFunction(mockMeasureText, nil)
 
 	ctx.BeginLayout()
@@ -210,7 +210,7 @@ func TestBeginLayout_EndLayout(t *testing.T) {
 }
 
 func TestSetPointerState(t *testing.T) {
-	ctx := Initialize(MakeDimensions(800, 600), ErrorHandler{})
+	ctx := Initialize(MakeBoundingBox(MakeVector2(0, 0), MakeDimensions(800, 600)), ErrorHandler{})
 	pos := MakeVector2(100, 100)
 	ctx.SetPointerState(pos, false)
 	assert.Equal(t, pos, ctx.pointerInfo.Position)
@@ -222,7 +222,7 @@ func TestSetPointerState(t *testing.T) {
 }
 
 func TestGetElementData(t *testing.T) {
-	ctx := Initialize(MakeDimensions(800, 600), ErrorHandler{})
+	ctx := Initialize(MakeBoundingBox(MakeVector2(0, 0), MakeDimensions(800, 600)), ErrorHandler{})
 	ctx.SetMeasureTextFunction(mockMeasureText, nil)
 
 	ctx.BeginLayout()
@@ -251,7 +251,7 @@ func TestErrorHandling_MeasureTextNotSet(t *testing.T) {
 		},
 		UserData: nil,
 	}
-	ctx := Initialize(MakeDimensions(800, 600), errorHandler)
+	ctx := Initialize(MakeBoundingBox(MakeVector2(0, 0), MakeDimensions(800, 600)), errorHandler)
 	// Do not set MeasureTextFunction
 
 	ctx.BeginLayout()
@@ -262,7 +262,7 @@ func TestErrorHandling_MeasureTextNotSet(t *testing.T) {
 }
 
 func TestSimpleLayout_RenderCommandsCount(t *testing.T) {
-	ctx := Initialize(MakeDimensions(800, 600), ErrorHandler{})
+	ctx := Initialize(MakeBoundingBox(MakeVector2(0, 0), MakeDimensions(800, 600)), ErrorHandler{})
 	ctx.SetMeasureTextFunction(mockMeasureText, nil)
 
 	ctx.BeginLayout()
@@ -301,7 +301,7 @@ func TestSimpleLayout_RenderCommandsCount(t *testing.T) {
 }
 
 func TestSimpleLayout_TextMultilineOutput(t *testing.T) {
-	ctx := Initialize(MakeDimensions(800, 600), ErrorHandler{})
+	ctx := Initialize(MakeBoundingBox(MakeVector2(0, 0), MakeDimensions(800, 600)), ErrorHandler{})
 	ctx.SetMeasureTextFunction(mockMeasureText, nil)
 
 	ctx.BeginLayout()
@@ -310,7 +310,7 @@ func TestSimpleLayout_TextMultilineOutput(t *testing.T) {
 		Layout: LayoutConfig{
 			Sizing: Sizing{
 				Width:  FIXED(200),
-				Height: GROW(),
+				Height: GROW(0),
 			},
 		},
 		BackgroundColor: Color{255, 0, 0, 255}, // Red background
@@ -340,5 +340,124 @@ func TestSimpleLayout_TextMultilineOutput(t *testing.T) {
 	}
 	assert.True(t, hasRectangle, "Should have rectangle render command")
 	assert.True(t, hasText, "Should have text render command")
+	assert.Equal(t, 4, textLines)
+}
+
+func TestSimpleLayout_ClipContainer(t *testing.T) {
+	ctx := Initialize(MakeBoundingBox(MakeVector2(0, 0), MakeDimensions(800, 600)), ErrorHandler{})
+	ctx.SetMeasureTextFunction(mockMeasureText, nil)
+
+	ctx.BeginLayout()
+	// Create a simple layout: a container with background and text
+	ctx.CLAY(ElementDeclaration{
+		Layout: LayoutConfig{
+			Sizing: Sizing{
+				Width:  FIXED(200),
+				Height: FIT(0),
+			},
+			LayoutDirection: TOP_TO_BOTTOM,
+		},
+		BackgroundColor: Color{255, 0, 0, 255}, // Red background
+	}, func() {
+		ctx.CLAY_TEXT("Hello World. Here we start rendering a very long text. Horay!",
+			ctx.TEXT_CONFIG(TextElementConfig{
+				TextColor: Color{255, 255, 255, 255},
+				FontSize:  16,
+			}))
+		ctx.CLAY(ElementDeclaration{
+			Layout: LayoutConfig{
+				Sizing: Sizing{
+					Width:  GROW(0),
+					Height: FIXED(100),
+				},
+			},
+			Clip: SCROLL_ALL(),
+		}, func() {
+			ctx.CLAY(ElementDeclaration{
+				Layout: LayoutConfig{
+					Sizing: Sizing{
+						Width:  FIXED(200),
+						Height: FIXED(200),
+					},
+				},
+				BackgroundColor: Color{255, 0, 0, 255}, // Red background
+			})
+			ctx.CLAY(ElementDeclaration{
+				Layout: LayoutConfig{
+					Sizing: Sizing{
+						Width:  FIXED(200),
+						Height: FIXED(200),
+					},
+					LayoutDirection: TOP_TO_BOTTOM,
+				},
+				BackgroundColor: Color{255, 255, 0, 255}, // Red background
+			}, func() {
+				ctx.CLAY(ElementDeclaration{
+					Layout: LayoutConfig{
+						Sizing: Sizing{
+							Width:  GROW(0),
+							Height: FIXED(20),
+						},
+					},
+					BackgroundColor: Color{0, 255, 0, 255}, // Red background
+				})
+				ctx.CLAY(ElementDeclaration{
+					Layout: LayoutConfig{
+						Sizing: Sizing{
+							Width:  GROW(0),
+							Height: FIXED(20),
+						},
+					},
+					BackgroundColor: Color{0, 255, 0, 255}, // Red background
+				})
+			})
+			ctx.CLAY(ElementDeclaration{
+				Layout: LayoutConfig{
+					Sizing: Sizing{
+						Width:  FIXED(200),
+						Height: FIXED(200),
+					},
+				},
+				BackgroundColor: Color{0, 255, 0, 255}, // Red background
+			})
+			ctx.CLAY(ElementDeclaration{
+				Layout: LayoutConfig{
+					Sizing: Sizing{
+						Width:  FIXED(200),
+						Height: FIXED(200),
+					},
+				},
+				BackgroundColor: Color{0, 0, 255, 255}, // Red background
+			})
+		})
+	})
+	commands := ctx.EndLayout()
+
+	// Should generate at least 2 commands: rectangle for background and text
+	assert.Equal(t, 13, len(commands))
+	// Check that we have a rectangle command and a text command
+	hasRectangle := false
+	hasText := false
+	hasSStart := -1
+	hasSEnd := -1
+	textLines := 0
+	for i, cmd := range commands {
+		_ = i
+		switch cmd.RenderData.(type) {
+		case RectangleRenderData:
+			hasRectangle = true
+		case TextRenderData:
+			hasText = true
+			textLines++
+		case ScissorsStartData:
+			hasSStart = i
+		case ScissorsEndData:
+			hasSEnd = i
+		}
+	}
+	assert.True(t, hasRectangle, "Should have rectangle render command")
+	assert.True(t, hasText, "Should have text render command")
+	assert.Equal(t, 5, hasSStart, "Should have rectangle render command")
+	assert.Equal(t, 12, hasSEnd, "Should have text render command")
 	assert.Equal(t, 4, textLines)
 }

@@ -12,11 +12,19 @@ var COLOR_LIGHT clay.Color = clay.Color{R: 224, G: 215, B: 210, A: 255}
 var COLOR_RED clay.Color = clay.Color{R: 168, G: 66, B: 28, A: 255}
 var COLOR_ORANGE clay.Color = clay.Color{R: 225, G: 138, B: 50, A: 255}
 
+var (
+	screenSize            = clay.MakeBoundingBox(clay.MakeVector2(0, 0), clay.MakeDimensions(640, 480))
+	mousePosition         = clay.MakeVector2(160, 100)
+	mouseWheel            = clay.MakeVector2(0, 0)
+	isMouseDown           = false
+	deltaTime     float32 = 0.1
+)
+
 // Layout config is just a struct that can be declared statically, or inline
 var sidebarItemConfig clay.ElementDeclaration = clay.ElementDeclaration{
 	Layout: clay.LayoutConfig{
 		Sizing: clay.Sizing{
-			Width:  clay.GROW(),
+			Width:  clay.GROW(0),
 			Height: clay.FIXED(50),
 		},
 	},
@@ -57,12 +65,7 @@ func SidebarItemComponent(ctx *clay.Context) {
 func main() {
 	defer gx_Must(pprofex_WriteCPUProfile("goclay"))()
 
-	screenSize := clay.MakeDimensions(640, 480)
-	mousePosition := clay.MakeVector2(160, 100)
-	mouseWheel := clay.MakeVector2(0, 0)
-	isMouseDown := false
 	var profilePicture any = &struct{ ImageData []byte }{ImageData: nil}
-	var deltaTime float32 = 0.1
 
 	// Note: screenWidth and screenHeight will need to come from your environment, Clay doesn't handle window related tasks
 	ui := clay.Initialize(screenSize, clay.ErrorHandler{})
@@ -89,8 +92,8 @@ func main() {
 		ui.CLAY_ID(clay.ID("OuterContainer"),
 			clay.ElementDeclaration{
 				Layout: clay.LayoutConfig{
-					Sizing:   clay.Sizing{Width: clay.GROW(), Height: clay.GROW()},
-					Padding:  clay.PADDING_ALL(16),
+					Sizing:   clay.Sizing{Width: clay.GROW(0), Height: clay.GROW(0)},
+					Padding:  clay.PADDING(16),
 					ChildGap: 16,
 				},
 				BackgroundColor: clay.Color{R: 250, G: 250, B: 255, A: 255},
@@ -99,8 +102,8 @@ func main() {
 					clay.ElementDeclaration{
 						Layout: clay.LayoutConfig{
 							LayoutDirection: clay.TOP_TO_BOTTOM,
-							Sizing:          clay.Sizing{Width: clay.FIXED(300), Height: clay.GROW()},
-							Padding:         clay.PADDING_ALL(16),
+							Sizing:          clay.Sizing{Width: clay.FIXED(300), Height: clay.GROW(0)},
+							Padding:         clay.PADDING(16),
 							ChildGap:        16,
 						},
 						BackgroundColor: COLOR_LIGHT,
@@ -108,8 +111,8 @@ func main() {
 						ui.CLAY_ID(clay.ID("ProfilePictureOuter"),
 							clay.ElementDeclaration{
 								Layout: clay.LayoutConfig{
-									Sizing:         clay.Sizing{Width: clay.GROW()},
-									Padding:        clay.PADDING_ALL(16),
+									Sizing:         clay.Sizing{Width: clay.GROW(0)},
+									Padding:        clay.PADDING(16),
 									ChildGap:       16,
 									ChildAlignment: clay.ChildAlignment{Y: clay.ALIGN_Y_CENTER},
 								},
@@ -127,7 +130,7 @@ func main() {
 								ui.CLAY_ID(clay.ID("TextContent"),
 									clay.ElementDeclaration{
 										Layout: clay.LayoutConfig{
-											Sizing: clay.Sizing{Width: clay.GROW(), Height: clay.GROW()},
+											Sizing: clay.Sizing{Width: clay.GROW(0), Height: clay.GROW(0)},
 										},
 										BackgroundColor: COLOR_LIGHT,
 									})
@@ -146,7 +149,7 @@ func main() {
 						ui.CLAY_ID(clay.ID("MainContent"),
 							clay.ElementDeclaration{
 								Layout: clay.LayoutConfig{
-									Sizing: clay.Sizing{Width: clay.GROW(), Height: clay.GROW()},
+									Sizing: clay.Sizing{Width: clay.GROW(0), Height: clay.GROW(0)},
 								},
 								BackgroundColor: COLOR_LIGHT,
 							})
@@ -167,13 +170,6 @@ func main() {
 func main_callback() {
 	defer gx_Must(pprofex_WriteCPUProfile("goclay"))()
 
-	screenSize := clay.MakeDimensions(640, 480)
-	mousePosition := clay.MakeVector2(160, 100)
-	mouseWheel := clay.MakeVector2(0, 0)
-	isMouseDown := false
-	//var profilePicture any = &struct{ ImageData []byte }{ImageData: nil}
-	var deltaTime float32 = 0.1
-
 	// Note: screenWidth and screenHeight will need to come from your environment, Clay doesn't handle window related tasks
 	ui := clay.Initialize(screenSize, clay.ErrorHandler{})
 	ui.SetMeasureTextFunction(func(text string, config *clay.TextElementConfig, userData any) clay.Dimensions {
@@ -199,8 +195,8 @@ func main_callback() {
 		ui.CLAY_ID(clay.ID("OuterContainer"),
 			clay.ElementDeclaration{
 				Layout: clay.LayoutConfig{
-					Sizing:   clay.Sizing{Width: clay.GROW(), Height: clay.GROW()},
-					Padding:  clay.PADDING_ALL(16),
+					Sizing:   clay.Sizing{Width: clay.GROW(0), Height: clay.GROW(0)},
+					Padding:  clay.PADDING(16),
 					ChildGap: 16,
 				},
 				UserData: func(rect clay.BoundingBox) {
@@ -211,8 +207,8 @@ func main_callback() {
 					clay.ElementDeclaration{
 						Layout: clay.LayoutConfig{
 							LayoutDirection: clay.TOP_TO_BOTTOM,
-							Sizing:          clay.Sizing{Width: clay.FIXED(300), Height: clay.GROW()},
-							Padding:         clay.PADDING_ALL(16),
+							Sizing:          clay.Sizing{Width: clay.FIXED(300), Height: clay.GROW(0)},
+							Padding:         clay.PADDING(16),
 							ChildGap:        16,
 						},
 						UserData: func(rect clay.BoundingBox) {
@@ -222,8 +218,8 @@ func main_callback() {
 						ui.CLAY_ID(clay.ID("ProfilePictureOuter"),
 							clay.ElementDeclaration{
 								Layout: clay.LayoutConfig{
-									Sizing:         clay.Sizing{Width: clay.GROW()},
-									Padding:        clay.PADDING_ALL(16),
+									Sizing:         clay.Sizing{Width: clay.GROW(0)},
+									Padding:        clay.PADDING(16),
 									ChildGap:       16,
 									ChildAlignment: clay.ChildAlignment{Y: clay.ALIGN_Y_CENTER},
 								},
@@ -241,7 +237,7 @@ func main_callback() {
 								})
 								ui.CLAY_ID(clay.ID("TextContent"), clay.ElementDeclaration{
 									Layout: clay.LayoutConfig{
-										Sizing: clay.Sizing{Width: clay.GROW(), Height: clay.GROW()},
+										Sizing: clay.Sizing{Width: clay.GROW(0), Height: clay.GROW(0)},
 									},
 									UserData: func(rect clay.BoundingBox) {
 										// DrawRect(rect, COLOR_LIGHT)
@@ -261,7 +257,7 @@ func main_callback() {
 
 						ui.CLAY_ID(clay.ID("MainContent"), clay.ElementDeclaration{
 							Layout: clay.LayoutConfig{
-								Sizing: clay.Sizing{Width: clay.GROW(), Height: clay.GROW()},
+								Sizing: clay.Sizing{Width: clay.GROW(0), Height: clay.GROW(0)},
 							},
 							UserData: func(rect clay.BoundingBox) {
 								// DrawRect(rect, COLOR_LIGHT)
@@ -293,13 +289,6 @@ In that case mouse processing is done by underlying UI library, and clay just la
 func main_callback_with_separate_layout() {
 	defer gx_Must(pprofex_WriteCPUProfile("goclay"))()
 
-	screenSize := clay.MakeDimensions(640, 480)
-	//mousePosition := clay.MakeVector2(160, 100)
-	//mouseWheel := clay.MakeVector2(0, 0)
-	//isMouseDown := false
-	//var profilePicture any = &struct{ ImageData []byte }{ImageData: nil}
-	//var deltaTime float32 = 0.1
-
 	// Note: screenWidth and screenHeight will need to come from your environment, Clay doesn't handle window related tasks
 	ui := clay.Initialize(screenSize, clay.ErrorHandler{})
 	ui.SetMeasureTextFunction(func(text string, config *clay.TextElementConfig, userData any) clay.Dimensions {
@@ -310,7 +299,7 @@ func main_callback_with_separate_layout() {
 		)
 	}, nil)
 
-	doLayout := func(size clay.Dimensions) []clay.RenderCommand {
+	doLayout := func(size clay.BoundingBox) []clay.RenderCommand {
 		// Optional: Update internal layout dimensions to support resizing
 		ui.SetLayoutDimensions(size)
 		// Optional: Update internal pointer position for handling mouseover / click / touch events - needed for scrolling & debug tools
@@ -326,8 +315,8 @@ func main_callback_with_separate_layout() {
 		// An example of laying out a UI with a fixed width sidebar and flexible width main content
 		ui.CLAY_ID(clay.ID("OuterContainer"), clay.ElementDeclaration{
 			Layout: clay.LayoutConfig{
-				Sizing:   clay.Sizing{Width: clay.GROW(), Height: clay.GROW()},
-				Padding:  clay.PADDING_ALL(16),
+				Sizing:   clay.Sizing{Width: clay.GROW(0), Height: clay.GROW(0)},
+				Padding:  clay.PADDING(16),
 				ChildGap: 16,
 			},
 			UserData: func(rect clay.BoundingBox) {
@@ -337,8 +326,8 @@ func main_callback_with_separate_layout() {
 			ui.CLAY_ID(clay.ID("SideBar"), clay.ElementDeclaration{
 				Layout: clay.LayoutConfig{
 					LayoutDirection: clay.TOP_TO_BOTTOM,
-					Sizing:          clay.Sizing{Width: clay.FIXED(300), Height: clay.GROW()},
-					Padding:         clay.PADDING_ALL(16),
+					Sizing:          clay.Sizing{Width: clay.FIXED(300), Height: clay.GROW(0)},
+					Padding:         clay.PADDING(16),
 					ChildGap:        16,
 				},
 				UserData: func(rect clay.BoundingBox) {
@@ -347,8 +336,8 @@ func main_callback_with_separate_layout() {
 			}, func() {
 				ui.CLAY_ID(clay.ID("ProfilePictureOuter"), clay.ElementDeclaration{
 					Layout: clay.LayoutConfig{
-						Sizing:         clay.Sizing{Width: clay.GROW()},
-						Padding:        clay.PADDING_ALL(16),
+						Sizing:         clay.Sizing{Width: clay.GROW(0)},
+						Padding:        clay.PADDING(16),
 						ChildGap:       16,
 						ChildAlignment: clay.ChildAlignment{Y: clay.ALIGN_Y_CENTER},
 					},
@@ -366,7 +355,7 @@ func main_callback_with_separate_layout() {
 					})
 					ui.CLAY_ID(clay.ID("TextContent"), clay.ElementDeclaration{
 						Layout: clay.LayoutConfig{
-							Sizing: clay.Sizing{Width: clay.GROW(), Height: clay.GROW()},
+							Sizing: clay.Sizing{Width: clay.GROW(0), Height: clay.GROW(0)},
 						},
 						UserData: func(rect clay.BoundingBox) {
 							// DrawRect(rect, COLOR_LIGHT)
@@ -388,7 +377,7 @@ func main_callback_with_separate_layout() {
 
 				ui.CLAY_ID(clay.ID("MainContent"), clay.ElementDeclaration{
 					Layout: clay.LayoutConfig{
-						Sizing: clay.Sizing{Width: clay.GROW(), Height: clay.GROW()},
+						Sizing: clay.Sizing{Width: clay.GROW(0), Height: clay.GROW(0)},
 					},
 					UserData: func(rect clay.BoundingBox) {
 						// DrawRect(rect, COLOR_LIGHT)

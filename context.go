@@ -1,5 +1,12 @@
 package clay
 
+import "maps"
+
+type measureTextKey struct {
+	config *TextElementConfig
+	text   string
+}
+
 type Context struct {
 	maxElementCount              int32
 	maxMeasureTextCacheWordCount int32
@@ -9,14 +16,14 @@ type Context struct {
 	warnings                     []Warning
 
 	pointerInfo                   PointerData
-	layoutDimensions              Dimensions
+	layoutBoundingBox             BoundingBox
 	dynamicElementIndexBaseHash   ElementId
 	dynamicElementIndex           uint32
 	debugModeEnabled              bool
 	disableCulling                bool
 	externalScrollHandlingEnabled bool
 	debugSelectedElementId        uint32
-	generation                    uint32
+	generation                    uint32 // Increased on every layout
 	measureTextUserData           any
 	queryScrollOffsetUserData     any
 	renderTranslucent             bool
@@ -45,26 +52,43 @@ type Context struct {
 	sharedElementConfigs      []SharedElementConfig
 
 	// Misc Data Structures
-	layoutElementIdStrings        []string
-	wrappedTextLines              []WrappedTextLine
-	layoutElementTreeNodeArray1   []LayoutElementTreeNode
-	layoutElementTreeRoots        []LayoutElementTreeRoot
-	layoutElementsHashMapInternal []LayoutElementHashMapItem
-	layoutElementsHashMap         map[uint32]*LayoutElementHashMapItem
-	measureTextHashMapInternal    []MeasureTextCacheItem
-	measureTextHashMap            map[string]*MeasureTextCacheItem
-	measuredWords                 []MeasuredWord
-	measuredWordsFreeList         []int32
-	openClipElementStack          []int
-	pointerOverIds                []ElementId
-	scrollContainerDatas          []ScrollContainerDataInternal
-	dynamicStringData             []byte
-	debugElementData              []DebugElementData
+	layoutElementIdStrings      []string
+	wrappedTextLines            []WrappedTextLine
+	layoutElementTreeNodeArray1 []LayoutElementTreeNode
+	layoutElementTreeRoots      []LayoutElementTreeRoot
+	layoutElementsHashMap       map[uint32]LayoutElementHashMapItem
+	measureTextHashMap          map[measureTextKey]MeasureTextCacheItem
+	measuredWords               []MeasuredWord
+	measuredWordsFreeList       []int32
+	openClipElementStack        []int
+	pointerOverIds              []ElementId
+	scrollContainerDatas        []ScrollContainerDataInternal
+	dynamicStringData           []byte
+	debugElementData            []DebugElementData
+
+	treeNodeVisited []bool
 }
 
 func (c *Context) Finalize() []RenderCommand {
 	rc := c.renderCommands
 	c.initializeEphemeralMemory()
+
+	// Do a GC run
+	maps.DeleteFunc(c.layoutElementsHashMap, func(_ uint32, v LayoutElementHashMapItem) bool {
+		return v.generation-c.generation > 3
+	})
+	maps.DeleteFunc(c.measureTextHashMap, func(_ measureTextKey, v MeasureTextCacheItem) bool {
+		if v.generation-c.generation > 3 {
+			for i := v.measuredWordsStartIndex; i != -1; {
+				c.measuredWordsFreeList = append(c.measuredWordsFreeList, i)
+				i = c.measuredWords[i].next
+			}
+
+			return true
+		}
+		return false
+	})
+
 	return rc
 }
 
@@ -132,11 +156,9 @@ func (c *Context) initializePersistentMemory() {
 	maxMeasureTextCacheWordCount := c.maxMeasureTextCacheWordCount
 
 	c.scrollContainerDatas = make([]ScrollContainerDataInternal, 0, 100)
-	c.layoutElementsHashMapInternal = make([]LayoutElementHashMapItem, 0, maxElementCount)
-	c.layoutElementsHashMap = map[uint32]*LayoutElementHashMapItem{}
-	c.measureTextHashMapInternal = make([]MeasureTextCacheItem, 0, maxElementCount)
+	c.layoutElementsHashMap = map[uint32]LayoutElementHashMapItem{}
 	c.measuredWordsFreeList = make([]int32, 0, maxMeasureTextCacheWordCount)
-	c.measureTextHashMap = map[string]*MeasureTextCacheItem{}
+	c.measureTextHashMap = map[measureTextKey]MeasureTextCacheItem{}
 	c.measuredWords = make([]MeasuredWord, 0, maxMeasureTextCacheWordCount)
 	c.pointerOverIds = make([]ElementId, 0, maxElementCount)
 	c.debugElementData = make([]DebugElementData, 0, maxElementCount)
@@ -176,11 +198,6 @@ func (c *Context) getOpenLayoutElement() *LayoutElement {
 
 func (c *Context) getParentElementId() uint32 {
 	return c.layoutElements[c.openLayoutElementStack[len(c.openLayoutElementStack)-2]].id
-}
-
-func (c *Context) getHashMapItem(id uint32) (e *LayoutElementHashMapItem, ok bool) {
-	e, ok = c.layoutElementsHashMap[id]
-	return
 }
 
 func (c *Context) storeLayoutConfig(config LayoutConfig) *LayoutConfig {
@@ -279,22 +296,15 @@ func (c *Context) addMeasuredWord(word MeasuredWord, previousWord *MeasuredWord)
 	}
 }
 
-func (c *Context) addHashMapItem(elementId ElementId, layoutElement *LayoutElement) *LayoutElementHashMapItem {
-	if len(c.layoutElementsHashMapInternal) == cap(c.layoutElementsHashMapInternal)-1 {
-		return nil
-	}
-
+func (c *Context) addHashMapItem(elementId ElementId, layoutElement *LayoutElement) LayoutElementHashMapItem {
 	item := LayoutElementHashMapItem{
 		elementId:     elementId,
 		layoutElement: layoutElement,
-		nextIndex:     -1,
 		generation:    c.generation + 1,
 	}
 
-	c.layoutElementsHashMapInternal = append(c.layoutElementsHashMapInternal, item)
-	c.layoutElementsHashMap[elementId.id] = &c.layoutElementsHashMapInternal[len(c.layoutElementsHashMapInternal)-1]
-
-	return c.layoutElementsHashMap[elementId.id]
+	c.layoutElementsHashMap[elementId.id] = item
+	return item
 }
 
 func (c *Context) addRenderCommand(renderCommand RenderCommand) {

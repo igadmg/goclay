@@ -5,6 +5,7 @@ import (
 	"math"
 
 	"github.com/igadmg/gamemath/rect2"
+	"golang.org/x/exp/constraints"
 )
 
 type MeasureTextFn func(text string, config *TextElementConfig, userData any) Dimensions
@@ -52,8 +53,9 @@ func (r CornerRadius) IsEmpty() bool {
 		r.BottomRight == 0
 }
 
-func CORNER_RADIUS(radius float32) CornerRadius {
-	return CornerRadius{radius, radius, radius, radius}
+func CORNER_RADIUS(radius ...float32) CornerRadius {
+	vs := unpackMargins[float32](radius...)
+	return CornerRadius{vs[0], vs[1], vs[2], vs[3]}
 }
 
 // Element Configs ---------------------------
@@ -202,73 +204,33 @@ func SizingAxisTypeString(a AnySizingAxis) string {
 	return ""
 }
 
-func FIT(s ...float32) SizingAxisFit { return SIZING_FIT(s...) }
-func SIZING_FIT(s ...float32) SizingAxisFit {
+func FIT[T Coordinate](s ...T) SizingAxisFit {
 	switch len(s) {
 	case 0:
 		return SizingAxisFit{MinMax: SizingMinMax{Min: 0, Max: math.MaxFloat32}}
 	case 1:
-		return SizingAxisFit{MinMax: SizingMinMax{Min: s[0], Max: math.MaxFloat32}}
+		return SizingAxisFit{MinMax: SizingMinMax{Min: float32(s[0]), Max: math.MaxFloat32}}
 	default:
-		return SizingAxisFit{MinMax: SizingMinMax{Min: s[0], Max: s[1]}}
+		return SizingAxisFit{MinMax: SizingMinMax{Min: float32(s[0]), Max: float32(s[1])}}
 	}
 }
 
-func (*Context) SIZING_FIT(s ...float32) SizingAxisFit {
-	switch len(s) {
-	case 0:
-		return SizingAxisFit{MinMax: SizingMinMax{Min: 0, Max: math.MaxFloat32}}
-	case 1:
-		return SizingAxisFit{MinMax: SizingMinMax{Min: s[0], Max: math.MaxFloat32}}
-	default:
-		return SizingAxisFit{MinMax: SizingMinMax{Min: s[0], Max: s[1]}}
-	}
-}
-
-func GROW(s ...float32) SizingAxisGrow { return SIZING_GROW(s...) }
-func SIZING_GROW(s ...float32) SizingAxisGrow {
+func GROW[T Coordinate](s ...T) SizingAxisGrow {
 	switch len(s) {
 	case 0:
 		return SizingAxisGrow{MinMax: SizingMinMax{Min: 0, Max: math.MaxFloat32}}
 	case 1:
-		return SizingAxisGrow{MinMax: SizingMinMax{Min: s[0], Max: math.MaxFloat32}}
+		return SizingAxisGrow{MinMax: SizingMinMax{Min: float32(s[0]), Max: math.MaxFloat32}}
 	default:
-		return SizingAxisGrow{MinMax: SizingMinMax{Min: s[0], Max: s[1]}}
+		return SizingAxisGrow{MinMax: SizingMinMax{Min: float32(s[0]), Max: float32(s[1])}}
 	}
 }
 
-func (*Context) SIZING_GROW(s ...float32) SizingAxisGrow {
-	switch len(s) {
-	case 0:
-		return SizingAxisGrow{MinMax: SizingMinMax{Min: 0, Max: math.MaxFloat32}}
-	case 1:
-		return SizingAxisGrow{MinMax: SizingMinMax{Min: s[0], Max: math.MaxFloat32}}
-	default:
-		return SizingAxisGrow{MinMax: SizingMinMax{Min: s[0], Max: s[1]}}
-	}
-}
-
-func FIXED(fixedSize float32) SizingAxisFixed {
-	return SizingAxisFixed{MinMax: SizingMinMax{Min: fixedSize, Max: fixedSize}}
-}
-
-func SIZING_FIXED(fixedSize float32) SizingAxisFixed {
-	return SizingAxisFixed{MinMax: SizingMinMax{Min: fixedSize, Max: fixedSize}}
-}
-
-func (*Context) SIZING_FIXED(fixedSize float32) SizingAxisFixed {
-	return SizingAxisFixed{MinMax: SizingMinMax{Min: fixedSize, Max: fixedSize}}
+func FIXED[T Coordinate](fixedSize T) SizingAxisFixed {
+	return SizingAxisFixed{MinMax: SizingMinMax{Min: float32(fixedSize), Max: float32(fixedSize)}}
 }
 
 func PERCENT(percentOfParent float32) SizingAxisPercent {
-	return SizingAxisPercent{Percent: percentOfParent}
-}
-
-func SIZING_PERCENT(percentOfParent float32) SizingAxisPercent {
-	return SizingAxisPercent{Percent: percentOfParent}
-}
-
-func (*Context) SIZING_PERCENT(percentOfParent float32) SizingAxisPercent {
 	return SizingAxisPercent{Percent: percentOfParent}
 }
 
@@ -298,12 +260,9 @@ type Padding struct {
 	Bottom uint16
 }
 
-func PADDING_ALL(padding uint16) Padding {
-	return Padding{padding, padding, padding, padding}
-}
-
-func (*Context) PADDING_ALL(padding uint16) Padding {
-	return Padding{padding, padding, padding, padding}
+func PADDING(padding ...uint16) Padding {
+	p := unpackMargins[uint16](padding...)
+	return Padding{p[0], p[1], p[2], p[3]}
 }
 
 // Controls various settings that affect the size and position of an element, as well as the sizes and positions
@@ -318,8 +277,8 @@ type LayoutConfig struct {
 
 var default_LayoutConfig LayoutConfig = LayoutConfig{
 	Sizing: Sizing{
-		Width:  FIT(),
-		Height: FIT(),
+		Width:  FIT(0),
+		Height: FIT(0),
 	},
 }
 
@@ -331,44 +290,10 @@ func WithSizing(cfg Sizing) ElementOptionsFn {
 }
 
 func WithPads(ps ...uint16) ElementOptionsFn {
-	if len(ps) == 0 {
-		return func(ed ElementDeclaration) ElementDeclaration { return ed }
+	return func(ed ElementDeclaration) ElementDeclaration {
+		ed.Layout.Padding = PADDING(ps...)
+		return ed
 	}
-	if len(ps) == 1 {
-		return func(ed ElementDeclaration) ElementDeclaration {
-			ed.Layout.Padding = Padding{
-				Left:   ps[0],
-				Right:  ps[0],
-				Top:    ps[0],
-				Bottom: ps[0],
-			}
-			return ed
-		}
-	}
-	if len(ps) == 2 {
-		return func(ed ElementDeclaration) ElementDeclaration {
-			ed.Layout.Padding = Padding{
-				Left:   ps[0],
-				Right:  ps[0],
-				Top:    ps[1],
-				Bottom: ps[1],
-			}
-			return ed
-		}
-	}
-	if len(ps) == 4 {
-		return func(ed ElementDeclaration) ElementDeclaration {
-			ed.Layout.Padding = Padding{
-				Left:   ps[0],
-				Right:  ps[1],
-				Top:    ps[2],
-				Bottom: ps[3],
-			}
-			return ed
-		}
-	}
-
-	return func(ed ElementDeclaration) ElementDeclaration { return ed }
 }
 
 func WithPadding(cfg Padding) ElementOptionsFn {
@@ -378,9 +303,9 @@ func WithPadding(cfg Padding) ElementOptionsFn {
 	}
 }
 
-func WithChildGap(cfg uint16) ElementOptionsFn {
+func WithChildGap[T constraints.Signed](gap T) ElementOptionsFn {
 	return func(ed ElementDeclaration) ElementDeclaration {
-		ed.Layout.ChildGap = cfg
+		ed.Layout.ChildGap = uint16(gap)
 		return ed
 	}
 }
@@ -388,6 +313,14 @@ func WithChildGap(cfg uint16) ElementOptionsFn {
 func WithChildAlignment(cfg ChildAlignment) ElementOptionsFn {
 	return func(ed ElementDeclaration) ElementDeclaration {
 		ed.Layout.ChildAlignment = cfg
+		return ed
+	}
+}
+
+func WithChildAligns(x LayoutAlignmentX, y LayoutAlignmentY) ElementOptionsFn {
+	return func(ed ElementDeclaration) ElementDeclaration {
+		ed.Layout.ChildAlignment.X = x
+		ed.Layout.ChildAlignment.Y = y
 		return ed
 	}
 }
@@ -626,6 +559,18 @@ func SCROLL_ALL() ClipElementConfig {
 	return ClipElementConfig{Horizontal: true, Vertical: true}
 }
 
+func SCROLL_HORIZONTAL() ClipElementConfig {
+	return ClipElementConfig{Horizontal: true}
+}
+
+func SCROLL_VERTICAL() ClipElementConfig {
+	return ClipElementConfig{Vertical: true}
+}
+
+func SCROLL_ALL_OFFSET(offset Vector2) ClipElementConfig {
+	return ClipElementConfig{Horizontal: true, Vertical: true, ChildOffset: offset}
+}
+
 // Border -----------------------------
 
 // Controls the widths of individual element borders.
@@ -649,35 +594,13 @@ func (b BorderWidth) IsEmpty() bool {
 }
 
 func MakeBorderWidthArgs(ps ...uint16) BorderWidth {
-	if len(ps) == 0 {
-		return BorderWidth{}
+	vs := unpackMargins[uint16](ps...)
+	return BorderWidth{
+		Left:   vs[0],
+		Right:  vs[1],
+		Top:    vs[2],
+		Bottom: vs[3],
 	}
-	if len(ps) == 1 {
-		return BorderWidth{
-			Left:   ps[0],
-			Right:  ps[0],
-			Top:    ps[0],
-			Bottom: ps[0],
-		}
-	}
-	if len(ps) == 2 {
-		return BorderWidth{
-			Left:   ps[0],
-			Right:  ps[0],
-			Top:    ps[1],
-			Bottom: ps[1],
-		}
-	}
-	if len(ps) == 4 {
-		return BorderWidth{
-			Left:   ps[0],
-			Right:  ps[1],
-			Top:    ps[2],
-			Bottom: ps[3],
-		}
-	}
-
-	return BorderWidth{}
 }
 
 // Controls settings related to element borders.
@@ -928,6 +851,13 @@ func WithScroll(cfg ClipElementConfig) ElementOptionsFn {
 func WithBorder(cfg BorderElementConfig) ElementOptionsFn {
 	return func(ed ElementDeclaration) ElementDeclaration {
 		ed.Border = cfg
+		return ed
+	}
+}
+
+func WithBorderWidth(w ...uint16) ElementOptionsFn {
+	return func(ed ElementDeclaration) ElementDeclaration {
+		ed.Border.Width = MakeBorderWidthArgs(w...)
 		return ed
 	}
 }

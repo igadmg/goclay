@@ -124,16 +124,14 @@ type DebugElementData struct {
 	collapsed bool
 }
 
-type LayoutElementHashMapItem struct { // todo get this struct into a single cache line
+type LayoutElementHashMapItem struct { // TODO(clay): get this struct into a single cache line
 	boundingBox           BoundingBox
 	elementId             ElementId
 	layoutElement         *LayoutElement
 	onHoverFunction       func(elementId ElementId, pointerInfo PointerData, userData any)
 	hoverFunctionUserData any
-	nextIndex             int32
 	generation            uint32
-	idAlias               uint32
-	debugData             DebugElementData
+	//debugData             DebugElementData
 }
 
 var default_LayoutElementHashMapItem LayoutElementHashMapItem
@@ -154,10 +152,7 @@ type MeasureTextCacheItem struct {
 	measuredWordsStartIndex int32
 	minWidth                float32
 	containsNewlines        bool
-	// Hash map data
-	id         uint32
-	nextIndex  int32
-	generation uint32
+	generation              uint32
 }
 
 var default_MeasureTextCacheItem MeasureTextCacheItem
@@ -189,7 +184,7 @@ func findElementConfigWithType[T ElementConfigType](element *LayoutElement) (T, 
 	return nil, false
 }
 
-func (c *Context) measureTextCached(text string, config *TextElementConfig) *MeasureTextCacheItem {
+func (c *Context) measureTextCached(text string, config *TextElementConfig) MeasureTextCacheItem {
 	if measureText == nil {
 		if !c.booleanWarnings.textMeasurementFunctionNotSet {
 			c.booleanWarnings.textMeasurementFunctionNotSet = true
@@ -199,43 +194,50 @@ func (c *Context) measureTextCached(text string, config *TextElementConfig) *Mea
 				UserData:  c.errorHandler.UserData,
 			})
 		}
-		return &default_MeasureTextCacheItem
+		return default_MeasureTextCacheItem
 	}
 
-	id := hashTextWithConfig(text, config)
-	if hashEntry, ok := c.measureTextHashMap[text]; ok {
+	id := measureTextKey{config, text}
+	if hashEntry, ok := c.measureTextHashMap[id]; ok {
 		return hashEntry
 	}
 
-	newCacheItem := MeasureTextCacheItem{
+	measured := MeasureTextCacheItem{
 		measuredWordsStartIndex: -1,
-		id:                      id,
-		generation:              c.generation,
+		generation:              c.generation + 1,
 	}
-	measured := (*MeasureTextCacheItem)(nil)
 
-	if len(c.measureTextHashMapInternal) == cap(c.measureTextHashMapInternal)-1 {
-		if !c.booleanWarnings.maxTextMeasureCacheExceeded {
-			c.errorHandler.ErrorHandlerFunction(ErrorData{
-				ErrorType: ERROR_TYPE_ELEMENTS_CAPACITY_EXCEEDED,
-				ErrorText: "Clay ran out of capacity while attempting to measure text elements. Try using Clay_SetMaxElementCount() with a higher value.",
-				UserData:  c.errorHandler.UserData})
-			c.booleanWarnings.maxTextMeasureCacheExceeded = true
+	/*
+		measured := (*MeasureTextCacheItem)(nil)
+		if len(c.measureTextHashMapInternal) == cap(c.measureTextHashMapInternal)-1 {
+			if !c.booleanWarnings.maxTextMeasureCacheExceeded {
+				c.errorHandler.ErrorHandlerFunction(ErrorData{
+					ErrorType: ERROR_TYPE_ELEMENTS_CAPACITY_EXCEEDED,
+					ErrorText: "Clay ran out of capacity while attempting to measure text elements. Try using Clay_SetMaxElementCount() with a higher value.",
+					UserData:  c.errorHandler.UserData})
+				c.booleanWarnings.maxTextMeasureCacheExceeded = true
+			}
+			return &default_MeasureTextCacheItem
 		}
-		return &default_MeasureTextCacheItem
-	}
-	c.measureTextHashMapInternal = append(c.measureTextHashMapInternal, newCacheItem)
-	measured = &c.measureTextHashMapInternal[len(c.measureTextHashMapInternal)-1]
+		measured = &c.measureTextHashMapInternal[len(c.measureTextHashMapInternal)-1]
+	*/
 
 	start := 0
 	end := 0
 	lineWidth := float32(0)
 	measuredWidth := float32(0)
 	measuredHeight := float32(0)
-	//spaceWidth := measureText(SPACECHAR, config, c.measureTextUserData).X
-	tempWord := MeasuredWord{next: -1}
-	previousWord := &tempWord
+	spaceWidth := measureText(SPACECHAR, config, c.measureTextUserData).X
+
+	preFirstWord := MeasuredWord{next: -1}
+	previousWord := &preFirstWord
 	for end < len(text) {
+		current := text[end]
+		if current != ' ' && current != '\n' {
+			end++
+			continue
+		}
+
 		if len(c.measuredWords) == cap(c.measuredWords)-1 {
 			if !c.booleanWarnings.maxTextMeasureCacheExceeded {
 				c.errorHandler.ErrorHandlerFunction(ErrorData{
@@ -245,51 +247,51 @@ func (c *Context) measureTextCached(text string, config *TextElementConfig) *Mea
 				})
 				c.booleanWarnings.maxTextMeasureCacheExceeded = true
 			}
-			return &default_MeasureTextCacheItem
+			return default_MeasureTextCacheItem
 		}
-		current := text[end]
-		if current == ' ' || current == '\n' {
-			length := end - start
-			var dimensions Dimensions
+
+		length := end - start
+		var dimensions Dimensions
+		if length > 0 {
+			dimensions = measureText(text[start:end], config, c.measureTextUserData)
+		}
+		measured.minWidth = max(dimensions.X, measured.minWidth)
+		measuredHeight = max(float32(measuredHeight), dimensions.Y)
+		if current == ' ' {
+			//dimensions.X += spaceWidth
+			previousWord = c.addMeasuredWord(MeasuredWord{
+				startOffset: int32(start),
+				length:      int32(length + 1),
+				width:       dimensions.X,
+				next:        -1,
+			}, previousWord)
+			lineWidth += dimensions.X + spaceWidth
+		}
+		if current == '\n' {
 			if length > 0 {
-				dimensions = measureText(text[start:end], config, c.measureTextUserData)
-			}
-			measured.minWidth = max(dimensions.X, measured.minWidth)
-			measuredHeight = max(float32(measuredHeight), dimensions.Y)
-			if current == ' ' {
-				//dimensions.X += spaceWidth
 				previousWord = c.addMeasuredWord(MeasuredWord{
 					startOffset: int32(start),
-					length:      int32(length + 1),
+					length:      int32(length),
 					width:       dimensions.X,
-					next:        -1},
-					previousWord)
-				lineWidth += dimensions.X
+					next:        -1,
+				}, previousWord)
 			}
-			if current == '\n' {
-				if length > 0 {
-					previousWord = c.addMeasuredWord(MeasuredWord{
-						startOffset: int32(start),
-						length:      int32(length),
-						width:       dimensions.X,
-						next:        -1},
-						previousWord)
-				}
-				previousWord = c.addMeasuredWord(MeasuredWord{
-					startOffset: int32(end + 1),
-					length:      0,
-					width:       0,
-					next:        -1},
-					previousWord)
-				lineWidth += dimensions.X
-				measuredWidth = max(lineWidth, measuredWidth) - float32(config.LetterSpacing)
-				measured.containsNewlines = true
-				lineWidth = 0
-			}
-			start = end + 1
+			previousWord = c.addMeasuredWord(MeasuredWord{
+				startOffset: int32(end + 1),
+				length:      0,
+				width:       0,
+				next:        -1,
+			}, previousWord)
+			lineWidth += dimensions.X
+			measuredWidth = max(lineWidth, measuredWidth) - float32(config.LetterSpacing)
+			measured.containsNewlines = true
+			lineWidth = 0
 		}
+
 		end++
+		start = end
 	}
+
 	if end-start > 0 {
 		dimensions := measureText(text[start:end], config, c.measureTextUserData)
 		c.addMeasuredWord(MeasuredWord{
@@ -297,18 +299,18 @@ func (c *Context) measureTextCached(text string, config *TextElementConfig) *Mea
 			length:      int32(end - start),
 			width:       dimensions.X,
 			next:        -1,
-		},
-			previousWord)
+		}, previousWord)
 		lineWidth += dimensions.X
 		measuredHeight = max(measuredHeight, dimensions.Y)
 		measured.minWidth = max(dimensions.X, measured.minWidth)
 	}
-	measuredWidth = max(lineWidth, measuredWidth)
 
-	measured.measuredWordsStartIndex = tempWord.next
+	measuredWidth = max(lineWidth, measuredWidth)
+	measured.measuredWordsStartIndex = preFirstWord.next
 	measured.unwrappedDimensions.X = measuredWidth
 	measured.unwrappedDimensions.Y = measuredHeight
 
+	c.measureTextHashMap[id] = measured
 	return measured
 }
 
@@ -565,10 +567,10 @@ func (c *Context) openTextElement(text string, textConfig *TextElementConfig) {
 
 func (c *Context) configureOpenElement(declaration *ElementDeclaration) {
 	if declaration.Layout.Sizing.Width == nil {
-		declaration.Layout.Sizing.Width = c.SIZING_FIT()
+		declaration.Layout.Sizing.Width = FIT(0)
 	}
 	if declaration.Layout.Sizing.Height == nil {
-		declaration.Layout.Sizing.Height = c.SIZING_FIT()
+		declaration.Layout.Sizing.Height = FIT(0)
 	}
 
 	openLayoutElement := c.getOpenLayoutElement()
@@ -642,7 +644,7 @@ func (c *Context) configureOpenElement(declaration *ElementDeclaration) {
 					clipElementId = c.openClipElementStack[len(c.openClipElementStack)-1]
 				}
 			case ATTACH_TO_ELEMENT_WITH_ID:
-				parentItem, ok := c.getHashMapItem(floatingConfig.ParentId)
+				parentItem, ok := c.layoutElementsHashMap[floatingConfig.ParentId]
 				if !ok {
 					c.errorHandler.ErrorHandlerFunction(ErrorData{
 						ErrorType: ERROR_TYPE_FLOATING_CONTAINER_PARENT_NOT_FOUND,
@@ -719,7 +721,7 @@ func (c *Context) sizeContainersAlongAxis(axis Axis) {
 
 		// Size floating containers to their parents
 		if floatingElementConfig, ok := findElementConfigWithType[*FloatingElementConfig](rootElement); ok {
-			if parentItem, ok := c.getHashMapItem(floatingElementConfig.ParentId); ok {
+			if parentItem, ok := c.layoutElementsHashMap[floatingElementConfig.ParentId]; ok {
 				parentLayoutElement := parentItem.layoutElement
 				switch rootElement.layoutConfig.Sizing.Width.(type) {
 				case SizingAxisGrow:
@@ -793,7 +795,7 @@ func (c *Context) sizeContainersAlongAxis(axis Axis) {
 				}() {
 					if func() bool {
 						if tc, ok := findElementConfigWithType[*TextElementConfig](child); !ok || tc.WrapMode == TEXT_WRAP_WORDS {
-							if axis == 0 || !elementHasConfig[*AspectRatioElementConfig](child) {
+							if axis == AxisX || !elementHasConfig[*AspectRatioElementConfig](child) {
 								return true
 							}
 						}
@@ -979,164 +981,34 @@ func (c *Context) elementIsOffscreen(boundingBox BoundingBox) bool {
 		return false
 	}
 
-	return (boundingBox.X() > c.layoutDimensions.X) ||
-		(boundingBox.Y() > c.layoutDimensions.Y) ||
-		(boundingBox.X()+boundingBox.Width() < 0) ||
-		(boundingBox.Y()+boundingBox.Height() < 0)
+	return !c.layoutBoundingBox.OverlappedBy(boundingBox)
 }
 
 func (c *Context) calculateFinalLayout() {
-	treeNodeVisited := make([]bool, len(c.layoutElements))
+	c.treeNodeVisited = make([]bool, len(c.layoutElements))
+	defer func() { c.treeNodeVisited = nil }()
 
 	// Calculate sizing along the X axis
 	c.sizeContainersAlongAxis(AxisX)
 
 	// Wrap text
-	for i := range c.textElementData {
-		textElementData := &c.textElementData[i]
-		textElementData.wrappedLines = c.wrappedTextLines[len(c.wrappedTextLines):]
-		containerElement := &c.layoutElements[textElementData.elementIndex]
-		textConfig, _ := findElementConfigWithType[*TextElementConfig](containerElement)
-		measureTextCacheItem := c.measureTextCached(textElementData.text, textConfig)
-		var lineWidth float32
-		lineHeight := textElementData.preferredDimensions.Y
-		if textConfig.LineHeight > 0 {
-			lineHeight = float32(textConfig.LineHeight)
-		}
-		var lineLengthChars int32
-		var lineStartOffset int32
+	c.wrapText()
 
-		if !measureTextCacheItem.containsNewlines && textElementData.preferredDimensions.X <= containerElement.dimensions.X {
-			c.wrappedTextLines = append(c.wrappedTextLines, WrappedTextLine{})
-			textElementData.wrappedLines = append(textElementData.wrappedLines, WrappedTextLine{containerElement.dimensions, textElementData.text})
-			continue
-		}
-		spaceWidth := measureText(SPACECHAR, textConfig, c.measureTextUserData).X
-		wordIndex := measureTextCacheItem.measuredWordsStartIndex
-		for wordIndex != -1 {
-			if len(c.wrappedTextLines) > cap(c.wrappedTextLines)-1 {
-				break
-			}
-			measuredWord := c.measuredWords[wordIndex]
-			// Only word on the line is too large, just render it anyway
-			if lineLengthChars == 0 && lineWidth+measuredWord.width > containerElement.dimensions.X {
-				c.wrappedTextLines = append(c.wrappedTextLines, WrappedTextLine{})
-				textElementData.wrappedLines = append(textElementData.wrappedLines, WrappedTextLine{
-					MakeDimensions(measuredWord.width, lineHeight),
-					textElementData.text[measuredWord.startOffset : measuredWord.startOffset+measuredWord.length]})
-				wordIndex = measuredWord.next
-				lineStartOffset = measuredWord.startOffset + measuredWord.length
-			} else if measuredWord.length == 0 || lineWidth+measuredWord.width > containerElement.dimensions.X {
-				// measuredWord.length == 0 means a newline character
-				// Wrapped text lines list has overflowed, just render out the line
-				var addSpace float32
-				if textElementData.text[lineStartOffset+lineLengthChars-1] == ' ' {
-					//addSpace = -spaceWidth
-					lineLengthChars--
-				}
-				c.wrappedTextLines = append(c.wrappedTextLines, WrappedTextLine{})
-				textElementData.wrappedLines = append(textElementData.wrappedLines, WrappedTextLine{
-					MakeDimensions(lineWidth+addSpace, lineHeight),
-					textElementData.text[lineStartOffset : lineStartOffset+lineLengthChars],
-				})
-				if lineLengthChars == 0 || measuredWord.length == 0 {
-					wordIndex = measuredWord.next
-				}
-				lineWidth = 0
-				lineLengthChars = 0
-				lineStartOffset = measuredWord.startOffset
-			} else {
-				lineWidth += measuredWord.width + float32(textConfig.LetterSpacing) + spaceWidth
-				lineLengthChars += measuredWord.length
-				wordIndex = measuredWord.next
-			}
-		}
-		if lineLengthChars > 0 {
-			c.wrappedTextLines = append(c.wrappedTextLines, WrappedTextLine{})
-			textElementData.wrappedLines = append(textElementData.wrappedLines, WrappedTextLine{
-				MakeDimensions(lineWidth-float32(textConfig.LetterSpacing), lineHeight), textElementData.text[lineStartOffset : lineStartOffset+lineLengthChars]})
-		}
-		containerElement.dimensions.Y = lineHeight * float32(len(textElementData.wrappedLines))
-	}
 	// Scale vertical image heights according to aspect ratio
-	for _, aei := range c.aspectRatioElementIndexes {
-		aspectElement := &c.layoutElements[aei]
-		if config, ok := findElementConfigWithType[*AspectRatioElementConfig](aspectElement); ok {
-			aspectElement.dimensions.Y = (1 / config.AspectRatio) * aspectElement.dimensions.X
-			// aspectElement.layoutConfig.Sizing.Height.size.minMax.max = aspectElement->dimensions.height; FIX: what is going here?
-		}
-	}
+	c.scaleImagesVerticalAspectRatio()
 
 	// Propagate effect of text wrapping, aspect scaling etc. on height of parents
-	c.layoutElementTreeNodeArray1 = c.layoutElementTreeNodeArray1[0:0]
-	for _, root := range c.layoutElementTreeRoots {
-		treeNodeVisited[len(c.layoutElementTreeNodeArray1)] = false
-		c.layoutElementTreeNodeArray1 = append(c.layoutElementTreeNodeArray1, LayoutElementTreeNode{
-			layoutElement: &c.layoutElements[root.layoutElementIndex],
-		})
-	}
-	for len(c.layoutElementTreeNodeArray1) > 0 {
-		currentElementTreeNode := c.layoutElementTreeNodeArray1[len(c.layoutElementTreeNodeArray1)-1]
-		currentElement := currentElementTreeNode.layoutElement
-		if !treeNodeVisited[len(c.layoutElementTreeNodeArray1)-1] {
-			treeNodeVisited[len(c.layoutElementTreeNodeArray1)-1] = true
-			// If the element has no children or is the container for a text element, don't bother inspecting it
-			if elementHasConfig[*TextElementConfig](currentElement) || len(currentElement.children) == 0 {
-				c.layoutElementTreeNodeArray1 = c.layoutElementTreeNodeArray1[:len(c.layoutElementTreeNodeArray1)-1]
-				continue
-			}
-			// Add the children to the DFS buffer (needs to be pushed in reverse so that stack traversal is in correct layout order)
-			for _, child := range currentElement.children {
-				treeNodeVisited[len(c.layoutElementTreeNodeArray1)] = false
-				c.layoutElementTreeNodeArray1 = append(c.layoutElementTreeNodeArray1, LayoutElementTreeNode{
-					layoutElement: &c.layoutElements[child],
-				})
-			}
-			continue
-		}
-		c.layoutElementTreeNodeArray1 = c.layoutElementTreeNodeArray1[:len(c.layoutElementTreeNodeArray1)-1]
-
-		// DFS node has been visited, this is on the way back up to the root
-		layoutConfig := currentElement.layoutConfig
-		switch layoutConfig.LayoutDirection {
-		case LEFT_TO_RIGHT:
-			// Resize any parent containers that have grown in height along their non layout axis
-			for _, child := range currentElement.children {
-				childElement := c.layoutElements[child]
-				childHeightWithPadding := max(childElement.dimensions.Y+float32(layoutConfig.Padding.Top+layoutConfig.Padding.Bottom), currentElement.dimensions.Y)
-				switch mm := layoutConfig.Sizing.Height.(type) {
-				case SizingAxisMinMax:
-					currentElement.dimensions.Y = min(max(childHeightWithPadding, mm.GetMinMax().Min), mm.GetMinMax().Max)
-				}
-			}
-		case TOP_TO_BOTTOM:
-			// Resizing along the layout axis
-			contentHeight := float32(layoutConfig.Padding.Top + layoutConfig.Padding.Bottom)
-			for _, child := range currentElement.children {
-				childElement := c.layoutElements[child]
-				contentHeight += childElement.dimensions.Y
-			}
-			contentHeight += float32(max(uint16(len(currentElement.children))-1, 0) * layoutConfig.ChildGap)
-			switch mm := layoutConfig.Sizing.Height.(type) {
-			case SizingAxisMinMax:
-				currentElement.dimensions.Y = min(max(contentHeight, mm.GetMinMax().Min), mm.GetMinMax().Max)
-			}
-		}
-	}
+	c.propagateTextWrapping()
 
 	// Calculate sizing along the Y axis
 	c.sizeContainersAlongAxis(AxisY)
 
 	// Scale horizontal widths according to aspect ratio
-	for _, ai := range c.aspectRatioElementIndexes {
-		aspectElement := &c.layoutElements[ai]
-		config, _ := findElementConfigWithType[*AspectRatioElementConfig](aspectElement)
-		aspectElement.dimensions.X = config.AspectRatio * aspectElement.dimensions.Y
-	}
+	c.scaleImagesHorizontalAspectRatio()
 
 	// Sort tree roots by z-index
 	sortMax := len(c.layoutElementTreeRoots) - 1
-	for sortMax > 0 { // todo dumb bubble sort
+	for sortMax > 0 { // TODO(clay): dumb bubble sort
 		for i := range sortMax {
 			current := c.layoutElementTreeRoots[i]
 			next := c.layoutElementTreeRoots[i+1]
@@ -1154,53 +1026,54 @@ func (c *Context) calculateFinalLayout() {
 		root := &c.layoutElementTreeRoots[iroot]
 		c.layoutElementTreeNodeArray1 = c.layoutElementTreeNodeArray1[0:0]
 		rootElement := &c.layoutElements[root.layoutElementIndex]
-		var rootPosition Vector2
-		parentHashMapItem, _ := c.getHashMapItem(root.parentId)
-		// Position root floating containers
-		if config, ok := findElementConfigWithType[*FloatingElementConfig](rootElement); ok && parentHashMapItem != nil {
-			rootDimensions := rootElement.dimensions
-			parentBoundingBox := parentHashMapItem.boundingBox
-			// Set X position
-			var targetAttachPosition Vector2
-			switch config.AttachPoints.Parent {
-			case ATTACH_POINT_LEFT_TOP, ATTACH_POINT_LEFT_CENTER, ATTACH_POINT_LEFT_BOTTOM:
-				targetAttachPosition.X = parentBoundingBox.X()
-			case ATTACH_POINT_CENTER_TOP, ATTACH_POINT_CENTER_CENTER, ATTACH_POINT_CENTER_BOTTOM:
-				targetAttachPosition.X = parentBoundingBox.X() + (parentBoundingBox.Width() / 2)
-			case ATTACH_POINT_RIGHT_TOP, ATTACH_POINT_RIGHT_CENTER, ATTACH_POINT_RIGHT_BOTTOM:
-				targetAttachPosition.X = parentBoundingBox.X() + parentBoundingBox.Width()
+		rootPosition := c.layoutBoundingBox.Position
+		if parentHashMapItem, ok := c.layoutElementsHashMap[root.parentId]; ok {
+			// Position root floating containers
+			if config, ok := findElementConfigWithType[*FloatingElementConfig](rootElement); ok {
+				rootDimensions := rootElement.dimensions
+				parentBoundingBox := parentHashMapItem.boundingBox
+				// Set X position
+				var targetAttachPosition Vector2
+				switch config.AttachPoints.Parent {
+				case ATTACH_POINT_LEFT_TOP, ATTACH_POINT_LEFT_CENTER, ATTACH_POINT_LEFT_BOTTOM:
+					targetAttachPosition.X = parentBoundingBox.X()
+				case ATTACH_POINT_CENTER_TOP, ATTACH_POINT_CENTER_CENTER, ATTACH_POINT_CENTER_BOTTOM:
+					targetAttachPosition.X = parentBoundingBox.X() + (parentBoundingBox.Width() / 2)
+				case ATTACH_POINT_RIGHT_TOP, ATTACH_POINT_RIGHT_CENTER, ATTACH_POINT_RIGHT_BOTTOM:
+					targetAttachPosition.X = parentBoundingBox.X() + parentBoundingBox.Width()
+				}
+				switch config.AttachPoints.Element {
+				case ATTACH_POINT_LEFT_TOP, ATTACH_POINT_LEFT_CENTER, ATTACH_POINT_LEFT_BOTTOM:
+					break
+				case ATTACH_POINT_CENTER_TOP, ATTACH_POINT_CENTER_CENTER, ATTACH_POINT_CENTER_BOTTOM:
+					targetAttachPosition.X -= (rootDimensions.X / 2)
+				case ATTACH_POINT_RIGHT_TOP, ATTACH_POINT_RIGHT_CENTER, ATTACH_POINT_RIGHT_BOTTOM:
+					targetAttachPosition.X -= rootDimensions.X
+				}
+				switch config.AttachPoints.Parent { // I know I could merge the x and y switch statements, but this is easier to read
+				case ATTACH_POINT_LEFT_TOP, ATTACH_POINT_RIGHT_TOP, ATTACH_POINT_CENTER_TOP:
+					targetAttachPosition.Y = parentBoundingBox.Y()
+				case ATTACH_POINT_LEFT_CENTER, ATTACH_POINT_CENTER_CENTER, ATTACH_POINT_RIGHT_CENTER:
+					targetAttachPosition.Y = parentBoundingBox.Y() + (parentBoundingBox.Height() / 2)
+				case ATTACH_POINT_LEFT_BOTTOM, ATTACH_POINT_CENTER_BOTTOM, ATTACH_POINT_RIGHT_BOTTOM:
+					targetAttachPosition.Y = parentBoundingBox.Y() + parentBoundingBox.Height()
+				}
+				switch config.AttachPoints.Element {
+				case ATTACH_POINT_LEFT_TOP, ATTACH_POINT_RIGHT_TOP, ATTACH_POINT_CENTER_TOP:
+					break
+				case ATTACH_POINT_LEFT_CENTER, ATTACH_POINT_CENTER_CENTER, ATTACH_POINT_RIGHT_CENTER:
+					targetAttachPosition.Y -= (rootDimensions.Y / 2)
+				case ATTACH_POINT_LEFT_BOTTOM, ATTACH_POINT_CENTER_BOTTOM, ATTACH_POINT_RIGHT_BOTTOM:
+					targetAttachPosition.Y -= rootDimensions.Y
+				}
+				targetAttachPosition.X += config.Offset.X
+				targetAttachPosition.Y += config.Offset.Y
+				rootPosition = targetAttachPosition.Ceil()
 			}
-			switch config.AttachPoints.Element {
-			case ATTACH_POINT_LEFT_TOP, ATTACH_POINT_LEFT_CENTER, ATTACH_POINT_LEFT_BOTTOM:
-				break
-			case ATTACH_POINT_CENTER_TOP, ATTACH_POINT_CENTER_CENTER, ATTACH_POINT_CENTER_BOTTOM:
-				targetAttachPosition.X -= (rootDimensions.X / 2)
-			case ATTACH_POINT_RIGHT_TOP, ATTACH_POINT_RIGHT_CENTER, ATTACH_POINT_RIGHT_BOTTOM:
-				targetAttachPosition.X -= rootDimensions.X
-			}
-			switch config.AttachPoints.Parent { // I know I could merge the x and y switch statements, but this is easier to read
-			case ATTACH_POINT_LEFT_TOP, ATTACH_POINT_RIGHT_TOP, ATTACH_POINT_CENTER_TOP:
-				targetAttachPosition.Y = parentBoundingBox.Y()
-			case ATTACH_POINT_LEFT_CENTER, ATTACH_POINT_CENTER_CENTER, ATTACH_POINT_RIGHT_CENTER:
-				targetAttachPosition.Y = parentBoundingBox.Y() + (parentBoundingBox.Height() / 2)
-			case ATTACH_POINT_LEFT_BOTTOM, ATTACH_POINT_CENTER_BOTTOM, ATTACH_POINT_RIGHT_BOTTOM:
-				targetAttachPosition.Y = parentBoundingBox.Y() + parentBoundingBox.Height()
-			}
-			switch config.AttachPoints.Element {
-			case ATTACH_POINT_LEFT_TOP, ATTACH_POINT_RIGHT_TOP, ATTACH_POINT_CENTER_TOP:
-				break
-			case ATTACH_POINT_LEFT_CENTER, ATTACH_POINT_CENTER_CENTER, ATTACH_POINT_RIGHT_CENTER:
-				targetAttachPosition.Y -= (rootDimensions.Y / 2)
-			case ATTACH_POINT_LEFT_BOTTOM, ATTACH_POINT_CENTER_BOTTOM, ATTACH_POINT_RIGHT_BOTTOM:
-				targetAttachPosition.Y -= rootDimensions.Y
-			}
-			targetAttachPosition.X += config.Offset.X
-			targetAttachPosition.Y += config.Offset.Y
-			rootPosition = targetAttachPosition
 		}
 
 		if root.clipElementId != 0 {
-			if clipHashMapItem, ok := c.getHashMapItem(root.clipElementId); ok {
+			if clipHashMapItem, ok := c.layoutElementsHashMap[root.clipElementId]; ok {
 				// Floating elements that are attached to scrolling contents won't be correctly positioned if external scroll handling is enabled, fix here
 				if c.externalScrollHandlingEnabled {
 					if clipConfig, ok := findElementConfigWithType[*ClipElementConfig](clipHashMapItem.layoutElement); ok {
@@ -1215,8 +1088,7 @@ func (c *Context) calculateFinalLayout() {
 				}
 				c.addRenderCommand(RenderCommand{
 					BoundingBox: clipHashMapItem.boundingBox,
-					UserData:    0,
-					Id:          hashNumber(rootElement.id, uint32(len(rootElement.children))+10).id, // TODO need a better strategy for managing derived ids
+					Id:          hashNumber(rootElement.id, uint32(len(rootElement.children))+10).id, // TODO(clay): need a better strategy for managing derived ids
 					ZIndex:      root.zIndex,
 					RenderData:  ScissorsStartData{},
 				})
@@ -1228,7 +1100,7 @@ func (c *Context) calculateFinalLayout() {
 			nextChildOffset: MakeVector2(rootElement.layoutConfig.Padding.Left, rootElement.layoutConfig.Padding.Top),
 		})
 
-		treeNodeVisited[0] = false
+		c.treeNodeVisited[0] = false
 		for len(c.layoutElementTreeNodeArray1) > 0 {
 			currentElementTreeNode := &c.layoutElementTreeNodeArray1[len(c.layoutElementTreeNodeArray1)-1]
 			currentElement := currentElementTreeNode.layoutElement
@@ -1236,8 +1108,8 @@ func (c *Context) calculateFinalLayout() {
 			var scrollOffset Vector2
 
 			// This will only be run a single time for each element in downwards DFS order
-			if !treeNodeVisited[len(c.layoutElementTreeNodeArray1)-1] {
-				treeNodeVisited[len(c.layoutElementTreeNodeArray1)-1] = true
+			if !c.treeNodeVisited[len(c.layoutElementTreeNodeArray1)-1] {
+				c.treeNodeVisited[len(c.layoutElementTreeNodeArray1)-1] = true
 
 				currentElementBoundingBox := MakeBoundingBox(currentElementTreeNode.position, currentElement.dimensions)
 				if floatingElementConfig, ok := findElementConfigWithType[*FloatingElementConfig](currentElement); ok {
@@ -1263,8 +1135,9 @@ func (c *Context) calculateFinalLayout() {
 					}
 				}
 
-				if hashMapItem, ok := c.getHashMapItem(currentElement.id); ok {
+				if hashMapItem, ok := c.layoutElementsHashMap[currentElement.id]; ok {
 					hashMapItem.boundingBox = currentElementBoundingBox
+					c.layoutElementsHashMap[currentElement.id] = hashMapItem
 				}
 
 				var sortedConfigIndexes [20]int
@@ -1272,7 +1145,7 @@ func (c *Context) calculateFinalLayout() {
 					sortedConfigIndexes[elementConfigIndex] = elementConfigIndex
 				}
 				sortMax = len(currentElement.elementConfigs) - 1
-				for sortMax > 0 { // todo dumb bubble sort
+				for sortMax > 0 { // TODO(clay): dumb bubble sort
 
 					sortOrder := func(ec AnyElementConfig) int {
 						switch ec.(type) {
@@ -1386,7 +1259,7 @@ func (c *Context) calculateFinalLayout() {
 							})
 							yPosition += finalLineHeight
 
-							if !c.disableCulling && (currentElementBoundingBox.Y()+yPosition > c.layoutDimensions.Y) {
+							if !c.disableCulling && (currentElementBoundingBox.Y()+yPosition > c.layoutBoundingBox.Size.Y) {
 								break
 							}
 						}
@@ -1490,7 +1363,7 @@ func (c *Context) calculateFinalLayout() {
 				}
 
 				if borderConfig, ok := findElementConfigWithType[*BorderElementConfig](currentElement); ok {
-					currentElementData, _ := c.getHashMapItem(currentElement.id)
+					currentElementData, _ := c.layoutElementsHashMap[currentElement.id]
 					currentElementBoundingBox := currentElementData.boundingBox
 
 					// Culling - Don't bother to generate render commands for rectangles entirely outside the screen - this won't stop their children from being rendered if they overflow
@@ -1607,7 +1480,7 @@ func (c *Context) calculateFinalLayout() {
 						position:        childPosition,
 						nextChildOffset: MakeVector2(childElement.layoutConfig.Padding.Left, childElement.layoutConfig.Padding.Top),
 					}
-					treeNodeVisited[newNodeIndex] = false
+					c.treeNodeVisited[newNodeIndex] = false
 
 					// Update parent offsets
 					if layoutConfig.LayoutDirection == LEFT_TO_RIGHT {
@@ -1626,6 +1499,151 @@ func (c *Context) calculateFinalLayout() {
 				Id:         hashNumber(rootElement.id, uint32(len(rootElement.children))+11).id,
 				RenderData: ScissorsEndData{},
 			})
+		}
+	}
+}
+
+func (c *Context) wrapText() {
+	for i := range c.textElementData {
+		textElementData := &c.textElementData[i]
+		textElementData.wrappedLines = c.wrappedTextLines[len(c.wrappedTextLines):]
+		containerElement := &c.layoutElements[textElementData.elementIndex]
+		textConfig, _ := findElementConfigWithType[*TextElementConfig](containerElement)
+		measureTextCacheItem := c.measureTextCached(textElementData.text, textConfig)
+		var lineWidth float32
+		lineHeight := textElementData.preferredDimensions.Y
+		if textConfig.LineHeight > 0 {
+			lineHeight = float32(textConfig.LineHeight)
+		}
+		var lineLengthChars int32
+		var lineStartOffset int32
+
+		if !measureTextCacheItem.containsNewlines && textElementData.preferredDimensions.X <= containerElement.dimensions.X {
+			c.wrappedTextLines = append(c.wrappedTextLines, WrappedTextLine{})
+			textElementData.wrappedLines = append(textElementData.wrappedLines, WrappedTextLine{containerElement.dimensions, textElementData.text})
+			continue
+		}
+		spaceWidth := measureText(SPACECHAR, textConfig, c.measureTextUserData).X
+		wordIndex := measureTextCacheItem.measuredWordsStartIndex
+		for wordIndex != -1 {
+			if len(c.wrappedTextLines) > cap(c.wrappedTextLines)-1 {
+				break
+			}
+			measuredWord := c.measuredWords[wordIndex]
+			// Only word on the line is too large, just render it anyway
+			if lineLengthChars == 0 && lineWidth+measuredWord.width > containerElement.dimensions.X {
+				c.wrappedTextLines = append(c.wrappedTextLines, WrappedTextLine{})
+				textElementData.wrappedLines = append(textElementData.wrappedLines, WrappedTextLine{
+					MakeDimensions(measuredWord.width, lineHeight),
+					textElementData.text[measuredWord.startOffset : measuredWord.startOffset+measuredWord.length]})
+				wordIndex = measuredWord.next
+				lineStartOffset = measuredWord.startOffset + measuredWord.length
+			} else if measuredWord.length == 0 || lineWidth+measuredWord.width > containerElement.dimensions.X {
+				// measuredWord.length == 0 means a newline character
+				// Wrapped text lines list has overflowed, just render out the line
+				var addSpace float32
+				if textElementData.text[lineStartOffset+lineLengthChars-1] == ' ' {
+					//addSpace = -spaceWidth
+					lineLengthChars--
+				}
+				c.wrappedTextLines = append(c.wrappedTextLines, WrappedTextLine{})
+				textElementData.wrappedLines = append(textElementData.wrappedLines, WrappedTextLine{
+					MakeDimensions(lineWidth+addSpace, lineHeight),
+					textElementData.text[lineStartOffset : lineStartOffset+lineLengthChars],
+				})
+				if lineLengthChars == 0 || measuredWord.length == 0 {
+					wordIndex = measuredWord.next
+				}
+				lineWidth = 0
+				lineLengthChars = 0
+				lineStartOffset = measuredWord.startOffset
+			} else {
+				lineWidth += measuredWord.width + float32(textConfig.LetterSpacing) + spaceWidth
+				lineLengthChars += measuredWord.length
+				wordIndex = measuredWord.next
+			}
+		}
+		if lineLengthChars > 0 {
+			c.wrappedTextLines = append(c.wrappedTextLines, WrappedTextLine{})
+			textElementData.wrappedLines = append(textElementData.wrappedLines, WrappedTextLine{
+				MakeDimensions(lineWidth-float32(textConfig.LetterSpacing), lineHeight), textElementData.text[lineStartOffset : lineStartOffset+lineLengthChars]})
+		}
+		containerElement.dimensions.Y = lineHeight * float32(len(textElementData.wrappedLines))
+	}
+}
+
+func (c *Context) scaleImagesVerticalAspectRatio() {
+	for _, aei := range c.aspectRatioElementIndexes {
+		aspectElement := &c.layoutElements[aei]
+		if config, ok := findElementConfigWithType[*AspectRatioElementConfig](aspectElement); ok {
+			aspectElement.dimensions.Y = (1 / config.AspectRatio) * aspectElement.dimensions.X
+			// aspectElement.layoutConfig.Sizing.Height.size.minMax.max = aspectElement->dimensions.height; FIX: what is going here?
+		}
+	}
+}
+
+func (c *Context) scaleImagesHorizontalAspectRatio() {
+	for _, ai := range c.aspectRatioElementIndexes {
+		aspectElement := &c.layoutElements[ai]
+		config, _ := findElementConfigWithType[*AspectRatioElementConfig](aspectElement)
+		aspectElement.dimensions.X = config.AspectRatio * aspectElement.dimensions.Y
+	}
+}
+
+func (c *Context) propagateTextWrapping() {
+	c.layoutElementTreeNodeArray1 = c.layoutElementTreeNodeArray1[0:0]
+	for _, root := range c.layoutElementTreeRoots {
+		c.treeNodeVisited[len(c.layoutElementTreeNodeArray1)] = false
+		c.layoutElementTreeNodeArray1 = append(c.layoutElementTreeNodeArray1, LayoutElementTreeNode{
+			layoutElement: &c.layoutElements[root.layoutElementIndex],
+		})
+	}
+	for len(c.layoutElementTreeNodeArray1) > 0 {
+		currentElementTreeNode := c.layoutElementTreeNodeArray1[len(c.layoutElementTreeNodeArray1)-1]
+		currentElement := currentElementTreeNode.layoutElement
+		if !c.treeNodeVisited[len(c.layoutElementTreeNodeArray1)-1] {
+			c.treeNodeVisited[len(c.layoutElementTreeNodeArray1)-1] = true
+			// If the element has no children or is the container for a text element, don't bother inspecting it
+			if elementHasConfig[*TextElementConfig](currentElement) || len(currentElement.children) == 0 {
+				c.layoutElementTreeNodeArray1 = c.layoutElementTreeNodeArray1[:len(c.layoutElementTreeNodeArray1)-1]
+				continue
+			}
+			// Add the children to the DFS buffer (needs to be pushed in reverse so that stack traversal is in correct layout order)
+			for _, child := range currentElement.children {
+				c.treeNodeVisited[len(c.layoutElementTreeNodeArray1)] = false
+				c.layoutElementTreeNodeArray1 = append(c.layoutElementTreeNodeArray1, LayoutElementTreeNode{
+					layoutElement: &c.layoutElements[child],
+				})
+			}
+			continue
+		}
+		c.layoutElementTreeNodeArray1 = c.layoutElementTreeNodeArray1[:len(c.layoutElementTreeNodeArray1)-1]
+
+		// DFS node has been visited, this is on the way back up to the root
+		layoutConfig := currentElement.layoutConfig
+		switch layoutConfig.LayoutDirection {
+		case LEFT_TO_RIGHT:
+			// Resize any parent containers that have grown in height along their non layout axis
+			for _, child := range currentElement.children {
+				childElement := c.layoutElements[child]
+				childHeightWithPadding := max(childElement.dimensions.Y+float32(layoutConfig.Padding.Top+layoutConfig.Padding.Bottom), currentElement.dimensions.Y)
+				switch mm := layoutConfig.Sizing.Height.(type) {
+				case SizingAxisMinMax:
+					currentElement.dimensions.Y = min(max(childHeightWithPadding, mm.GetMinMax().Min), mm.GetMinMax().Max)
+				}
+			}
+		case TOP_TO_BOTTOM:
+			// Resizing along the layout axis
+			contentHeight := float32(layoutConfig.Padding.Top + layoutConfig.Padding.Bottom)
+			for _, child := range currentElement.children {
+				childElement := c.layoutElements[child]
+				contentHeight += childElement.dimensions.Y
+			}
+			contentHeight += float32(max(uint16(len(currentElement.children))-1, 0) * layoutConfig.ChildGap)
+			switch mm := layoutConfig.Sizing.Height.(type) {
+			case SizingAxisMinMax:
+				currentElement.dimensions.Y = min(max(contentHeight, mm.GetMinMax().Min), mm.GetMinMax().Max)
+			}
 		}
 	}
 }
