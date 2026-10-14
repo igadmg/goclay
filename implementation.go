@@ -874,7 +874,7 @@ func (c *Context) sizeContainersAlongAxis(axis Axis) {
 
 						widthToAdd = max(widthToAdd, sizeToDistribute/float32(len(resizableContainerBuffer)))
 
-						for childIndex := range resizableContainerBuffer {
+						for childIndex := 0; childIndex < len(resizableContainerBuffer); childIndex++ {
 							child := &c.layoutElements[resizableContainerBuffer[childIndex]]
 							childSize := child.dimensions.Axis(axis)
 							minSize := child.minDimensions.Axis(axis)
@@ -926,7 +926,7 @@ func (c *Context) sizeContainersAlongAxis(axis Axis) {
 
 						widthToAdd = min(widthToAdd, sizeToDistribute/float32(len(resizableContainerBuffer)))
 
-						for childIndex := range resizableContainerBuffer {
+						for childIndex := 0; childIndex < len(resizableContainerBuffer); childIndex++ {
 							child := &c.layoutElements[resizableContainerBuffer[childIndex]]
 							childSize := child.dimensions.Axis(axis)
 							childSizing := child.layoutConfig.Sizing.GetAxis(axis)

@@ -461,3 +461,75 @@ func TestSimpleLayout_ClipContainer(t *testing.T) {
 	assert.Equal(t, 12, hasSEnd, "Should have text render command")
 	assert.Equal(t, 4, textLines)
 }
+
+func TestSizeContainersAlongAxis_CompressionAndGrowPanicFix(t *testing.T) {
+	ctx := Initialize(MakeBoundingBox(MakeVector2(0, 0), MakeDimensions(200, 200)), ErrorHandler{})
+	ctx.SetMeasureTextFunction(mockMeasureText, nil)
+
+	ctx.BeginLayout()
+	// Test compression and grow panic fix where multiple resizable/grow/shrink containers hit min/max limits
+	ctx.CLAY(ElementDeclaration{
+		Layout: LayoutConfig{
+			Sizing: Sizing{
+				Width:  FIXED(300), // Exceeds parent width 200, forcing compression
+				Height: FIXED(200),
+			},
+			LayoutDirection: LEFT_TO_RIGHT,
+		},
+	}, func() {
+		ctx.CLAY(ElementDeclaration{
+			Layout: LayoutConfig{
+				Sizing: Sizing{
+					Width:  GROW(50, 80),
+					Height: FIXED(50),
+				},
+			},
+		})
+		ctx.CLAY(ElementDeclaration{
+			Layout: LayoutConfig{
+				Sizing: Sizing{
+					Width:  GROW(50, 80),
+					Height: FIXED(50),
+				},
+			},
+		})
+		ctx.CLAY(ElementDeclaration{
+			Layout: LayoutConfig{
+				Sizing: Sizing{
+					Width:  GROW(50, 80),
+					Height: FIXED(50),
+				},
+			},
+		})
+	})
+
+	ctx.CLAY(ElementDeclaration{
+		Layout: LayoutConfig{
+			Sizing: Sizing{
+				Width:  FIXED(100), // Smaller than parent width 200, forcing grow
+				Height: FIXED(200),
+			},
+			LayoutDirection: LEFT_TO_RIGHT,
+		},
+	}, func() {
+		ctx.CLAY(ElementDeclaration{
+			Layout: LayoutConfig{
+				Sizing: Sizing{
+					Width:  GROW(10, 40),
+					Height: FIXED(50),
+				},
+			},
+		})
+		ctx.CLAY(ElementDeclaration{
+			Layout: LayoutConfig{
+				Sizing: Sizing{
+					Width:  GROW(10, 40),
+					Height: FIXED(50),
+				},
+			},
+		})
+	})
+
+	commands := ctx.EndLayout()
+	assert.NotNil(t, commands)
+}
